@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1822 LaxOS Architecture Strategy & Implementation Specification</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #1a1a1a;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fafafa;
+        }
+        header {
+            background-color: #0f172a;
+            color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        h1 { margin: 0; font-size: 2.5rem; letter-spacing: -0.05em; }
+        h2 { font-size: 1.75rem; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-top: 40px; }
+        h3 { font-size: 1.25rem; color: #1e293b; margin-top: 20px; }
+        .executive-avatar {
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-size: 0.9rem;
+            color: #3b82f6;
+            margin-bottom: 5px;
+        }
+        .executive-block {
+            background-color: #ffffff;
+            border-left: 4px solid #0f172a;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 0 8px 8px 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .ceo-block { border-left-color: #ef4444; }
+        .cto-block { border-left-color: #3b82f6; }
+        .coo-block { border-left-color: #10b981; }
+        .cpo-block { border-left-color: #f59e0b; }
+        pre {
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 0.9rem;
+        }
+        code { font-family: monospace; background-color: #e2e8f0; padding: 2px 4px; border-radius: 4px; font-size: 0.9em; color: #1a1a1a; }
+        pre code { background-color: transparent; padding: 0; color: inherit; font-size: inherit; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background-color: #ffffff;
+        }
+        th, td {
+            border: 1px solid #e2e8f0;
+            padding: 12px;
+            text-align: left;
+        }
+        th { background-color: #f1f5f9; color: #0f172a; font-weight: 600; }
+        .diagram-box {
+            background-color: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: monospace;
+            white-space: pre;
+            overflow-x: auto;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            color: #334155;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>1822 LaxOS Core System Specification</h1>
+    <p>Fiscal Year 2026 Strategy Execution Manual & AI Agent Directives Document</p>
+    <p><strong>Strict Target Environment:</strong> Bun / Astro / Vercel / Convex / Clerk / Stripe</p>
+</header>
+
+<section id="executive-verdicts">
+    <h2>1. Executive Board Strategic Directives</h2>
+
+    <div class="executive-block ceo-block">
+        <div class="executive-avatar">Alex Hormozi — Chief Executive Officer</div>
+        <p>"Let's layout the cold math of this business operations roadmap. We have evaluated the explicit structures of your current assets. You have built an integrated sports technology web, software development workspace, and digital media repository under the hood. You aren't just a sports entity; you are an asset-rich holding system running data rings around legacy platforms.</p>
+        <p>Your current monthly personal survival burn rate is exactly <strong>$670/month</strong>. Your attention capital is fractured across multiple localized brands, separate email targets, and fragmented configuration environments. We are ending the execution drag today. We are initializing <strong>1822 LaxOS</strong> as a single corporate software framework asset owned 100% inside 1822 Lacrosse LLC. We leverage Athletes United as a high-velocity B2C distribution engine, charging a programmatic baseline software fee to maximize your 40% equity line while retaining 100% ownership of the software codebase asset upside. One signed high-ticket corporate contract or tournament media deployment removes your personal cash flow constraints forever."</p>
+    </div>
+
+    <div class="executive-block cto-block">
+        <div class="executive-avatar">Theo Browne — Chief Technology Officer</div>
+        <p>"Relying on scattered infrastructure footprints like GoHighLevel for dynamic database states, Acuity, and random zCal configurations is absolute architectural debt. GoHighLevel is a slow, legacy enterprise container built for marketers who don't know how to code. For the next 7 months of your contract, it functions strictly as a front-door landing page placeholder. No data stays trapped there.</p>
+        <p>We are migrating your entire development system over to our standard non-negotiable tech stack: <strong>Bun runtime, Astro framework, Convex reactive backend database engines, Clerk/WorkOS authentications, and Stripe payment triggers</strong>. Every single data structure—whether tracking custom lacrosse stringing models, physical media production files, tournament brackets, or referee pool schedules—coalesces cleanly into a unified Convex relational table layout. Absolute typesafety, zero boilerplate slop, deployment targeting straight to Vercel with integrated speed insights and web analytics packages."</p>
+    </div>
+
+    <div class="executive-block coo-block">
+        <div class="executive-avatar">Nate B Jones — Chief Operating Officer</div>
+        <p>"Your waking calendar metrics reveal an incredible operational engine. Between June and February, your external seasonal coaching commitments decrease to less than 7 hours a week. You possess a 9-month high-intensity implementation window. Your voluntary alignment inside organizations like Gloucester Township Lacrosse, SJYLAX, and Precision Lacrosse Academy (PLA) isn't a calendar liability—it is your built-in customer acquisition system.</p>
+        <p>Instead of managing these groups as manual labor liabilities, we deploy agentic pipelines to automate administrative tasks like referee coordination, booking notifications, and client billing registers. We treat these live laboratories as validation vectors for our code. We launch the 1822 Media Gallery engine at <code>media.1822lax.com</code> immediately as our first high-velocity project path to buy back your mental bandwidth and prove out our technology framework in production environments."</p>
+    </div>
+
+    <div class="executive-block ppo-block">
+        <div class="executive-avatar">JP Middleton — Chief Product Officer</div>
+        <p>"We have eliminated product catalog confusion. We are grouping previously fragmented independent app iterations—including HighlightHQ, CommittedCorner, and structural playbook wrappers resembling PowLax TeamHQ—into feature categories under a single production platform. 1822 Lacrosse LLC behaves as the high-end Sports Technology Operating System of the region, while Athletes United runs on-field player fulfillment tracks. This clear separation allows 1822 to capture enterprise software trust across competing regional clubs."</p>
+    </div>
+</section>
+
+<section id="corporate-org-chart">
+    <h2>2. Corporate Organization Chart</h2>
+    <div class="diagram-box">
+                               THE OWNING PARTNERS (You)
+                                           │
+         ┌─────────────────────────────────┼─────────────────────────────────┐
+         ▼ (100% Equity & Asset Ownership) ▼ (40% Equity / 100% Operational) ▼ (Strategic Lab Access)
+┌─────────────────────────────────┐┌─────────────────────────────────┐┌─────────────────────────────────┐
+│        1822 HOLDING CO.         ││         ATHLETES UNITED         ││     W2 & VOLUNTEER NETWORKS     │
+└────────┬───────────────┬────────┘└────────┬───────────────┬────────┘└────────┬───────────────┬────────┘
+         │               │                  │               │                  │               │
+         ▼               ▼                  ▼               ▼                  ▼               ▼
+┌────────────────┐┌──────────────┐ ┌────────────────┐┌──────────────┐ ┌────────────────┐┌──────────────┐
+│1822 LACROSSE   ││  C4STUDIO    │ │  AU LACROSSE   ││AU FIELD HOCKY│ │   W2 CADENCE   ││ VOLUNTEER LAB│
+└────────┬───────┘└───────┬──────┘ │(Full C-Suite)  ││(Full C-Suite)│ │- BHPRSD Coach  ││- GT Lacrosse  │
+         │                │        └────────────────┘└──────────────┘ │- SJ Shamrocks  ││- SJYLAX Board │
+         ▼                ▼                                           └────────────────┘│- PLA Co-Found │
+┌────────────────┐┌──────────────────────────────────────┐                              └───────────────┘
+│ OPERATIONAL    ││ SUBSIDIARIES & SOFTWARE ENGINE SITES │
+│ MACHINE ROADS  ││ - HighlightHQ Component App          │
+│- 1822 Strings  ││ - CommittedCorner App Module         │
+│- 1822 Media    ││ - 1822 Media Service (Cross Architecture)
+│- Precision Lax │└──────────────────────────────────────┘
+└────────────────┘
+    </div>
+</section>
+
+<section id="infrastructure-tree">
+    <h2>3. Infrastructure Tree Chart (1822 LaxOS Deployment)</h2>
+    <div class="diagram-box">
+1822 LaxOS Infrastructure Management Layer (Provisioned via c4studio Master Repository)
+├── 🌐 DNS & Domain Routing Layout (Porkbun Name Server Centralization)
+│   ├── 🚀 Vercel Production Deployment Core Engine
+│   │   ├── 1822lacrosse.com (Core Landing Portal & Link Matrix Gateway)
+│   │   ├── media.1822lax.com (Target Astro App Location - 1822 Media Gallery)
+│   │   └── rlstrings.com (Dynamic Sub-Tenant Operational Landing Endpoint)
+│   └── 📦 GoHighLevel Segmented Vault (7-Month Contract Containment Space)
+│       ├── 1822lax.com (app.1822lax.com Portal Portal / mg.1822lax.com Gateway)
+│       └── 1822strings.com (Static E-Commerce Layer & Custom Retail Storefronts)
+│
+├── 🗓️ Reactive Schedule Matrices (Convex Database System / Direct Calendar Mapping)
+│   ├── 🟢 Human 1-to-1 Client Assignment Channels (Siloed zCal Path Consolidation)
+│   │   ├── Precision Lacrosse Academy Matrix Paths (/boys, /girls, /goalies)
+│   │   └── Chase N' Drinks Standalone Dynamic Token Pathway
+│   └── 🔵 Capacity and Location Group Allocation Channels (Replaces Acuity)
+│       └── Athletes United Multicoach Field Training Allocation Blocks
+│
+└── 📬 Communication Endpoint Network (Unified Google Workspace Standard)
+    ├── 🏢 Managed Structural Inboxes: info@1822lax.com | info@athletesunited.com | contact@chasendrinks.com
+    └── ⚙️ Automated Pipeline Handlers: Mailgun Ingestion mapped dynamically to Convex parameters
+    </div>
+</section>
+
+<section id="product-tree">
+    <h2>4. Product Component Taxonomy Tree Chart</h2>
+    <div class="diagram-box">
+1822 LaxOS System Architecture Components
+├── 🛠️ Data Infrastructure Layer
+│   ├── strict TypeScript compiler runtime rules (End-to-End Type Safety Verification)
+│   ├── bun runtime processing environment execution handlers
+│   └── convex core database tables & live subscription logic layers
+│
+├── 🏛️ Enterprise B2B Modules (The ZebraWeb Elimination Suite)
+│   ├── Automated League Schedule Builder & Multi-Field Arbiter Grid
+│   └── Live Referee Assignment System & Authenticated Match Score Verification Panel
+│
+├── 👥 Free Open Tier Moats (The TeamSnap, PlayMetrics & Crossbar Replacement Engine)
+│   ├── Multi-Tenant Club Core: Messaging arrays, roster assignments, and group tracking logs
+│   └── 🎬 Coaching Locker Asset: Dynamic video clip player system (PowLax Alternative Playbook Storage)
+│
+└── ⚡ Automated Revenue Add-On Extensions (The Subsidiary Application Engines)
+    ├── 📸 HighlightHQ Module: Integrated web asset clip extractions & rendering targets
+    └── 🎓 CommittedCorner Module: Player recruiting profiles & metric analytic event triggers
+    </div>
+</section>
+
+<section id="monetization-math">
+    <h2>5. Monetization Strategy & Customer Conversion Loop</h2>
+    <p>We deploy a multi-tiered customer value map to secure predictable enterprise cash flow while using open software assets as premium lead magnets:</p>
+    <table>
+        <thead>
+            <tr>
+                <th>LaxOS System Tier</th>
+                <th>Target Audience Avatar</th>
+                <th>Pricing Structure & Offer Design</th>
+                <th>Value Integration Loop Mechanism</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Enterprise Tier (League Core)</strong></td>
+                <td>SJYLAX League Board Directors, Event Organizers</td>
+                <td>$5,000 / Year Contract Value Anchor</td>
+                <td>Eliminates ZebraWeb overhead. Establishes programmatic dominance across all regional matches.</td>
+            </tr>
+            <tr>
+                <td><strong>Trojan Horse Tier (Team Open)</strong></td>
+                <td>GT Lacrosse, local team managers, volunteer coaches</td>
+                <td>$0 (Free Lead Generation Magnet)</td>
+                <td>Replaces TeamSnap/Crossbar. Mandates parent sign-ups, provisioning player identities instantly into Convex database vectors.</td>
+            </tr>
+            <tr>
+                <td><strong>Fulfillment Extensions</strong></td>
+                <td>Individual Player Families, Recruiting Prospects</td>
+                <td>High-Ticket Spot Fees (Media Day Checkouts, Premium Training Passes)</td>
+                <td>Triggers automated checkout contextual notices straight inside player app panels when calendars or event logs update.</td>
+            </tr>
+        </tbody>
+    </table>
+</section>
+
+<section id="master-operating-plan">
+    <h2>6. Fiscal Year 2026 Strategy Roadmap</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Execution Window</th>
+                <th>System Operations Targets</th>
+                <th>Technical Architecture & Automation Requirements</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>June 2026</strong></td>
+                <td>Launch 1822 Media Gallery Platform at <code>media.1822lax.com</code>.</td>
+                <td>Scaffold core application via Astro on Vercel. Set up database mutations on Convex. Enforce Clerk authentication gates. Add PostHog event logging.</td>
+            </tr>
+            <tr>
+                <td><strong>July – August 2026</strong></td>
+                <td>Migrate active AU training paths, PLA configurations, and external clients onto LaxOS scheduler engines.</td>
+                <td>Deploy location availability filters. Pitch automated software platform management proposal to the SJYLAX executive board to displace ZebraWeb profiles.</td>
+            </tr>
+            <tr>
+                <td><strong>September – October 2026</strong></td>
+                <td>Initialize the Free Club/Team tier across volunteer channels.</td>
+                <td>Activate rosters, core messaging modules, and the digital video playbook asset locker. Onboard local player families into the Convex system schema for $0.</td>
+            </tr>
+            <tr>
+                <td><strong>November – December 2026</strong></td>
+                <td>Optimize up-sell processing filters before spring blackout periods.</td>
+                <td>Wire real-time Stripe checkout webhooks for highlight clip bundles. Deploy autonomous background data workers to manage scale parameters with zero manual maintenance inputs.</td>
+            </tr>
+        </tbody>
+    </table>
+</section>
+
+<section id="ai-agent-prompt">
+    <h2>7. Custom Media Gallery Implementation Specification (For Coding Agent Use)</h2>
+    <p>Supply the prompt context below directly to your code-generation agent (Cursor/Claude Code) inside your project root to initialize development execution immediately:</p>
+
+    <pre><code>### ROLE AND SYSTEM CADENCE DEFINITION
+You are an Elite T3 Software Engineer and Lead Full-Stack Architect. Your objective is to refactor the Astro static business layout provided in this current template repo into a reactive multi-tenant gallery asset engine deployed at media.1822lax.com. 
+
+Delete all standard mock contact blocks, netlify deployment dependencies, static client portfolios, and hardcoded text arrays from the codebase. Re-engineer the application structure around an integrated typesafe system standard.
+
+### DEVELOPMENT ARCHITECTURE SPECIFICATIONS
+- Development Execution Runtime: Bun (Strict lockfile verification)
+- Infrastructure Target: Vercel (Leverage Edge serverless middleware handling, Vercel Speed Insights, and native Web Analytics endpoints)
+- Dynamic Data Engine: Convex Database (Reactive subscription parameters, explicit dataset indexing models)
+- Security Identity Matrix: Clerk Authentication Protocol
+- Financial Processing: Stripe API transactions via Convex-Stripe automated webhook pipelines
+- Product Interaction Monitoring: PostHog JS integration tracking media card browse sessions
+
+### CONVEX SCHEMA RUNTIME BLUEPRINT
+You must configure the 'convex/schema.ts' file to support the following relational definitions, utilizing strict TypeScript structures and schema-bound database lookups:
+
+```typescript
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  events: defineTable({
+    name: v.string(),            // "Moorestown Lax Festival 2026"
+    location: v.string(),        // "DeCou Sports Complex"
+    date: v.string(),            // YYYY-MM-DD
+    clientClubId: v.optional(v.string()), 
+  }).index("by_date", ["date"]),
+
+  mediaAssets: defineTable({
+    eventId: v.id("events"),
+    fileName: v.string(),
+    watermarkedStorageId: v.string(), // Compressed public view asset source link
+    highResStorageId: v.string(),     // Encrypted locked layer item path
+    jerseyNumber: v.optional(v.string()), 
+    priceInCents: v.number(),          
+  }).index("by_event_and_jersey", ["eventId", "jerseyNumber"]),
+
+  accessPermissions: defineTable({
+    userId: v.string(),               // Clerk unique authenticated account token string reference
+    assetId: v.id("mediaAssets"),
+    purchaseStatus: v.string(),       // "active_entitlement" | "pending_webhook"
+    stripeSessionId: v.string(),
+  }).index("by_user_entitlement", ["userId", "assetId"]),
+});
