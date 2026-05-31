@@ -257,7 +257,7 @@
 Do not deviate from these technologies. Do not suggest alternatives.
 [x] Runtime: Bun [https://bun.sh]
 [x] Framework: Astro (SSR enabled) [https://astro.build]
-[ ] Deployment: Vercel (Using edge route handlers, speed insights, and web analytics integration)
+[x] Deployment: Vercel — Web Analytics added via @vercel/analytics v2.0.1
 [ ] Database & Backend: Convex (Real-time by default, zero config) [https://docs.convex.dev/llms.txt]
 [ ] Authentication: Clerk (`@clerk/astro`) [https://clerk.com/docs/astro/getting-started/quickstart]
 [x] Styling: TailwindCSS v4 [https://tailwindcss.com/docs]
@@ -330,6 +330,26 @@ Do not deviate from these technologies. Do not suggest alternatives.
                     <div class="executive-title">src/pages/index.astro — use the layout</div>
                     <p class="executive-quote">import BaseLayout from '@layouts/BaseLayout.astro';</p>
                     <p class="executive-quote">Wrap all page content in &lt;BaseLayout title="..."&gt; ... &lt;/BaseLayout&gt;</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="vercel-analytics">
+            <h2>4. Vercel Web Analytics</h2>
+            <p>Install <code>@vercel/analytics</code> and add the Astro component to BaseLayout so every page is tracked automatically.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">Install</div>
+                    <p class="executive-quote">bun i @vercel/analytics</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/layouts/BaseLayout.astro — import (default, not named)</div>
+                    <p class="executive-quote">import Analytics from '@vercel/analytics/astro';</p>
+                    <p class="executive-quote">NOTE: The package exports a default from <code>dist/astro/index.astro</code>. Use a default import — <code>import { Analytics }</code> will resolve to <code>undefined</code> and throw a runtime error.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/layouts/BaseLayout.astro — place component</div>
+                    <p class="executive-quote">Add <code>&lt;Analytics /&gt;</code> just before <code>&lt;/body&gt;</code>, after the footer slot.</p>
                 </div>
             </div>
         </section>

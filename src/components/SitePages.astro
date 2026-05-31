@@ -1,0 +1,146 @@
+---
+const pages = [
+  {
+    name: 'Home',
+    route: '/',
+    description: 'Landing page — hero, value proposition, and primary CTA',
+    color: 'bg-slate-50 border-slate-900',
+    badge: 'bg-slate-900',
+    text: 'text-slate-700',
+    category: 'Marketing',
+    status: 'planned',
+  },
+  {
+    name: 'About',
+    route: '/about',
+    description: 'Brand story, team, mission, and values',
+    color: 'bg-blue-50 border-blue-600',
+    badge: 'bg-blue-600',
+    text: 'text-blue-900',
+    category: 'Marketing',
+    status: 'planned',
+  },
+  {
+    name: 'Services',
+    route: '/services',
+    description: 'Offerings, pricing tiers, and feature breakdowns',
+    color: 'bg-violet-50 border-violet-600',
+    badge: 'bg-violet-600',
+    text: 'text-violet-900',
+    category: 'Marketing',
+    status: 'planned',
+  },
+  {
+    name: 'Reviews',
+    route: '/reviews',
+    description: 'Client testimonials, case studies, and social proof',
+    color: 'bg-amber-50 border-amber-500',
+    badge: 'bg-amber-500',
+    text: 'text-amber-900',
+    category: 'Marketing',
+    status: 'planned',
+  },
+  {
+    name: 'Blog',
+    route: '/blog',
+    description: 'Content hub — articles, announcements, and updates',
+    color: 'bg-emerald-50 border-emerald-600',
+    badge: 'bg-emerald-600',
+    text: 'text-emerald-900',
+    category: 'Content',
+    status: 'planned',
+  },
+  {
+    name: 'Gallery',
+    route: '/gallery',
+    description: 'Visual portfolio — images, videos, and media showcase',
+    color: 'bg-pink-50 border-pink-500',
+    badge: 'bg-pink-500',
+    text: 'text-pink-900',
+    category: 'Content',
+    status: 'planned',
+  },
+  {
+    name: 'Contact',
+    route: '/contact',
+    description: 'Inquiry form, location, and direct contact details',
+    color: 'bg-cyan-50 border-cyan-600',
+    badge: 'bg-cyan-600',
+    text: 'text-cyan-900',
+    category: 'Utility',
+    status: 'planned',
+  },
+  {
+    name: 'Admin Portal',
+    route: '/admin',
+    description: 'Protected dashboard — content, users, and site management',
+    color: 'bg-red-50 border-red-600',
+    badge: 'bg-red-600',
+    text: 'text-red-900',
+    category: 'System',
+    status: 'planned',
+  },
+] as const;
+
+const active = pages.filter(p => p.status === 'active').length;
+const planned = pages.filter(p => p.status === 'planned').length;
+
+const categoryOrder = ['Marketing', 'Content', 'Utility', 'System'] as const;
+const categoryColors: Record<string, string> = {
+  Marketing: 'bg-blue-100 text-blue-700',
+  Content:   'bg-emerald-100 text-emerald-700',
+  Utility:   'bg-amber-100 text-amber-700',
+  System:    'bg-red-100 text-red-700',
+};
+---
+
+<div class="flex-1 min-w-0">
+  <h2 class="text-2xl font-bold tracking-tight mb-1" style="font-family: 'Lexend', sans-serif;">Site Pages</h2>
+  <p class="text-sm text-slate-500 mb-6" style="font-family: 'Inter', sans-serif;">
+    {active > 0 && (
+      <>
+        <span class="inline-flex items-center gap-1 text-emerald-600 font-medium">{active} active</span>
+        <span class="mx-2 text-slate-300">·</span>
+      </>
+    )}
+    <span class="inline-flex items-center gap-1 text-slate-400">{planned} planned</span>
+    <span class="mx-2 text-slate-300">·</span>
+    <span class="inline-flex items-center gap-1 text-slate-400">{pages.length} total</span>
+  </p>
+
+  <div class="grid grid-cols-2 gap-3">
+    {pages.map(({ name, route, description, color, badge, text, category, status }) => (
+      <div class={`relative flex gap-3 items-start p-4 rounded-2xl border-l-4 bg-white ${color}`}>
+        <div class={`${badge} w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5`}>
+          <span class="text-white text-sm font-bold" style="font-family: 'Inter', sans-serif;">
+            {name[0]}
+          </span>
+        </div>
+
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2">
+            <span class={`text-sm font-semibold ${text}`} style="font-family: 'Inter', sans-serif;">{name}</span>
+            {status === 'active' ? (
+              <span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full shrink-0">
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/>
+                </svg>
+                active
+              </span>
+            ) : (
+              <span class="inline-flex items-center text-xs font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full shrink-0">
+                planned
+              </span>
+            )}
+          </div>
+          <div class="flex items-center gap-2 mt-0.5">
+            <p class="text-xs text-slate-400 font-mono">{route}</p>
+            <span class="text-slate-200">·</span>
+            <span class={`text-xs font-medium px-1.5 py-0.5 rounded-md ${categoryColors[category]}`} style="font-family: 'Inter', sans-serif;">{category}</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1.5 leading-relaxed" style="font-family: 'Inter', sans-serif;">{description}</p>
+        </div>
+      </div>
+    ))}
+  </div>
+</div>
