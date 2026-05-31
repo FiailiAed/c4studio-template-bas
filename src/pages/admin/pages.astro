@@ -1,0 +1,237 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { SignOutButton, UserButton } from '@clerk/astro/components';
+import { getAuthedConvex } from '@lib/convex';
+import { api } from '@convex/api';
+import { PAGE_CATALOG, CATEGORY_COLORS } from '@lib/pages';
+import type { PageStatus } from '@lib/pages';
+
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect('/sign-in');
+
+const token = await Astro.locals.auth().getToken({ template: 'convex' });
+const client = getAuthedConvex(token);
+
+const currentUser = await client.query(api.users.getByClerkId, { clerkId: userId });
+if (!currentUser) return Astro.redirect('/onboarding');
+if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
+
+let successRoute: string | null = null;
+let errorMessage: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const route = data.get('route') as string;
+  const status = data.get('status') as PageStatus;
+
+  if (!route || !['active', 'planned', 'hidden'].includes(status)) {
+    errorMessage = 'Invalid request.';
+  } else {
+    try {
+      await client.mutation(api.sitePages.setStatus, { route, status });
+      successRoute = route;
+    } catch {
+      errorMessage = 'Update failed. Please try again.';
+    }
+  }
+}
+
+const dbStatuses = await client.query(api.sitePages.listStatuses, {});
+const statusByRoute = new Map(dbStatuses.map(r => [r.route, r.status as PageStatus]));
+
+const pages = PAGE_CATALOG.map(p => ({
+  ...p,
+  status: statusByRoute.get(p.route) ?? p.defaultStatus,
+}));
+
+const counts = {
+  active:  pages.filter(p => p.status === 'active').length,
+  hidden:  pages.filter(p => p.status === 'hidden').length,
+  planned: pages.filter(p => p.status === 'planned').length,
+};
+---
+
+<BaseLayout title="Pages — Admin Portal">
+  <div class="min-h-screen bg-slate-50">
+    <!-- Nav -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/admin" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Admin Portal</a>
+        <span class="text-slate-300">/</span>
+        <span class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Pages</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Home</a>
+        <a href="/dashboard" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Dashboard</a>
+        <UserButton />
+        <SignOutButton>
+          <button class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Sign out</button>
+        </SignOutButton>
+      </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-6 py-12">
+      <!-- Header -->
+      <div class="flex items-start justify-between mb-8">
+        <div>
+          <h1 class="text-3xl font-bold tracking-tight text-slate-900" style="font-family: 'Lexend', sans-serif;">Pages</h1>
+          <p class="text-slate-500 mt-1" style="font-family: 'Inter', sans-serif;">
+            Control which pages are active, planned, or hidden from the public site.
+          </p>
+        </div>
+        <!-- Stats row -->
+        <div class="flex items-center gap-3 shrink-0">
+          <div class="text-center px-4 py-2 bg-emerald-50 rounded-xl border border-emerald-100">
+            <p class="text-xl font-bold text-emerald-700" style="font-family: 'Lexend', sans-serif;">{counts.active}</p>
+            <p class="text-xs text-emerald-600" style="font-family: 'Inter', sans-serif;">active</p>
+          </div>
+          <div class="text-center px-4 py-2 bg-slate-100 rounded-xl border border-slate-200">
+            <p class="text-xl font-bold text-slate-600" style="font-family: 'Lexend', sans-serif;">{counts.hidden}</p>
+            <p class="text-xs text-slate-500" style="font-family: 'Inter', sans-serif;">hidden</p>
+          </div>
+          <div class="text-center px-4 py-2 bg-slate-50 rounded-xl border border-slate-200">
+            <p class="text-xl font-bold text-slate-400" style="font-family: 'Lexend', sans-serif;">{counts.planned}</p>
+            <p class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">planned</p>
+          </div>
+        </div>
+      </div>
+
+      {errorMessage && (
+        <div class="mb-6 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700" style="font-family: 'Inter', sans-serif;">
+          {errorMessage}
+        </div>
+      )}
+
+      <!-- Page list -->
+      <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-slate-100 bg-slate-50">
+              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Page</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Route</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Category</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Status</th>
+              <th class="px-5 py-3"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {pages.map(({ name, route, description, colorClasses, category, status }) => {
+              const isUpdated = successRoute === route;
+              return (
+                <tr class={`hover:bg-slate-50 transition ${isUpdated ? 'bg-emerald-50' : ''}`}>
+                  <!-- Page -->
+                  <td class="px-5 py-4">
+                    <div class="flex items-center gap-3">
+                      <div class={`${colorClasses.badge} w-8 h-8 rounded-lg flex items-center justify-center shrink-0`}>
+                        <span class="text-white text-xs font-bold" style="font-family: 'Inter', sans-serif;">{name[0]}</span>
+                      </div>
+                      <div>
+                        <p class="font-medium text-slate-900" style="font-family: 'Inter', sans-serif;">{name}</p>
+                        <p class="text-xs text-slate-400 mt-0.5 max-w-xs truncate" style="font-family: 'Inter', sans-serif;">{description}</p>
+                      </div>
+                    </div>
+                  </td>
+
+                  <!-- Route -->
+                  <td class="px-5 py-4">
+                    <span class="text-xs font-mono text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">{route}</span>
+                  </td>
+
+                  <!-- Category -->
+                  <td class="px-5 py-4">
+                    <span class={`text-xs font-medium px-2 py-1 rounded-lg ${CATEGORY_COLORS[category]}`} style="font-family: 'Inter', sans-serif;">{category}</span>
+                  </td>
+
+                  <!-- Status -->
+                  <td class="px-5 py-4">
+                    {status === 'active' ? (
+                      <span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full" style="font-family: 'Inter', sans-serif;">
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/>
+                        </svg>
+                        active
+                      </span>
+                    ) : status === 'hidden' ? (
+                      <span class="inline-flex items-center gap-1 text-xs font-medium text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full" style="font-family: 'Inter', sans-serif;">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"/>
+                        </svg>
+                        hidden
+                      </span>
+                    ) : (
+                      <span class="inline-flex items-center text-xs font-medium text-slate-400 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-full" style="font-family: 'Inter', sans-serif;">
+                        planned
+                      </span>
+                    )}
+                  </td>
+
+                  <!-- Actions -->
+                  <td class="px-5 py-4">
+                    <div class="flex items-center justify-end gap-1.5">
+                      {status !== 'active' && (
+                        <form method="POST">
+                          <input type="hidden" name="route" value={route} />
+                          <input type="hidden" name="status" value="active" />
+                          <button
+                            type="submit"
+                            class="text-xs font-medium text-emerald-600 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition"
+                            style="font-family: 'Inter', sans-serif;"
+                          >
+                            Activate
+                          </button>
+                        </form>
+                      )}
+                      {status !== 'hidden' && (
+                        <form method="POST">
+                          <input type="hidden" name="route" value={route} />
+                          <input type="hidden" name="status" value="hidden" />
+                          <button
+                            type="submit"
+                            class="text-xs font-medium text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition"
+                            style="font-family: 'Inter', sans-serif;"
+                          >
+                            Hide
+                          </button>
+                        </form>
+                      )}
+                      {status !== 'planned' && (
+                        <form method="POST">
+                          <input type="hidden" name="route" value={route} />
+                          <input type="hidden" name="status" value="planned" />
+                          <button
+                            type="submit"
+                            class="text-xs font-medium text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-lg transition border border-slate-200"
+                            style="font-family: 'Inter', sans-serif;"
+                          >
+                            Mark planned
+                          </button>
+                        </form>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Legend -->
+      <div class="mt-6 flex items-start gap-6 px-1">
+        {[
+          { status: 'active',  color: 'bg-emerald-500', label: 'Active', desc: 'Page is live and visible to the public.' },
+          { status: 'hidden',  color: 'bg-slate-400',   label: 'Hidden', desc: 'Page exists but is unlisted — accessible via direct URL.' },
+          { status: 'planned', color: 'bg-slate-200',   label: 'Planned', desc: 'Page is not yet built or deployed.' },
+        ].map(({ color, label, desc }) => (
+          <div class="flex items-start gap-2">
+            <div class={`${color} w-2.5 h-2.5 rounded-full mt-1 shrink-0`}></div>
+            <div>
+              <p class="text-xs font-semibold text-slate-700" style="font-family: 'Inter', sans-serif;">{label}</p>
+              <p class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">{desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </main>
+  </div>
+</BaseLayout>

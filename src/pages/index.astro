@@ -4,6 +4,10 @@ import TailwindColorGrid from '@components/TailwindColorGrid.astro';
 import TechStack from '@components/TechStack.astro';
 import DesignSystem from '@components/DesignSystem.astro';
 import SitePages from '@components/SitePages.astro';
+import { convex } from '@lib/convex';
+import { api } from '@convex/api';
+
+const settings = await convex.query(api.settings.get, {});
 ---
 
 <BaseLayout title="c4studio BAS">
@@ -24,7 +28,12 @@ import SitePages from '@components/SitePages.astro';
       </div>
 
       <!-- Row 2: Full-width design system -->
-      <DesignSystem />
+      <DesignSystem
+        primary={settings?.primaryColor ? { name: settings.primaryName ?? 'Primary', hex: settings.primaryColor } : undefined}
+        secondary={settings?.secondaryColor ? { name: settings.secondaryName ?? 'Secondary', hex: settings.secondaryColor } : undefined}
+        tertiary={settings?.tertiaryColor ? { name: settings.tertiaryName ?? 'Tertiary', hex: settings.tertiaryColor } : undefined}
+        neutral={settings?.neutralColor ? { name: settings.neutralName ?? 'Neutral', hex: settings.neutralColor } : undefined}
+      />
     </div>
   </div>
 </BaseLayout>

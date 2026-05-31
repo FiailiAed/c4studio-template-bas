@@ -484,5 +484,105 @@ Do not deviate from these technologies. Do not suggest alternatives.
             </div>
         </section>
 
+        <section id="admin-settings">
+            <h2>8. Admin Settings Page</h2>
+            <p>Add a Convex-backed settings page at <code>/admin/settings</code> for application configuration, feature flags, notifications, design system brand colors, and a danger zone.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/schema.ts — appSettings table (singleton)</div>
+                    <p class="executive-quote">Added <code>appSettings</code> table — no index needed (singleton pattern, queried with .first()).</p>
+                    <p class="executive-quote">Fields: appName, siteUrl, supportEmail, description (general); maintenanceMode, registrationEnabled, blogEnabled (feature flags); adminAlertEmail, notifyOnContact, notifyOnNewUser (notifications); primaryColor/Name, secondaryColor/Name, tertiaryColor/Name, neutralColor/Name (design system).</p>
+                    <p class="executive-quote">All fields are v.optional() — first insert creates the doc, subsequent saves use ctx.db.patch() to merge only the changed section.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/settings.ts</div>
+                    <p class="executive-quote">get (public query) — returns .first() from appSettings, or null if unconfigured.</p>
+                    <p class="executive-quote">upsert (mutation) — patches existing doc or inserts new. All args optional. Called per-section from the settings page POST handler.</p>
+                    <p class="executive-quote">reset (mutation) — deletes the appSettings document, reverting to defaults.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/components/DesignSystem.astro — props added</div>
+                    <p class="executive-quote">Accepts optional props: primary, secondary, tertiary, neutral — each { name: string; hex: string }.</p>
+                    <p class="executive-quote">When a custom hex is provided, uses inline style="background-color: {hex}" on the swatch card instead of the Tailwind bg class. Falls back to hardcoded defaults when no props are passed.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/index.astro — pass design settings to DesignSystem</div>
+                    <p class="executive-quote">Fetches settings via the public convex client (no auth required). Passes stored color overrides as props to &lt;DesignSystem /&gt;.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/admin/settings.astro</div>
+                    <p class="executive-quote">Auth-gated (admin only). Handles POST with section routing: general, features, notifications, design, danger.</p>
+                    <p class="executive-quote">5 sections: General (app name, site URL, support email, description), Feature Flags (3 toggles), Notifications (admin alert email + 2 event toggles), Design System (4 brand colors with color pickers + live swatch previews), Danger Zone (reset settings to defaults).</p>
+                    <p class="executive-quote">Inline &lt;script&gt; syncs color picker → hex text display → swatch preview on input.</p>
+                    <p class="executive-quote">Toggle switches use CSS-only peer pattern (sr-only checkbox + peer-checked: Tailwind classes).</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="admin-pages">
+            <h2>9. Admin Pages Management</h2>
+            <p>Add a Convex-backed admin page at <code>/admin/pages</code> to control public page visibility. Status overrides are stored in Convex; the canonical page catalog lives in a shared TypeScript file.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">src/lib/pages.ts — shared page catalog</div>
+                    <p class="executive-quote">Exports <code>PAGE_CATALOG</code> (array of 8 pages with name, route, description, category, defaultStatus, colorClasses) and <code>CATEGORY_COLORS</code> map.</p>
+                    <p class="executive-quote">This is the single source of truth for the page list. Both <code>SitePages.astro</code> and <code>admin/pages.astro</code> import from here — no duplication.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/schema.ts — sitePages table</div>
+                    <p class="executive-quote">Table: <code>sitePages</code> — fields: route (string), status (union: 'active' | 'planned' | 'hidden').</p>
+                    <p class="executive-quote">Index: by_route. Only pages with non-default statuses need a record — catalog defaults to 'planned' for missing routes.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/sitePages.ts</div>
+                    <p class="executive-quote">listStatuses (public query) — returns all sitePages records.</p>
+                    <p class="executive-quote">setStatus (mutation) — upserts a route's status using by_route index + .unique(). Called from admin POST handler.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/components/SitePages.astro — updated</div>
+                    <p class="executive-quote">Now fetches Convex status overrides via public client. Merges with PAGE_CATALOG defaults. Displays active / hidden / planned status badges.</p>
+                    <p class="executive-quote">No longer has hardcoded page data — all from the shared catalog.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/admin/pages.astro</div>
+                    <p class="executive-quote">Auth-gated (admin only). POST handler validates route and status, calls api.sitePages.setStatus.</p>
+                    <p class="executive-quote">Table view: page name/icon, route (monospace badge), category chip, current status badge, contextual action buttons (Activate / Hide / Mark planned — only shows buttons that change the current state).</p>
+                    <p class="executive-quote">Stats summary (active / hidden / planned counts) in the header. Status legend below the table.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="dynamic-admin-sections">
+            <h2>10. Dynamic Admin Sections — Funnels, Shops, Booking Links</h2>
+            <p>Three user-created entity types with identical data shape. Each gets a Convex table, a list page, and a per-instance edit page. The admin portal index fetches all three at render time and shows one card per instance plus a "Create new" dashed card at the end of each section.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/schema.ts — three new tables</div>
+                    <p class="executive-quote">funnels, shops, bookingLinks — identical shape: name (string), slug (string), description (optional string), published (boolean).</p>
+                    <p class="executive-quote">Indexes: by_slug and by_published on each table.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/funnels.ts, shops.ts, bookingLinks.ts</div>
+                    <p class="executive-quote">Each exports: list (query, ordered desc, take 100), get (query by id), create (mutation), update (mutation — patches by id), remove (mutation).</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">List pages (index.astro per entity)</div>
+                    <p class="executive-quote">src/pages/admin/funnels/index.astro, /shops/index.astro, /booking-links/index.astro.</p>
+                    <p class="executive-quote">Pattern: POST handler with action=create, collapsible create form (toggled via inline JS), table of existing records linking to [id] edit pages. Empty state with inline prompt.</p>
+                    <p class="executive-quote">Slug is auto-generated from the name input via a client-side script (tracks if user manually edits slug to stop auto-fill).</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">Edit pages ([id].astro per entity)</div>
+                    <p class="executive-quote">src/pages/admin/funnels/[id].astro, /shops/[id].astro, /booking-links/[id].astro.</p>
+                    <p class="executive-quote">POST with action=update patches the record. action=delete calls remove mutation then redirects to list. 404-guards via redirect if record not found. Danger zone section with confirm dialog.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/admin/index.astro — dynamic sections</div>
+                    <p class="executive-quote">Fetches all three lists in parallel via Promise.all at the top of the frontmatter.</p>
+                    <p class="executive-quote">Static sections (Management, Content) remain unchanged. Dynamic sections (Funnels, Shops, Booking Links) rendered below: one card per DB record linking to /admin/{entity}/{id}, plus a dashed "+ New" card linking to the list page. Each section has a "View all →" link.</p>
+                </div>
+            </div>
+        </section>
+
     </body>
 </html>

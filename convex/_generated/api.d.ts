@@ -8,8 +8,13 @@
  * @module
  */
 
+import type * as bookingLinks from "../bookingLinks.js";
+import type * as funnels from "../funnels.js";
 import type * as http from "../http.js";
 import type * as payments from "../payments.js";
+import type * as settings from "../settings.js";
+import type * as shops from "../shops.js";
+import type * as sitePages from "../sitePages.js";
 import type * as users from "../users.js";
 
 import type {
@@ -19,8 +24,13 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  bookingLinks: typeof bookingLinks;
+  funnels: typeof funnels;
   http: typeof http;
   payments: typeof payments;
+  settings: typeof settings;
+  shops: typeof shops;
+  sitePages: typeof sitePages;
   users: typeof users;
 }>;
 

@@ -65,4 +65,63 @@ export default defineSchema({
   })
     .index("by_order", ["order"])
     .index("by_published", ["published"]),
+
+  funnels: defineTable({
+    name: v.string(),
+    slug: v.string(),
+    description: v.optional(v.string()),
+    published: v.boolean(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_published", ["published"]),
+
+  shops: defineTable({
+    name: v.string(),
+    slug: v.string(),
+    description: v.optional(v.string()),
+    published: v.boolean(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_published", ["published"]),
+
+  bookingLinks: defineTable({
+    name: v.string(),
+    slug: v.string(),
+    description: v.optional(v.string()),
+    published: v.boolean(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_published", ["published"]),
+
+  // Per-page status overrides — keyed by route. If no record exists, status defaults to 'planned'.
+  sitePages: defineTable({
+    route: v.string(),
+    status: v.union(v.literal('active'), v.literal('planned'), v.literal('hidden')),
+  }).index('by_route', ['route']),
+
+  // Singleton app-wide settings document
+  appSettings: defineTable({
+    // General
+    appName: v.optional(v.string()),
+    siteUrl: v.optional(v.string()),
+    supportEmail: v.optional(v.string()),
+    description: v.optional(v.string()),
+    // Feature flags
+    maintenanceMode: v.optional(v.boolean()),
+    registrationEnabled: v.optional(v.boolean()),
+    blogEnabled: v.optional(v.boolean()),
+    // Notifications
+    adminAlertEmail: v.optional(v.string()),
+    notifyOnContact: v.optional(v.boolean()),
+    notifyOnNewUser: v.optional(v.boolean()),
+    // Design system brand colors
+    primaryColor: v.optional(v.string()),
+    primaryName: v.optional(v.string()),
+    secondaryColor: v.optional(v.string()),
+    secondaryName: v.optional(v.string()),
+    tertiaryColor: v.optional(v.string()),
+    tertiaryName: v.optional(v.string()),
+    neutralColor: v.optional(v.string()),
+    neutralName: v.optional(v.string()),
+  }),
 });

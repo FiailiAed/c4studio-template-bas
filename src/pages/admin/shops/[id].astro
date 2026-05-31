@@ -1,0 +1,141 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { SignOutButton, UserButton } from '@clerk/astro/components';
+import { getAuthedConvex } from '@lib/convex';
+import { api } from '@convex/api';
+import type { Id } from '@convex/dataModel';
+
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect('/sign-in');
+
+const token = await Astro.locals.auth().getToken({ template: 'convex' });
+const client = getAuthedConvex(token);
+
+const currentUser = await client.query(api.users.getByClerkId, { clerkId: userId });
+if (!currentUser) return Astro.redirect('/onboarding');
+if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
+
+const id = Astro.params.id as Id<'shops'>;
+let successMessage: string | null = null;
+let errorMessage: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const action = data.get('action') as string;
+
+  try {
+    if (action === 'update') {
+      const name = (data.get('name') as string).trim();
+      const slug = (data.get('slug') as string).trim();
+      if (!name || !slug) throw new Error('Name and slug are required.');
+      await client.mutation(api.shops.update, {
+        id,
+        name,
+        slug,
+        description: (data.get('description') as string).trim() || undefined,
+        published: data.get('published') === 'on',
+      });
+      successMessage = 'Shop updated.';
+    } else if (action === 'delete') {
+      await client.mutation(api.shops.remove, { id });
+      return Astro.redirect('/admin/shops');
+    }
+  } catch (e) {
+    errorMessage = e instanceof Error ? e.message : 'Action failed.';
+  }
+}
+
+const shop = await client.query(api.shops.get, { id });
+if (!shop) return Astro.redirect('/admin/shops');
+---
+
+<BaseLayout title={`${shop.name} — Shops`}>
+  <div class="min-h-screen bg-slate-50">
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/admin" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Admin Portal</a>
+        <span class="text-slate-300">/</span>
+        <a href="/admin/shops" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Shops</a>
+        <span class="text-slate-300">/</span>
+        <span class="text-sm font-semibold text-slate-900 truncate max-w-48" style="font-family: 'Lexend', sans-serif;">{shop.name}</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Home</a>
+        <UserButton />
+        <SignOutButton>
+          <button class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Sign out</button>
+        </SignOutButton>
+      </div>
+    </header>
+
+    <main class="max-w-2xl mx-auto px-6 py-12">
+      <div class="flex items-center justify-between mb-8">
+        <h1 class="text-3xl font-bold tracking-tight text-slate-900 truncate" style="font-family: 'Lexend', sans-serif;">{shop.name}</h1>
+        <span class={`text-xs font-medium px-2.5 py-1 rounded-full ${shop.published ? 'text-emerald-600 bg-emerald-50 border border-emerald-100' : 'text-slate-400 bg-slate-100'}`} style="font-family: 'Inter', sans-serif;">
+          {shop.published ? 'published' : 'draft'}
+        </span>
+      </div>
+
+      {successMessage && (
+        <div class="mb-6 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700" style="font-family: 'Inter', sans-serif;">{successMessage}</div>
+      )}
+      {errorMessage && (
+        <div class="mb-6 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700" style="font-family: 'Inter', sans-serif;">{errorMessage}</div>
+      )}
+
+      <section class="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
+        <h2 class="text-base font-semibold text-slate-900 mb-5" style="font-family: 'Lexend', sans-serif;">Details</h2>
+        <form method="POST" class="flex flex-col gap-4">
+          <input type="hidden" name="action" value="update" />
+          <div class="grid grid-cols-2 gap-4">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Name <span class="text-red-500">*</span></label>
+              <input type="text" name="name" required value={shop.name}
+                class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                style="font-family: 'Inter', sans-serif;" />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Slug <span class="text-red-500">*</span></label>
+              <input type="text" name="slug" required value={shop.slug}
+                class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono"
+                style="font-family: 'Inter', sans-serif;" />
+            </div>
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Description</label>
+            <input type="text" name="description" value={shop.description ?? ''} placeholder="Optional short description"
+              class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              style="font-family: 'Inter', sans-serif;" />
+          </div>
+          <div class="flex items-center justify-between pt-1">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" name="published" value="on" checked={shop.published} class="w-4 h-4 rounded" />
+              <span class="text-sm text-slate-700" style="font-family: 'Inter', sans-serif;">Published</span>
+            </label>
+            <button type="submit" class="text-sm font-semibold bg-slate-900 text-white px-5 py-2.5 rounded-xl hover:bg-slate-700 transition" style="font-family: 'Inter', sans-serif;">
+              Save changes
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section class="bg-white rounded-2xl border border-red-200 overflow-hidden">
+        <div class="px-6 py-5 border-b border-red-100">
+          <h2 class="text-base font-semibold text-red-700" style="font-family: 'Lexend', sans-serif;">Danger Zone</h2>
+        </div>
+        <div class="px-6 py-5 flex items-center justify-between gap-6">
+          <div>
+            <p class="text-sm font-medium text-slate-900" style="font-family: 'Inter', sans-serif;">Delete this shop</p>
+            <p class="text-xs text-slate-500 mt-0.5" style="font-family: 'Inter', sans-serif;">Permanently removes the shop. This cannot be undone.</p>
+          </div>
+          <form method="POST" onsubmit={`return confirm('Delete "${shop.name}"? This cannot be undone.')`}>
+            <input type="hidden" name="action" value="delete" />
+            <button type="submit" class="shrink-0 text-xs font-semibold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 border border-red-200 px-4 py-2 rounded-xl transition" style="font-family: 'Inter', sans-serif;">
+              Delete shop
+            </button>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+</BaseLayout>

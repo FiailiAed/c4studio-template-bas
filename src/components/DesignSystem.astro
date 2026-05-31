@@ -1,22 +1,47 @@
 ---
+interface ColorOverride { name: string; hex: string; }
+interface Props {
+  primary?: ColorOverride;
+  secondary?: ColorOverride;
+  tertiary?: ColorOverride;
+  neutral?: ColorOverride;
+}
+const { primary, secondary, tertiary, neutral } = Astro.props;
+
 const brandColors = [
   {
-    name: 'Primary', hex: '#0F172A', bg: 'bg-slate-900', light: false,
+    name: primary?.name ?? 'Primary',
+    hex: primary?.hex ?? '#0F172A',
+    bg: 'bg-slate-900',
+    light: false,
     shades: ['bg-slate-950','bg-slate-900','bg-slate-800','bg-slate-700','bg-slate-600','bg-slate-500','bg-slate-400','bg-slate-300','bg-slate-200','bg-slate-100','bg-slate-50'],
+    customHex: primary?.hex,
   },
   {
-    name: 'Secondary', hex: '#2563EB', bg: 'bg-blue-600', light: false,
+    name: secondary?.name ?? 'Secondary',
+    hex: secondary?.hex ?? '#2563EB',
+    bg: 'bg-blue-600',
+    light: false,
     shades: ['bg-blue-950','bg-blue-900','bg-blue-800','bg-blue-700','bg-blue-600','bg-blue-500','bg-blue-400','bg-blue-300','bg-blue-200','bg-blue-100','bg-blue-50'],
+    customHex: secondary?.hex,
   },
   {
-    name: 'Tertiary', hex: '#0EA5E9', bg: 'bg-sky-500', light: false,
+    name: tertiary?.name ?? 'Tertiary',
+    hex: tertiary?.hex ?? '#0EA5E9',
+    bg: 'bg-sky-500',
+    light: false,
     shades: ['bg-sky-950','bg-sky-900','bg-sky-800','bg-sky-700','bg-sky-600','bg-sky-500','bg-sky-400','bg-sky-300','bg-sky-200','bg-sky-100','bg-sky-50'],
+    customHex: tertiary?.hex,
   },
   {
-    name: 'Neutral', hex: '#F8FAFC', bg: 'bg-white', light: true,
+    name: neutral?.name ?? 'Neutral',
+    hex: neutral?.hex ?? '#F8FAFC',
+    bg: 'bg-white',
+    light: true,
     shades: ['bg-slate-950','bg-slate-900','bg-slate-800','bg-slate-700','bg-slate-600','bg-slate-500','bg-slate-400','bg-slate-300','bg-slate-200','bg-slate-100','bg-slate-50'],
+    customHex: neutral?.hex,
   },
-] as const;
+];
 ---
 
 <div class="w-full">
@@ -25,8 +50,11 @@ const brandColors = [
 
   <!-- ── Brand Colors (4 cards in a row) ─────────────────────────── -->
   <div class="grid grid-cols-4 gap-4 mb-4">
-    {brandColors.map(({ name, hex, bg, light, shades }) => (
-      <div class={`${bg} rounded-2xl overflow-hidden border border-slate-200`}>
+    {brandColors.map(({ name, hex, bg, light, shades, customHex }) => (
+      <div
+        class={`rounded-2xl overflow-hidden border border-slate-200 ${customHex ? '' : bg}`}
+        style={customHex ? `background-color: ${customHex}` : ''}
+      >
         <div class={`flex items-start justify-between px-4 pt-4 pb-12 ${light ? 'text-slate-900' : 'text-white'}`}>
           <span class="text-sm font-semibold" style="font-family: 'Inter', sans-serif;">{name}</span>
           <span class="text-xs font-mono opacity-70">{hex}</span>

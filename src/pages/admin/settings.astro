@@ -1,0 +1,383 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { SignOutButton, UserButton } from '@clerk/astro/components';
+import { getAuthedConvex } from '@lib/convex';
+import { api } from '@convex/api';
+
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect('/sign-in');
+
+const token = await Astro.locals.auth().getToken({ template: 'convex' });
+const client = getAuthedConvex(token);
+
+const currentUser = await client.query(api.users.getByClerkId, { clerkId: userId });
+if (!currentUser) return Astro.redirect('/onboarding');
+if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
+
+let successSection: string | null = null;
+let errorMessage: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const section = data.get('section') as string;
+
+  try {
+    if (section === 'general') {
+      await client.mutation(api.settings.upsert, {
+        appName: (data.get('appName') as string) || undefined,
+        siteUrl: (data.get('siteUrl') as string) || undefined,
+        supportEmail: (data.get('supportEmail') as string) || undefined,
+        description: (data.get('description') as string) || undefined,
+      });
+      successSection = 'general';
+    } else if (section === 'features') {
+      await client.mutation(api.settings.upsert, {
+        maintenanceMode: data.get('maintenanceMode') === 'on',
+        registrationEnabled: data.get('registrationEnabled') === 'on',
+        blogEnabled: data.get('blogEnabled') === 'on',
+      });
+      successSection = 'features';
+    } else if (section === 'notifications') {
+      await client.mutation(api.settings.upsert, {
+        adminAlertEmail: (data.get('adminAlertEmail') as string) || undefined,
+        notifyOnContact: data.get('notifyOnContact') === 'on',
+        notifyOnNewUser: data.get('notifyOnNewUser') === 'on',
+      });
+      successSection = 'notifications';
+    } else if (section === 'design') {
+      await client.mutation(api.settings.upsert, {
+        primaryName: (data.get('primaryName') as string) || undefined,
+        primaryColor: (data.get('primaryColor') as string) || undefined,
+        secondaryName: (data.get('secondaryName') as string) || undefined,
+        secondaryColor: (data.get('secondaryColor') as string) || undefined,
+        tertiaryName: (data.get('tertiaryName') as string) || undefined,
+        tertiaryColor: (data.get('tertiaryColor') as string) || undefined,
+        neutralName: (data.get('neutralName') as string) || undefined,
+        neutralColor: (data.get('neutralColor') as string) || undefined,
+      });
+      successSection = 'design';
+    } else if (section === 'danger') {
+      await client.mutation(api.settings.reset, {});
+      successSection = 'danger';
+    }
+  } catch {
+    errorMessage = 'Save failed. Please try again.';
+  }
+}
+
+const settings = await client.query(api.settings.get, {});
+
+const brandColors = [
+  { nameKey: 'primaryName',   colorKey: 'primaryColor',   label: 'Primary',   defaultName: 'Primary',   defaultHex: '#0F172A', currentHex: settings?.primaryColor   ?? '#0F172A', currentName: settings?.primaryName   ?? 'Primary'   },
+  { nameKey: 'secondaryName', colorKey: 'secondaryColor', label: 'Secondary', defaultName: 'Secondary', defaultHex: '#2563EB', currentHex: settings?.secondaryColor ?? '#2563EB', currentName: settings?.secondaryName ?? 'Secondary' },
+  { nameKey: 'tertiaryName',  colorKey: 'tertiaryColor',  label: 'Tertiary',  defaultName: 'Tertiary',  defaultHex: '#0EA5E9', currentHex: settings?.tertiaryColor  ?? '#0EA5E9', currentName: settings?.tertiaryName  ?? 'Tertiary'  },
+  { nameKey: 'neutralName',   colorKey: 'neutralColor',   label: 'Neutral',   defaultName: 'Neutral',   defaultHex: '#F8FAFC', currentHex: settings?.neutralColor   ?? '#F8FAFC', currentName: settings?.neutralName   ?? 'Neutral'   },
+];
+---
+
+<BaseLayout title="Settings — Admin Portal">
+  <div class="min-h-screen bg-slate-50">
+    <!-- Nav -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/admin" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Admin Portal</a>
+        <span class="text-slate-300">/</span>
+        <span class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Settings</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Home</a>
+        <a href="/dashboard" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Dashboard</a>
+        <UserButton />
+        <SignOutButton>
+          <button class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Sign out</button>
+        </SignOutButton>
+      </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-6 py-12">
+      <h1 class="text-3xl font-bold tracking-tight text-slate-900 mb-2" style="font-family: 'Lexend', sans-serif;">Settings</h1>
+      <p class="text-slate-500 mb-10" style="font-family: 'Inter', sans-serif;">Application configuration and preferences.</p>
+
+      {errorMessage && (
+        <div class="mb-6 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700" style="font-family: 'Inter', sans-serif;">
+          {errorMessage}
+        </div>
+      )}
+
+      <!-- ── General ─────────────────────────────────────────────── -->
+      <section class="bg-white rounded-2xl border border-slate-200 mb-6 overflow-hidden">
+        <div class="px-6 py-5 border-b border-slate-100">
+          <h2 class="text-base font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">General</h2>
+          <p class="text-sm text-slate-500 mt-0.5" style="font-family: 'Inter', sans-serif;">Basic app identity and contact info.</p>
+        </div>
+        {successSection === 'general' && (
+          <div class="mx-6 mt-4 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700" style="font-family: 'Inter', sans-serif;">
+            General settings saved.
+          </div>
+        )}
+        <form method="POST" class="px-6 py-5 flex flex-col gap-5">
+          <input type="hidden" name="section" value="general" />
+          <div class="grid grid-cols-2 gap-4">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">App name</label>
+              <input
+                type="text"
+                name="appName"
+                value={settings?.appName ?? ''}
+                placeholder="My App"
+                class="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                style="font-family: 'Inter', sans-serif;"
+              />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Site URL</label>
+              <input
+                type="url"
+                name="siteUrl"
+                value={settings?.siteUrl ?? ''}
+                placeholder="https://example.com"
+                class="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                style="font-family: 'Inter', sans-serif;"
+              />
+            </div>
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Support email</label>
+            <input
+              type="email"
+              name="supportEmail"
+              value={settings?.supportEmail ?? ''}
+              placeholder="support@example.com"
+              class="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+              style="font-family: 'Inter', sans-serif;"
+            />
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Description</label>
+            <textarea
+              name="description"
+              rows="3"
+              placeholder="A short description of your app..."
+              class="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent resize-none"
+              style="font-family: 'Inter', sans-serif;"
+            >{settings?.description ?? ''}</textarea>
+          </div>
+          <div class="flex justify-end">
+            <button type="submit" class="text-sm font-semibold bg-slate-900 text-white px-5 py-2.5 rounded-xl hover:bg-slate-700 transition" style="font-family: 'Inter', sans-serif;">
+              Save general
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ── Feature Flags ─────────────────────────────────────────── -->
+      <section class="bg-white rounded-2xl border border-slate-200 mb-6 overflow-hidden">
+        <div class="px-6 py-5 border-b border-slate-100">
+          <h2 class="text-base font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Feature Flags</h2>
+          <p class="text-sm text-slate-500 mt-0.5" style="font-family: 'Inter', sans-serif;">Toggle application features on or off.</p>
+        </div>
+        {successSection === 'features' && (
+          <div class="mx-6 mt-4 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700" style="font-family: 'Inter', sans-serif;">
+            Feature flags saved.
+          </div>
+        )}
+        <form method="POST" class="px-6 py-5 flex flex-col gap-4">
+          <input type="hidden" name="section" value="features" />
+          {[
+            { name: 'maintenanceMode', label: 'Maintenance mode', desc: 'Disable public access and show a maintenance page.', checked: settings?.maintenanceMode ?? false },
+            { name: 'registrationEnabled', label: 'User registration', desc: 'Allow new users to create accounts.', checked: settings?.registrationEnabled ?? true },
+            { name: 'blogEnabled', label: 'Blog', desc: 'Enable the blog and make posts publicly visible.', checked: settings?.blogEnabled ?? true },
+          ].map(({ name, label, desc, checked }) => (
+            <label class="flex items-start gap-4 cursor-pointer group">
+              <div class="relative mt-0.5 shrink-0">
+                <input
+                  type="checkbox"
+                  name={name}
+                  value="on"
+                  checked={checked}
+                  class="peer sr-only"
+                />
+                <div class="w-10 h-6 bg-slate-200 rounded-full peer-checked:bg-slate-900 transition-colors"></div>
+                <div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
+              </div>
+              <div>
+                <p class="text-sm font-medium text-slate-900" style="font-family: 'Inter', sans-serif;">{label}</p>
+                <p class="text-xs text-slate-500 mt-0.5" style="font-family: 'Inter', sans-serif;">{desc}</p>
+              </div>
+            </label>
+          ))}
+          <div class="flex justify-end mt-1">
+            <button type="submit" class="text-sm font-semibold bg-slate-900 text-white px-5 py-2.5 rounded-xl hover:bg-slate-700 transition" style="font-family: 'Inter', sans-serif;">
+              Save flags
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ── Notifications ─────────────────────────────────────────── -->
+      <section class="bg-white rounded-2xl border border-slate-200 mb-6 overflow-hidden">
+        <div class="px-6 py-5 border-b border-slate-100">
+          <h2 class="text-base font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Notifications</h2>
+          <p class="text-sm text-slate-500 mt-0.5" style="font-family: 'Inter', sans-serif;">Admin alert email and event notification preferences.</p>
+        </div>
+        {successSection === 'notifications' && (
+          <div class="mx-6 mt-4 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700" style="font-family: 'Inter', sans-serif;">
+            Notification settings saved.
+          </div>
+        )}
+        <form method="POST" class="px-6 py-5 flex flex-col gap-5">
+          <input type="hidden" name="section" value="notifications" />
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Admin alert email</label>
+            <input
+              type="email"
+              name="adminAlertEmail"
+              value={settings?.adminAlertEmail ?? ''}
+              placeholder="admin@example.com"
+              class="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+              style="font-family: 'Inter', sans-serif;"
+            />
+            <p class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">Address that receives admin alerts (requires Resend to be configured).</p>
+          </div>
+          <div class="flex flex-col gap-4">
+            {[
+              { name: 'notifyOnContact', label: 'New contact submission', desc: 'Send an alert when someone submits the contact form.', checked: settings?.notifyOnContact ?? false },
+              { name: 'notifyOnNewUser', label: 'New user registration', desc: 'Send an alert when a new user creates an account.', checked: settings?.notifyOnNewUser ?? false },
+            ].map(({ name, label, desc, checked }) => (
+              <label class="flex items-start gap-4 cursor-pointer">
+                <div class="relative mt-0.5 shrink-0">
+                  <input type="checkbox" name={name} value="on" checked={checked} class="peer sr-only" />
+                  <div class="w-10 h-6 bg-slate-200 rounded-full peer-checked:bg-slate-900 transition-colors"></div>
+                  <div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
+                </div>
+                <div>
+                  <p class="text-sm font-medium text-slate-900" style="font-family: 'Inter', sans-serif;">{label}</p>
+                  <p class="text-xs text-slate-500 mt-0.5" style="font-family: 'Inter', sans-serif;">{desc}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+          <div class="flex justify-end">
+            <button type="submit" class="text-sm font-semibold bg-slate-900 text-white px-5 py-2.5 rounded-xl hover:bg-slate-700 transition" style="font-family: 'Inter', sans-serif;">
+              Save notifications
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ── Design System ─────────────────────────────────────────── -->
+      <section class="bg-white rounded-2xl border border-slate-200 mb-6 overflow-hidden">
+        <div class="px-6 py-5 border-b border-slate-100">
+          <h2 class="text-base font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Design System</h2>
+          <p class="text-sm text-slate-500 mt-0.5" style="font-family: 'Inter', sans-serif;">Brand color names and hex values used throughout the application.</p>
+        </div>
+        {successSection === 'design' && (
+          <div class="mx-6 mt-4 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700" style="font-family: 'Inter', sans-serif;">
+            Design system saved.
+          </div>
+        )}
+        <form method="POST" class="px-6 py-5 flex flex-col gap-6">
+          <input type="hidden" name="section" value="design" />
+
+          <!-- Color preview strip -->
+          <div class="grid grid-cols-4 gap-3">
+            {brandColors.map(({ nameKey, colorKey, label, currentHex, currentName }) => (
+              <div class="flex flex-col gap-2">
+                <!-- Swatch preview -->
+                <div
+                  class="h-16 rounded-xl border border-slate-200"
+                  style={`background-color: ${currentHex}`}
+                />
+                <div class="flex flex-col gap-1.5">
+                  <input
+                    type="text"
+                    name={nameKey}
+                    value={currentName}
+                    placeholder={label}
+                    class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                    style="font-family: 'Inter', sans-serif;"
+                  />
+                  <div class="flex items-center gap-1.5">
+                    <input
+                      type="color"
+                      name={colorKey}
+                      value={currentHex}
+                      class="w-7 h-7 rounded-lg border border-slate-200 cursor-pointer bg-transparent p-0.5"
+                    />
+                    <input
+                      type="text"
+                      value={currentHex}
+                      placeholder="#000000"
+                      class="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono"
+                      readonly
+                      id={`hex-display-${colorKey}`}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p class="text-xs text-slate-400 -mt-2" style="font-family: 'Inter', sans-serif;">
+            Use the color picker to set each brand color. Changes propagate to the Design System preview on the home page.
+          </p>
+
+          <div class="flex justify-end">
+            <button type="submit" class="text-sm font-semibold bg-slate-900 text-white px-5 py-2.5 rounded-xl hover:bg-slate-700 transition" style="font-family: 'Inter', sans-serif;">
+              Save design system
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ── Danger Zone ───────────────────────────────────────────── -->
+      <section class="bg-white rounded-2xl border border-red-200 overflow-hidden">
+        <div class="px-6 py-5 border-b border-red-100">
+          <h2 class="text-base font-semibold text-red-700" style="font-family: 'Lexend', sans-serif;">Danger Zone</h2>
+          <p class="text-sm text-slate-500 mt-0.5" style="font-family: 'Inter', sans-serif;">Destructive actions. These cannot be undone.</p>
+        </div>
+        {successSection === 'danger' && (
+          <div class="mx-6 mt-4 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700" style="font-family: 'Inter', sans-serif;">
+            Settings reset to defaults.
+          </div>
+        )}
+        <div class="px-6 py-5">
+          <div class="flex items-start justify-between gap-6 py-4 border-b border-slate-100">
+            <div>
+              <p class="text-sm font-medium text-slate-900" style="font-family: 'Inter', sans-serif;">Reset all settings</p>
+              <p class="text-xs text-slate-500 mt-0.5" style="font-family: 'Inter', sans-serif;">
+                Deletes the stored settings document and reverts all configuration to application defaults.
+              </p>
+            </div>
+            <form method="POST" onsubmit="return confirm('Reset all settings to defaults? This cannot be undone.')">
+              <input type="hidden" name="section" value="danger" />
+              <button
+                type="submit"
+                class="shrink-0 text-xs font-semibold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 border border-red-200 px-4 py-2 rounded-xl transition"
+                style="font-family: 'Inter', sans-serif;"
+              >
+                Reset settings
+              </button>
+            </form>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</BaseLayout>
+
+<script>
+  // Sync color picker → hex text display, and keep hidden input updated
+  document.querySelectorAll<HTMLInputElement>('input[type="color"]').forEach((picker) => {
+    const name = picker.name;
+    const displayId = `hex-display-${name}`;
+    const display = document.getElementById(displayId) as HTMLInputElement | null;
+
+    picker.addEventListener('input', () => {
+      if (display) display.value = picker.value;
+      // Update the swatch preview above
+      const swatch = picker.closest('.flex.flex-col.gap-2')?.querySelector<HTMLDivElement>('.h-16');
+      if (swatch) swatch.style.backgroundColor = picker.value;
+    });
+  });
+</script>
