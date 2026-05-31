@@ -1,0 +1,140 @@
+---
+const stack = [
+  {
+    name: 'Bun',
+    role: 'Runtime',
+    description: 'Fast all-in-one JavaScript runtime & package manager',
+    color: 'bg-amber-50 border-amber-400',
+    badge: 'bg-amber-400',
+    text: 'text-amber-900',
+    status: 'installed',
+  },
+  {
+    name: 'Astro',
+    role: 'Framework',
+    description: 'Content-driven web framework with SSR and island architecture',
+    color: 'bg-orange-50 border-orange-500',
+    badge: 'bg-orange-500',
+    text: 'text-orange-900',
+    status: 'installed',
+  },
+  {
+    name: 'TailwindCSS',
+    role: 'Styling',
+    description: 'Utility-first CSS framework — v4 via Vite plugin',
+    color: 'bg-cyan-50 border-cyan-500',
+    badge: 'bg-cyan-500',
+    text: 'text-cyan-900',
+    status: 'installed',
+  },
+  {
+    name: 'TypeScript',
+    role: 'Language',
+    description: 'Strict type safety across all source files',
+    color: 'bg-blue-50 border-blue-600',
+    badge: 'bg-blue-600',
+    text: 'text-blue-900',
+    status: 'installed',
+  },
+  {
+    name: 'Vercel',
+    role: 'Deployment',
+    description: 'Edge serverless hosting with Speed Insights & Web Analytics',
+    color: 'bg-slate-50 border-slate-900',
+    badge: 'bg-slate-900',
+    text: 'text-slate-700',
+    status: 'pending',
+  },
+  {
+    name: 'Convex',
+    role: 'Database',
+    description: 'Real-time reactive backend — zero config, full typesafety',
+    color: 'bg-red-50 border-red-500',
+    badge: 'bg-red-500',
+    text: 'text-red-900',
+    status: 'pending',
+  },
+  {
+    name: 'Clerk',
+    role: 'Auth',
+    description: 'Drop-in authentication via @clerk/astro',
+    color: 'bg-violet-50 border-violet-600',
+    badge: 'bg-violet-600',
+    text: 'text-violet-900',
+    status: 'pending',
+  },
+  {
+    name: 'Stripe',
+    role: 'Payments',
+    description: 'Payment processing via @convex-dev/stripe webhook pipelines',
+    color: 'bg-indigo-50 border-indigo-500',
+    badge: 'bg-indigo-500',
+    text: 'text-indigo-900',
+    status: 'pending',
+  },
+  {
+    name: 'Resend',
+    role: 'Email',
+    description: 'Transactional email delivery for Astro',
+    color: 'bg-slate-50 border-slate-400',
+    badge: 'bg-slate-400',
+    text: 'text-slate-700',
+    status: 'pending',
+  },
+  {
+    name: 'PostHog',
+    role: 'Analytics',
+    description: 'Product analytics and interaction event tracking',
+    color: 'bg-orange-50 border-orange-600',
+    badge: 'bg-orange-600',
+    text: 'text-orange-900',
+    status: 'pending',
+  },
+] as const;
+
+const installed = stack.filter(t => t.status === 'installed').length;
+const pending = stack.filter(t => t.status === 'pending').length;
+---
+
+<div class="flex-1 min-w-0">
+  <h2 class="text-2xl font-bold tracking-tight mb-1" style="font-family: 'Lexend', sans-serif;">Technology Stack</h2>
+  <p class="text-sm text-slate-500 mb-6" style="font-family: 'Inter', sans-serif;">
+    <span class="inline-flex items-center gap-1 text-emerald-600 font-medium">{installed} installed</span>
+    <span class="mx-2 text-slate-300">·</span>
+    <span class="inline-flex items-center gap-1 text-slate-400">{pending} pending</span>
+  </p>
+
+  <div class="grid grid-cols-2 gap-3">
+    {stack.map(({ name, role, description, color, badge, text, status }) => (
+      <div class={`relative flex gap-3 items-start p-4 rounded-2xl border-l-4 bg-white ${color}`}>
+        <!-- Brand color badge with initial -->
+        <div class={`${badge} w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5`}>
+          <span class="text-white text-sm font-bold" style="font-family: 'Inter', sans-serif;">
+            {name[0]}
+          </span>
+        </div>
+
+        <!-- Info -->
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2">
+            <span class={`text-sm font-semibold ${text}`} style="font-family: 'Inter', sans-serif;">{name}</span>
+            {status === 'installed' ? (
+              <span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full shrink-0">
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/>
+                </svg>
+                installed
+              </span>
+            ) : (
+              <span class="inline-flex items-center text-xs font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full shrink-0">
+                pending
+              </span>
+            )}
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5 uppercase tracking-wide font-medium" style="font-family: 'Inter', sans-serif;">{role}</p>
+          <p class="text-xs text-slate-500 mt-1.5 leading-relaxed" style="font-family: 'Inter', sans-serif;">{description}</p>
+        </div>
+      </div>
+    ))}
+  </div>
+</div>

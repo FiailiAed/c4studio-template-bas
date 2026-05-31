@@ -1,0 +1,105 @@
+---
+const brand = [
+  {
+    name: 'Primary',
+    hex: '#0F172A',
+    bg: 'bg-slate-900',
+    light: false,
+    shades: [
+      { cls: 'bg-slate-950', label: '950' },
+      { cls: 'bg-slate-900', label: '900' },
+      { cls: 'bg-slate-800', label: '800' },
+      { cls: 'bg-slate-700', label: '700' },
+      { cls: 'bg-slate-600', label: '600' },
+      { cls: 'bg-slate-500', label: '500' },
+      { cls: 'bg-slate-400', label: '400' },
+      { cls: 'bg-slate-300', label: '300' },
+      { cls: 'bg-slate-200', label: '200' },
+      { cls: 'bg-slate-100', label: '100' },
+      { cls: 'bg-slate-50',  label: '50'  },
+    ],
+  },
+  {
+    name: 'Secondary',
+    hex: '#2563EB',
+    bg: 'bg-blue-600',
+    light: false,
+    shades: [
+      { cls: 'bg-blue-950', label: '950' },
+      { cls: 'bg-blue-900', label: '900' },
+      { cls: 'bg-blue-800', label: '800' },
+      { cls: 'bg-blue-700', label: '700' },
+      { cls: 'bg-blue-600', label: '600' },
+      { cls: 'bg-blue-500', label: '500' },
+      { cls: 'bg-blue-400', label: '400' },
+      { cls: 'bg-blue-300', label: '300' },
+      { cls: 'bg-blue-200', label: '200' },
+      { cls: 'bg-blue-100', label: '100' },
+      { cls: 'bg-blue-50',  label: '50'  },
+    ],
+  },
+  {
+    name: 'Tertiary',
+    hex: '#0EA5E9',
+    bg: 'bg-sky-500',
+    light: false,
+    shades: [
+      { cls: 'bg-sky-950', label: '950' },
+      { cls: 'bg-sky-900', label: '900' },
+      { cls: 'bg-sky-800', label: '800' },
+      { cls: 'bg-sky-700', label: '700' },
+      { cls: 'bg-sky-600', label: '600' },
+      { cls: 'bg-sky-500', label: '500' },
+      { cls: 'bg-sky-400', label: '400' },
+      { cls: 'bg-sky-300', label: '300' },
+      { cls: 'bg-sky-200', label: '200' },
+      { cls: 'bg-sky-100', label: '100' },
+      { cls: 'bg-sky-50',  label: '50'  },
+    ],
+  },
+  {
+    name: 'Neutral',
+    hex: '#F8FAFC',
+    bg: 'bg-slate-50',
+    light: true,
+    shades: [
+      { cls: 'bg-slate-950', label: '950' },
+      { cls: 'bg-slate-900', label: '900' },
+      { cls: 'bg-slate-800', label: '800' },
+      { cls: 'bg-slate-700', label: '700' },
+      { cls: 'bg-slate-600', label: '600' },
+      { cls: 'bg-slate-500', label: '500' },
+      { cls: 'bg-slate-400', label: '400' },
+      { cls: 'bg-slate-300', label: '300' },
+      { cls: 'bg-slate-200', label: '200' },
+      { cls: 'bg-slate-100', label: '100' },
+      { cls: 'bg-slate-50',  label: '50'  },
+    ],
+  },
+] as const;
+---
+
+<div class="flex flex-col gap-4 w-72 shrink-0">
+  <h2 class="text-2xl font-bold tracking-tight">Brand Palette</h2>
+  <p class="text-sm text-gray-500 -mt-2">c4studio core colors</p>
+
+  {brand.map(({ name, hex, bg, light, shades }) => (
+    <div class={`${bg} rounded-2xl overflow-hidden shadow-sm`}>
+      <!-- Label + hex -->
+      <div class={`flex items-center justify-between px-4 pt-4 pb-14 ${light ? 'text-slate-900' : 'text-white'}`}>
+        <span class="text-sm font-semibold tracking-wide">{name}</span>
+        <span class="text-xs font-mono opacity-80">{hex}</span>
+      </div>
+
+      <!-- Shade strip -->
+      <div class="flex">
+        {shades.map(({ cls, label }) => (
+          <div
+            class={`${cls} flex-1 h-10`}
+            title={`${name} ${label}`}
+          />
+        ))}
+      </div>
+    </div>
+  ))}
+</div>
