@@ -1,0 +1,98 @@
+---
+interface Service {
+  title: string;
+  description: string;
+  icon: string; // SVG path data
+}
+
+interface Props {
+  eyebrow?: string;
+  heading?: string;
+  subheading?: string;
+  services?: Service[];
+  ctaHref?: string;
+  ctaLabel?: string;
+}
+
+const {
+  eyebrow = 'What we do',
+  heading = 'Services built\nfor results.',
+  subheading = 'From strategy to launch, we cover every stage of the digital product lifecycle.',
+  ctaHref = '/services',
+  ctaLabel = 'View all services',
+  services = [
+    {
+      title: 'Strategy & Discovery',
+      description: 'We dig into your goals, audience, and competitive landscape to build a blueprint for success.',
+      icon: 'M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z',
+    },
+    {
+      title: 'Design & Branding',
+      description: 'Pixel-perfect interfaces and cohesive brand identities that connect with your audience.',
+      icon: 'M9.53 16.122a3 3 0 0 0-5.78 1.128 2.25 2.25 0 0 1-2.4 2.245 4.5 4.5 0 0 0 8.4-2.245c0-.399-.078-.78-.22-1.128Zm0 0a15.998 15.998 0 0 0 3.388-1.62m-5.043-.025a15.994 15.994 0 0 1 1.622-3.395m3.42 3.42a15.995 15.995 0 0 0 4.764-4.648l3.876-5.814a1.151 1.151 0 0 0-1.597-1.597L14.146 6.32a15.996 15.996 0 0 0-4.649 4.763m3.42 3.42a6.776 6.776 0 0 0-3.42-3.42',
+    },
+    {
+      title: 'Development',
+      description: 'Fast, accessible, and maintainable code — built on the stack that scales with your business.',
+      icon: 'M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5',
+    },
+    {
+      title: 'Growth & Analytics',
+      description: 'Data-driven optimisation to increase conversions, retention, and revenue over time.',
+      icon: 'M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941',
+    },
+    {
+      title: 'Integrations',
+      description: 'Payments, auth, email, analytics — we wire up the ecosystem so you don\'t have to.',
+      icon: 'M13.5 16.875h3.375m0 0h3.375m-3.375 0V13.5m0 3.375v3.375M6 10.5h2.25a2.25 2.25 0 0 0 2.25-2.25V6a2.25 2.25 0 0 0-2.25-2.25H6A2.25 2.25 0 0 0 3.75 6v2.25A2.25 2.25 0 0 0 6 10.5Zm0 9.75h2.25A2.25 2.25 0 0 0 10.5 18v-2.25a2.25 2.25 0 0 0-2.25-2.25H6a2.25 2.25 0 0 0-2.25 2.25V18A2.25 2.25 0 0 0 6 20.25Zm9.75-9.75H18a2.25 2.25 0 0 0 2.25-2.25V6A2.25 2.25 0 0 0 18 3.75h-2.25A2.25 2.25 0 0 0 13.5 6v2.25a2.25 2.25 0 0 0 2.25 2.25Z',
+    },
+    {
+      title: 'Support & Maintenance',
+      description: 'Ongoing monitoring, updates, and improvements so your product stays fast and reliable.',
+      icon: 'M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008Z',
+    },
+  ],
+} = Astro.props;
+---
+
+<section class="bg-white py-24 md:py-32">
+  <div class="max-w-6xl mx-auto px-6">
+    <!-- Section header -->
+    <div class="max-w-2xl mb-16">
+      <p class="inline-flex items-center gap-2 text-xs font-semibold text-blue-600 uppercase tracking-widest mb-4" style="font-family: 'Inter', sans-serif;">
+        <span class="w-6 h-px bg-blue-600"></span>
+        {eyebrow}
+      </p>
+      <h2 class="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight leading-tight mb-4 whitespace-pre-line" style="font-family: 'Lexend', sans-serif;">
+        {heading}
+      </h2>
+      <p class="text-slate-500 text-lg leading-relaxed" style="font-family: 'Inter', sans-serif;">{subheading}</p>
+    </div>
+
+    <!-- Service grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+      {services.map(({ title, description, icon }) => (
+        <div class="group p-6 rounded-2xl border border-slate-200 hover:border-slate-300 hover:shadow-sm transition bg-white">
+          <div class="w-10 h-10 rounded-xl bg-slate-100 group-hover:bg-slate-900 transition flex items-center justify-center mb-4">
+            <svg class="w-5 h-5 text-slate-600 group-hover:text-white transition" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d={icon} />
+            </svg>
+          </div>
+          <h3 class="text-base font-semibold text-slate-900 mb-2" style="font-family: 'Lexend', sans-serif;">{title}</h3>
+          <p class="text-sm text-slate-500 leading-relaxed" style="font-family: 'Inter', sans-serif;">{description}</p>
+        </div>
+      ))}
+    </div>
+
+    <a
+      href={ctaHref}
+      class="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition"
+      style="font-family: 'Inter', sans-serif;"
+    >
+      {ctaLabel}
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/>
+      </svg>
+    </a>
+  </div>
+</section>

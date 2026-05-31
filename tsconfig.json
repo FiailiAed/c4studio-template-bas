@@ -10,7 +10,8 @@
           "@styles/*": ["src/styles/*"],
           "@components/*": ["src/components/*"],
           "@lib/*": ["src/lib/*"],
-          "@convex/*": ["convex/_generated/*"]
+          "@convex/*": ["convex/_generated/*"],
+          "@marketing/*": ["src/components/marketing/*"]
       }
   }
 }

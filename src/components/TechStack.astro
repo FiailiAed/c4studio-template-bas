@@ -93,7 +93,7 @@ const stack = [
 ] as const;
 
 const installed = stack.filter(t => t.status === 'installed').length;
-const pending = stack.filter(t => t.status === 'pending').length;
+const pending = stack.filter(t => (t.status as string) === 'pending').length;
 ---
 
 <div class="flex-1 min-w-0">

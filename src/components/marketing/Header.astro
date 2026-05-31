@@ -1,0 +1,117 @@
+---
+interface Props {
+  appName?: string;
+  ctaHref?: string;
+  ctaLabel?: string;
+}
+
+const {
+  appName = 'c4studio',
+  ctaHref = '/contact',
+  ctaLabel = 'Get started',
+} = Astro.props;
+
+const nav = [
+  { label: 'Home',     href: '/' },
+  { label: 'About',    href: '/about' },
+  { label: 'Services', href: '/services' },
+  { label: 'Reviews',  href: '/reviews' },
+  { label: 'Blog',     href: '/blog' },
+  { label: 'Gallery',  href: '/gallery' },
+  { label: 'Contact',  href: '/contact' },
+];
+
+const current = Astro.url.pathname;
+---
+
+<header class="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-slate-100">
+  <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between gap-6">
+
+    <!-- Logo -->
+    <a href="/" class="shrink-0 text-lg font-bold text-slate-900 tracking-tight" style="font-family: 'Lexend', sans-serif;">
+      {appName}
+    </a>
+
+    <!-- Desktop nav -->
+    <nav class="hidden md:flex items-center gap-1" aria-label="Primary">
+      {nav.map(({ label, href }) => (
+        <a
+          href={href}
+          class={`text-sm px-3 py-1.5 rounded-lg transition font-medium ${
+            current === href
+              ? 'text-slate-900 bg-slate-100'
+              : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+          style="font-family: 'Inter', sans-serif;"
+        >
+          {label}
+        </a>
+      ))}
+    </nav>
+
+    <!-- CTA + hamburger -->
+    <div class="flex items-center gap-3">
+      <a
+        href={ctaHref}
+        class="hidden sm:inline-flex text-sm font-semibold bg-slate-900 text-white px-4 py-2 rounded-xl hover:bg-slate-700 transition"
+        style="font-family: 'Inter', sans-serif;"
+      >
+        {ctaLabel}
+      </a>
+
+      <!-- Mobile hamburger -->
+      <button
+        id="mobile-menu-btn"
+        aria-label="Toggle navigation"
+        aria-expanded="false"
+        class="md:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition"
+      >
+        <svg id="icon-open" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
+        </svg>
+        <svg id="icon-close" class="w-5 h-5 hidden" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile menu -->
+  <div id="mobile-menu" class="hidden md:hidden border-t border-slate-100 bg-white px-6 py-4 flex flex-col gap-1">
+    {nav.map(({ label, href }) => (
+      <a
+        href={href}
+        class={`text-sm font-medium px-3 py-2 rounded-lg transition ${
+          current === href
+            ? 'text-slate-900 bg-slate-100'
+            : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+        }`}
+        style="font-family: 'Inter', sans-serif;"
+      >
+        {label}
+      </a>
+    ))}
+    <a
+      href={ctaHref}
+      class="mt-2 text-sm font-semibold bg-slate-900 text-white px-4 py-2.5 rounded-xl hover:bg-slate-700 transition text-center"
+      style="font-family: 'Inter', sans-serif;"
+    >
+      {ctaLabel}
+    </a>
+  </div>
+</header>
+
+<script>
+  const btn = document.getElementById('mobile-menu-btn');
+  const menu = document.getElementById('mobile-menu');
+  const iconOpen = document.getElementById('icon-open');
+  const iconClose = document.getElementById('icon-close');
+
+  btn?.addEventListener('click', () => {
+    const expanded = btn.getAttribute('aria-expanded') === 'true';
+    btn.setAttribute('aria-expanded', String(!expanded));
+    menu?.classList.toggle('hidden');
+    iconOpen?.classList.toggle('hidden');
+    iconClose?.classList.toggle('hidden');
+  });
+</script>

@@ -623,6 +623,57 @@ Do not deviate from these technologies. Do not suggest alternatives.
             </div>
         </section>
 
+        <section id="public-page-template">
+            <h2>13. Public-Facing Page Template</h2>
+            <p>Nine reusable Astro components in <code>src/components/public/</code> that assemble the public landing page. All accept props with sensible defaults so each project can customise without touching the component internals. The home page at <code>/</code> uses all nine.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">tsconfig.json — new path alias</div>
+                    <p class="executive-quote">"@public/*": ["src/components/public/*"] — import any public component with @public/ComponentName.astro.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/components/public/Header.astro</div>
+                    <p class="executive-quote">Sticky top nav. Props: appName, ctaHref, ctaLabel. Desktop nav links (Home, About, Services, Reviews, Blog, Gallery, Contact). Active route highlighted. Mobile hamburger toggle via inline script (aria-expanded, icon swap). "Get Started" CTA button.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/components/public/Hero.astro</div>
+                    <p class="executive-quote">Full dark (slate-900) hero with grid background, blue gradient orbs. Props: headline (supports \n line breaks), subheadline, primaryCta, secondaryCta. Eyebrow label. Two CTAs: solid white + ghost border.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/components/public/TrustBar.astro</div>
+                    <p class="executive-quote">Light gray band with a grid of stat items. Props: stats (array of { value, label }). Defaults to 4 stats (clients, projects, years, rating). 2-col on mobile, 4-col on md+.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/components/public/Services.astro</div>
+                    <p class="executive-quote">White section. Props: eyebrow, heading, subheading, services (array of { title, description, icon SVG path }), ctaHref, ctaLabel. Defaults to 6 service cards. Icon badge inverts on hover (slate-100 → slate-900).</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/components/public/About.astro</div>
+                    <p class="executive-quote">Slate-50 section. Props: eyebrow, heading, body (array of paragraphs), ctaHref, ctaLabel. Two-column layout: text left + image placeholder right. Floating decorative stat card bottom-left. Replace placeholder div with &lt;img&gt; or Astro &lt;Image&gt; in production.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/components/public/Reviews.astro</div>
+                    <p class="executive-quote">White section. Props: eyebrow, heading, reviews (array of { body, authorName, authorTitle, rating }), ctaHref, ctaLabel. 3-col card grid with star rating, avatar initial, author name/title. Defaults to 3 placeholder reviews.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/components/public/Gallery.astro</div>
+                    <p class="executive-quote">Slate-50 section. Props: eyebrow, heading, items (array of { src, alt }), ctaHref, ctaLabel. When items is empty, renders 6 placeholder tiles. When items are passed (from Convex gallery), renders real images with hover zoom.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/components/public/CTA.astro</div>
+                    <p class="executive-quote">Dark (slate-900) full-width CTA banner matching Hero style. Props: heading, subheading, primaryCta, secondaryCta. Centered layout with grid pattern background and blue orb accent.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/components/public/Footer.astro</div>
+                    <p class="executive-quote">Dark (slate-950) footer. Props: appName, tagline. 4-col grid: brand+socials, Company nav, Services nav, Legal nav. Social links (Twitter/X, LinkedIn, GitHub) — update hrefs per project. Copyright year is computed at render time.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/index.astro — updated</div>
+                    <p class="executive-quote">Replaced the template overview with the public landing page. Fetches appName and description from Convex settings (public client, no auth). Passes them as props to Header, Hero, Footer. All nine components render in order: Header (header slot) → Hero → TrustBar → Services → About → Reviews → Gallery → CTA → Footer (footer slot).</p>
+                </div>
+            </div>
+        </section>
+
         <section id="resend-setup">
             <h2>11. Resend Email</h2>
             <p>Install <code>resend</code>, create an internal Convex email action, wire it to contact form submissions and new user registrations via the admin notification settings.</p>

@@ -1,39 +1,38 @@
 ---
 import BaseLayout from '@layouts/BaseLayout.astro';
-import TailwindColorGrid from '@components/TailwindColorGrid.astro';
-import TechStack from '@components/TechStack.astro';
-import DesignSystem from '@components/DesignSystem.astro';
-import SitePages from '@components/SitePages.astro';
+import Header from '@marketing/Header.astro';
+import Hero from '@marketing/Hero.astro';
+import TrustBar from '@marketing/TrustBar.astro';
+import Services from '@marketing/Services.astro';
+import About from '@marketing/About.astro';
+import Reviews from '@marketing/Reviews.astro';
+import Gallery from '@marketing/Gallery.astro';
+import CTA from '@marketing/CTA.astro';
+import Footer from '@marketing/Footer.astro';
 import { convex } from '@lib/convex';
 import { api } from '@convex/api';
 
 const settings = await convex.query(api.settings.get, {});
+
+const appName = settings?.appName ?? 'c4studio';
+const description = settings?.description ?? 'We help ambitious businesses design, build, and grow digital products that stand out.';
 ---
 
-<BaseLayout title="c4studio BAS">
-  <div class="min-h-screen py-16 px-8 bg-slate-50">
-    <div class="mb-12 text-center">
-      <h1 class="text-4xl font-bold tracking-tight text-slate-900" style="font-family: 'Lexend', sans-serif;">c4studio-template-bas</h1>
-      <p class="mt-3 text-lg text-slate-500" style="font-family: 'Inter', sans-serif;">Basic Astro Setup Template for c4studio</p>
-    </div>
+<BaseLayout
+  title={`${appName} — Home`}
+  description={description}
+>
+  <Header slot="header" appName={appName} />
 
-    <div class="flex flex-col gap-16">
-      <!-- Row 1: Color grid + Tech stack -->
-      <div class="flex gap-12 items-start">
-        <TailwindColorGrid />
-        <div class="flex flex-col gap-12 flex-1 min-w-0">
-          <TechStack />
-          <SitePages />
-        </div>
-      </div>
+  <Hero
+    subheadline={description}
+  />
+  <TrustBar />
+  <Services />
+  <About />
+  <Reviews />
+  <Gallery />
+  <CTA />
 
-      <!-- Row 2: Full-width design system -->
-      <DesignSystem
-        primary={settings?.primaryColor ? { name: settings.primaryName ?? 'Primary', hex: settings.primaryColor } : undefined}
-        secondary={settings?.secondaryColor ? { name: settings.secondaryName ?? 'Secondary', hex: settings.secondaryColor } : undefined}
-        tertiary={settings?.tertiaryColor ? { name: settings.tertiaryName ?? 'Tertiary', hex: settings.tertiaryColor } : undefined}
-        neutral={settings?.neutralColor ? { name: settings.neutralName ?? 'Neutral', hex: settings.neutralColor } : undefined}
-      />
-    </div>
-  </div>
+  <Footer slot="footer" appName={appName} tagline={description} />
 </BaseLayout>

@@ -1,24 +1,34 @@
-# Astro Starter Kit: Minimal
+# c4studio B.A.S. — Basic/Bad Ass Astro Setup
+
+## Stack
+
 ```sh
-[x] Runtime: Bun [https://bun.sh]
-[ ] Framework: Astro (SSR enabled) [https://astro.build]
-[ ] Deployment: Vercel (Using edge route handlers, speed insights, and web analytics integration)
-[ ] Database & Backend: Convex (Real-time by default, zero config) [https://docs.convex.dev/llms.txt]
-[ ] Authentication: Clerk (`@clerk/astro`) [https://clerk.com/docs/astro/getting-started/quickstart]
-[ ] Styling: TailwindCSS [https://tailwindcss.com/docs]
-[ ] Emails: Resend [https://resend.com/docs/send-with-astro]
-[ ] Payments: Stripe (`@convex-dev/stripe`) [https://www.convex.dev/components/stripe/stripe.md]
-[ ] Interaction Analytics: PostHog Integration
-[ ] Frontend interactivity: TypeScript. State lives in the DOM. NO REACT OR OTHER LIBRARIES.
+[x] Runtime:              Bun
+[x] Framework:            Astro (SSR enabled) + @astrojs/vercel adapter
+[x] Deployment:           Vercel — Web Analytics via @vercel/analytics
+[x] Database & Backend:   Convex v1.39.1 — schema, HTTP client, path aliases
+[x] Authentication:       Clerk v3.3.2 via @clerk/astro — middleware, JWT auth
+[x] Styling:              TailwindCSS v4 via Vite plugin
+[x] Emails:               Resend v6.12.4 — transactional + admin Communications module
+[x] Payments:             Stripe v0.1.4 via @convex-dev/stripe — webhooks, billing page
+[x] Analytics:            PostHog — client snippet (every page) + server-side capture
+[x] Frontend interactivity: TypeScript only. State lives in the DOM. NO REACT.
+```
+
+## Admin Portal — Completed Modules
+
+```sh
+[x] Settings       — /admin/settings       — general, feature flags, notifications, design system, danger zone
+[x] Pages          — /admin/pages          — control public page visibility (active / planned / hidden)
+[x] Users          — /admin/users          — view accounts, assign roles
+[x] Billing        — /admin/billing        — Stripe subscriptions, payments, invoices per user
+[x] Funnels        — /admin/funnels        — create, edit, publish (slug auto-gen)
+[x] Shops          — /admin/shops          — create, edit, publish (slug auto-gen)
+[x] Booking Links  — /admin/booking-links  — create, edit, publish (slug auto-gen)
+[x] Communications — /admin/communications — Compose, Broadcast, Templates, History (Resend)
 ```
 
 ## Outstanding Tasks
-
-### Stack Integrations
-```sh
-[x] Resend — email sending (sendAdminAlert action, contacts CRUD, new-user alert wired)
-[ ] PostHog — interaction analytics (not started)
-```
 
 ### Admin Content Modules
 ```sh
@@ -41,7 +51,17 @@
 
 ### Public Pages for Dynamic Entities
 ```sh
-[ ] Funnels      — /funnels/[slug]       — public-facing funnel pages
-[ ] Shops        — /shops/[slug]         — public-facing shop pages
-[ ] Booking Links — /booking-links/[slug] — public-facing booking pages
+[ ] Funnels       — /funnels/[slug]        — public-facing funnel pages
+[ ] Shops         — /shops/[slug]          — public-facing shop pages
+[ ] Booking Links — /booking-links/[slug]  — public-facing booking pages
+```
+
+## Commands
+
+```sh
+bun dev          # Start dev server at localhost:4321
+bun build        # Build production site to ./dist/
+bun preview      # Preview production build locally
+bun astro check  # Type-check .astro files
+bunx convex dev  # Start Convex dev server (run alongside bun dev)
 ```

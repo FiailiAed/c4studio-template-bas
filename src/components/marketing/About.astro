@@ -1,0 +1,73 @@
+---
+interface Props {
+  eyebrow?: string;
+  heading?: string;
+  body?: string[];
+  ctaHref?: string;
+  ctaLabel?: string;
+}
+
+const {
+  eyebrow = 'Our story',
+  heading = 'We build with\npurpose.',
+  body = [
+    'Founded on the belief that great software should be both powerful and a joy to use, we bring together designers, engineers, and strategists under one roof.',
+    'Every project starts with listening — understanding your goals, your users, and the problems worth solving. From there we move fast, iterate openly, and ship work we\'re proud of.',
+  ],
+  ctaHref = '/about',
+  ctaLabel = 'Meet the team',
+} = Astro.props;
+---
+
+<section class="bg-slate-50 py-24 md:py-32">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+
+      <!-- Text -->
+      <div>
+        <p class="inline-flex items-center gap-2 text-xs font-semibold text-blue-600 uppercase tracking-widest mb-4" style="font-family: 'Inter', sans-serif;">
+          <span class="w-6 h-px bg-blue-600"></span>
+          {eyebrow}
+        </p>
+        <h2 class="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight leading-tight mb-6 whitespace-pre-line" style="font-family: 'Lexend', sans-serif;">
+          {heading}
+        </h2>
+        <div class="flex flex-col gap-4 mb-8">
+          {body.map((paragraph) => (
+            <p class="text-slate-500 leading-relaxed" style="font-family: 'Inter', sans-serif;">{paragraph}</p>
+          ))}
+        </div>
+        <a
+          href={ctaHref}
+          class="inline-flex items-center gap-2 text-sm font-semibold bg-slate-900 text-white px-5 py-3 rounded-xl hover:bg-slate-700 transition"
+          style="font-family: 'Inter', sans-serif;"
+        >
+          {ctaLabel}
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/>
+          </svg>
+        </a>
+      </div>
+
+      <!-- Visual placeholder -->
+      <div class="relative">
+        <div class="aspect-square rounded-3xl bg-slate-200 overflow-hidden flex items-center justify-center">
+          <!-- Replace with <Image> or <img> pointing to your about photo -->
+          <div class="flex flex-col items-center gap-3 text-slate-400">
+            <svg class="w-12 h-12" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"/>
+            </svg>
+            <p class="text-xs font-medium" style="font-family: 'Inter', sans-serif;">About photo</p>
+          </div>
+        </div>
+
+        <!-- Decorative floating card -->
+        <div class="absolute -bottom-6 -left-6 bg-white rounded-2xl shadow-lg border border-slate-100 px-5 py-4">
+          <p class="text-2xl font-bold text-slate-900" style="font-family: 'Lexend', sans-serif;">8+</p>
+          <p class="text-xs text-slate-500 mt-0.5" style="font-family: 'Inter', sans-serif;">Years crafting digital products</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
