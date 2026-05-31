@@ -2,6 +2,7 @@
 import BaseLayout from '@layouts/BaseLayout.astro';
 import { getAuthedConvex } from '@lib/convex';
 import { api } from '@convex/api';
+import { getPostHogServer } from '@lib/posthog-server';
 
 const { userId } = Astro.locals.auth();
 if (!userId) return Astro.redirect('/sign-in');
@@ -26,6 +27,18 @@ if (Astro.request.method === 'POST') {
       await client.mutation(api.users.createOrUpdate, {
         name,
         email,
+      });
+      const posthog = getPostHogServer();
+      const sessionId = Astro.request.headers.get('X-PostHog-Session-Id');
+      posthog.identify({ distinctId: userId, properties: { name, email } });
+      posthog.capture({
+        distinctId: userId,
+        event: 'onboarding_completed',
+        properties: {
+          $session_id: sessionId || undefined,
+          name,
+          email,
+        },
       });
       return Astro.redirect('/dashboard');
     } catch (e) {
@@ -100,3 +113,8 @@ const defaultEmail = clerkUser?.emailAddresses?.[0]?.emailAddress ?? '';
     </div>
   </div>
 </BaseLayout>
+
+<script is:inline define:vars={{ clerkUserId: userId }}>
+  window.posthog?.identify(clerkUserId);
+  window.posthog?.capture('onboarding_viewed');
+</script>

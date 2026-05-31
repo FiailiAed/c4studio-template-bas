@@ -263,7 +263,7 @@ Do not deviate from these technologies. Do not suggest alternatives.
 [x] Styling: TailwindCSS v4 [https://tailwindcss.com/docs]
 [x] Emails: Resend v6.12.4 — internalAction sendAdminAlert, contacts CRUD, new-user alert wired
 [x] Payments: Stripe v0.1.4 via @convex-dev/stripe — convex.config.ts, http.ts webhook, payments.ts actions
-[ ] Interaction Analytics: PostHog Integration
+[x] Interaction Analytics: PostHog v1.x (posthog-js + posthog-node) — client snippet in BaseLayout, server singleton at src/lib/posthog-server.ts, 9 events across 7 pages
 [x] Frontend interactivity: State lives in the DOM. NO REACT OR OTHER LIBRARIES.
             </div>
         </section>
@@ -657,6 +657,58 @@ Do not deviate from these technologies. Do not suggest alternatives.
                     <div class="executive-title">Activation via admin settings</div>
                     <p class="executive-quote">Go to /admin/settings → Notifications section. Set adminAlertEmail and toggle on "New contact submission" and/or "New user registration".</p>
                     <p class="executive-quote">No emails send until both the env vars are set in Convex AND the toggles are enabled in settings.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="posthog-setup">
+            <h2>13. PostHog Analytics</h2>
+            <p>Install <code>posthog-js</code> and <code>posthog-node</code>. Add a client-side snippet to BaseLayout and a server-side singleton for tracking events from Astro SSR pages and API routes.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">Install</div>
+                    <p class="executive-quote">bun add posthog-js posthog-node</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">.env — four required variables</div>
+                    <p class="executive-quote">PUBLIC_POSTHOG_PROJECT_TOKEN=phc_... (exposed to browser via PUBLIC_ prefix)</p>
+                    <p class="executive-quote">PUBLIC_POSTHOG_HOST=https://us.i.posthog.com</p>
+                    <p class="executive-quote">POSTHOG_PROJECT_TOKEN=phc_... (server-only, no PUBLIC_ prefix)</p>
+                    <p class="executive-quote">POSTHOG_HOST=https://us.i.posthog.com</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/components/posthog.astro — client snippet</div>
+                    <p class="executive-quote">Uses is:inline + define:vars to inject token and host from env vars without Astro processing the script.</p>
+                    <p class="executive-quote">Calls posthog.init() with defaults: '2026-01-30'.</p>
+                    <p class="executive-quote">IMPORTANT: Always use is:inline on PostHog script tags. Without it Astro processes the script and throws TypeScript errors.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/layouts/BaseLayout.astro — include PostHog</div>
+                    <p class="executive-quote">import PostHog from '@components/posthog.astro';</p>
+                    <p class="executive-quote">Add &lt;PostHog /&gt; inside &lt;head&gt; just before the closing &lt;/head&gt; tag.</p>
+                    <p class="executive-quote">Because BaseLayout wraps every page, PostHog loads on every route automatically.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/lib/posthog-server.ts — server singleton</div>
+                    <p class="executive-quote">Exports getPostHogServer() — creates one PostHog (posthog-node) instance and reuses it. Reads POSTHOG_PROJECT_TOKEN and POSTHOG_HOST from import.meta.env.</p>
+                    <p class="executive-quote">flushAt: 1, flushInterval: 0 for immediate flush in SSR context.</p>
+                    <p class="executive-quote">Exports shutdownPostHog() for graceful drain on server shutdown.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">Events instrumented (9 events across 7 files)</div>
+                    <p class="executive-quote">onboarding_viewed (client) + onboarding_completed (server) — src/pages/onboarding.astro. Server also calls posthog.identify() with name and email.</p>
+                    <p class="executive-quote">funnel_created (server) — src/pages/admin/funnels/index.astro</p>
+                    <p class="executive-quote">shop_created (server) — src/pages/admin/shops/index.astro</p>
+                    <p class="executive-quote">booking_link_created (server) — src/pages/admin/booking-links/index.astro</p>
+                    <p class="executive-quote">email_sent (server) — src/pages/admin/communications/compose.astro</p>
+                    <p class="executive-quote">email_broadcast_sent (server) — src/pages/admin/communications/broadcast.astro</p>
+                    <p class="executive-quote">user_role_changed + user_removed (server) — src/pages/admin/users.astro</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">User identification pattern</div>
+                    <p class="executive-quote">Server: posthog.identify({ distinctId: clerkUserId, properties: { name, email } }) called on onboarding_completed.</p>
+                    <p class="executive-quote">Client: window.posthog?.identify(clerkUserId) called on the onboarding page via define:vars passing the Clerk userId from the frontmatter.</p>
+                    <p class="executive-quote">All server captures use the Clerk userId (from Astro.locals.auth().userId) as the distinctId for consistent identity.</p>
                 </div>
             </div>
         </section>

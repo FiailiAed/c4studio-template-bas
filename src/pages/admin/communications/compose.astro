@@ -3,6 +3,7 @@ import BaseLayout from '@layouts/BaseLayout.astro';
 import { SignOutButton, UserButton } from '@clerk/astro/components';
 import { getAuthedConvex } from '@lib/convex';
 import { api } from '@convex/api';
+import { getPostHogServer } from '@lib/posthog-server';
 
 const { userId } = Astro.locals.auth();
 if (!userId) return Astro.redirect('/sign-in');
@@ -32,6 +33,16 @@ if (Astro.request.method === 'POST') {
       templateId: templateId as any,
     });
     successMessage = `Email sent to ${to}.`;
+    const posthog = getPostHogServer();
+    posthog.capture({
+      distinctId: userId,
+      event: 'email_sent',
+      properties: {
+        recipient: to,
+        subject,
+        used_template: !!templateId,
+      },
+    });
   } catch (err) {
     errorMessage = err instanceof Error ? err.message : 'Failed to send email.';
   }

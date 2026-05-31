@@ -4,6 +4,7 @@ import { SignOutButton, UserButton } from '@clerk/astro/components';
 import { getAuthedConvex } from '@lib/convex';
 import { api } from '@convex/api';
 import type { Id } from '@convex/dataModel';
+import { getPostHogServer } from '@lib/posthog-server';
 
 const { userId } = Astro.locals.auth();
 if (!userId) return Astro.redirect('/sign-in');
@@ -28,15 +29,19 @@ if (Astro.request.method === 'POST') {
     actionError = { id: '', message: 'Invalid request.' };
   } else {
     try {
+      const posthog = getPostHogServer();
       if (action === 'make-admin') {
         await client.mutation(api.users.setRole, { userId: targetId, role: 'admin' });
         successMessage = 'User promoted to admin.';
+        posthog.capture({ distinctId: userId, event: 'user_role_changed', properties: { target_user_id: targetId, new_role: 'admin' } });
       } else if (action === 'make-user') {
         await client.mutation(api.users.setRole, { userId: targetId, role: 'user' });
         successMessage = 'User demoted to user.';
+        posthog.capture({ distinctId: userId, event: 'user_role_changed', properties: { target_user_id: targetId, new_role: 'user' } });
       } else if (action === 'remove') {
         await client.mutation(api.users.remove, { userId: targetId });
         successMessage = 'User removed.';
+        posthog.capture({ distinctId: userId, event: 'user_removed', properties: { target_user_id: targetId } });
       }
     } catch {
       actionError = { id: targetId, message: 'Action failed. Please try again.' };
