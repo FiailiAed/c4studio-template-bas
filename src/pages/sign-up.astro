@@ -1,0 +1,14 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { SignUp } from '@clerk/astro/components';
+
+// Redirect to dashboard if already signed in
+const { userId } = Astro.locals.auth();
+if (userId) return Astro.redirect('/dashboard');
+---
+
+<BaseLayout title="Sign Up — c4studio BAS">
+  <div class="min-h-screen flex items-center justify-center bg-slate-50 py-16 px-4">
+    <SignUp />
+  </div>
+</BaseLayout>

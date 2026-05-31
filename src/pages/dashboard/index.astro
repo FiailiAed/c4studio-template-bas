@@ -1,0 +1,75 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { SignOutButton, UserButton } from '@clerk/astro/components';
+import { getAuthedConvex } from '@lib/convex';
+import { api } from '@convex/api';
+
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect('/sign-in');
+
+const token = await Astro.locals.auth().getToken({ template: 'convex' });
+const client = getAuthedConvex(token);
+const user = await client.query(api.users.getByClerkId, { clerkId: userId });
+
+// If no user record, send through onboarding
+if (!user) return Astro.redirect('/onboarding');
+---
+
+<BaseLayout title="Dashboard — c4studio BAS">
+  <div class="min-h-screen bg-slate-50">
+    <!-- Nav -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <span class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Dashboard</span>
+      <div class="flex items-center gap-4">
+        <UserButton />
+        <SignOutButton>
+          <button
+            class="text-sm text-slate-500 hover:text-slate-900 transition"
+            style="font-family: 'Inter', sans-serif;"
+          >
+            Sign out
+          </button>
+        </SignOutButton>
+      </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-6 py-12">
+      <h1 class="text-3xl font-bold tracking-tight text-slate-900 mb-2" style="font-family: 'Lexend', sans-serif;">
+        Welcome back{user.name ? `, ${user.name.split(' ')[0]}` : ''}
+      </h1>
+      <p class="text-slate-500 mb-10" style="font-family: 'Inter', sans-serif;">
+        Here's an overview of your account.
+      </p>
+
+      <!-- Info card -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-white rounded-2xl border border-slate-200 p-5">
+          <p class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1" style="font-family: 'Inter', sans-serif;">Name</p>
+          <p class="text-sm font-semibold text-slate-900" style="font-family: 'Inter', sans-serif;">{user.name ?? '—'}</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-5">
+          <p class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1" style="font-family: 'Inter', sans-serif;">Email</p>
+          <p class="text-sm font-semibold text-slate-900" style="font-family: 'Inter', sans-serif;">{user.email}</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-5">
+          <p class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1" style="font-family: 'Inter', sans-serif;">Role</p>
+          <span class={`inline-flex text-xs font-medium px-2 py-0.5 rounded-full ${user.role === 'admin' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}`} style="font-family: 'Inter', sans-serif;">
+            {user.role}
+          </span>
+        </div>
+      </div>
+
+      {user.role === 'admin' && (
+        <div class="mt-6">
+          <a
+            href="/admin"
+            class="inline-flex items-center gap-2 text-sm font-medium text-slate-900 underline underline-offset-4"
+            style="font-family: 'Inter', sans-serif;"
+          >
+            Go to Admin Portal →
+          </a>
+        </div>
+      )}
+    </main>
+  </div>
+</BaseLayout>

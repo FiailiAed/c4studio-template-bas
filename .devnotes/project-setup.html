@@ -259,7 +259,7 @@ Do not deviate from these technologies. Do not suggest alternatives.
 [x] Framework: Astro (SSR enabled) [https://astro.build]
 [x] Deployment: Vercel — Web Analytics added via @vercel/analytics v2.0.1
 [x] Database & Backend: Convex v1.39.1 — schema, HTTP client, path aliases configured
-[ ] Authentication: Clerk (`@clerk/astro`) [https://clerk.com/docs/astro/getting-started/quickstart]
+[x] Authentication: Clerk v3.3.2 via @clerk/astro — middleware, Convex JWT auth configured
 [x] Styling: TailwindCSS v4 [https://tailwindcss.com/docs]
 [ ] Emails: Resend [https://resend.com/docs/send-with-astro]
 [ ] Payments: Stripe (`@convex-dev/stripe`) [https://www.convex.dev/components/stripe/stripe.md]
@@ -378,6 +378,71 @@ Do not deviate from these technologies. Do not suggest alternatives.
                     <div class="executive-title">tsconfig.json — new path aliases</div>
                     <p class="executive-quote">"@lib/*": ["src/lib/*"]</p>
                     <p class="executive-quote">"@convex/*": ["convex/_generated/*"]</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="clerk-setup">
+            <h2>6. Clerk Authentication</h2>
+            <p>Install <code>@clerk/astro</code> and <code>@astrojs/vercel</code>, enable SSR, add Clerk middleware, and wire Convex to validate Clerk JWTs.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">Install</div>
+                    <p class="executive-quote">bun add @clerk/astro @astrojs/vercel</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">astro.config.mjs — SSR + adapter + Clerk integration</div>
+                    <p class="executive-quote">import clerk from '@clerk/astro';</p>
+                    <p class="executive-quote">import vercel from '@astrojs/vercel';</p>
+                    <p class="executive-quote">output: 'server', adapter: vercel(), integrations: [clerk()]</p>
+                    <p class="executive-quote">NOTE: Clerk requires SSR mode. The Vercel adapter is added here as the deployment target.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/middleware.ts</div>
+                    <p class="executive-quote">Uses clerkMiddleware + createRouteMatcher from '@clerk/astro/server'.</p>
+                    <p class="executive-quote">Protected routes: /admin(.*), /dashboard(.*) — calls auth.protect() on match.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/auth.config.ts</div>
+                    <p class="executive-quote">Configures Convex to validate Clerk JWTs. domain = CLERK_JWT_ISSUER_DOMAIN env var. applicationID = "convex".</p>
+                    <p class="executive-quote">After creating/changing this file, run bunx convex dev or bunx convex deploy so the backend picks up the new config.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/lib/convex.ts — authenticated client helper</div>
+                    <p class="executive-quote">Added getAuthedConvex(token) — creates a per-request ConvexHttpClient with auth set.</p>
+                    <p class="executive-quote">Usage in Astro SSR: const token = await Astro.locals.auth().getToken({ template: 'convex' }); const client = getAuthedConvex(token);</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">Required env vars (.env.local)</div>
+                    <p class="executive-quote">PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...</p>
+                    <p class="executive-quote">CLERK_SECRET_KEY=sk_test_...</p>
+                    <p class="executive-quote">CLERK_JWT_ISSUER_DOMAIN=https://your-app.clerk.accounts.dev</p>
+                    <p class="executive-quote">Activate the Convex integration in Clerk at: https://dashboard.clerk.com/apps/setup/convex</p>
+                    <p class="executive-quote">PUBLIC_CLERK_SIGN_IN_URL=/sign-in</p>
+                    <p class="executive-quote">PUBLIC_CLERK_SIGN_UP_URL=/sign-up</p>
+                    <p class="executive-quote">PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/dashboard</p>
+                    <p class="executive-quote">PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/onboarding</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">Auth flow pages</div>
+                    <p class="executive-quote">src/pages/sign-in.astro — renders &lt;SignIn /&gt; from @clerk/astro/components. Redirects to /dashboard if already signed in.</p>
+                    <p class="executive-quote">src/pages/sign-up.astro — renders &lt;SignUp /&gt;. Redirects to /dashboard if already signed in.</p>
+                    <p class="executive-quote">src/pages/onboarding.astro — POST handler creates Convex user record via api.users.createOrUpdate. Pre-fills name/email from Clerk session. Redirects to /dashboard on success.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">Protected pages</div>
+                    <p class="executive-quote">src/pages/dashboard/index.astro — requires auth, requires Convex user record (else → /onboarding). Shows user info card.</p>
+                    <p class="executive-quote">src/pages/admin/index.astro — requires auth + role === 'admin' (else → /dashboard). Shows admin module nav grid.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/users.ts</div>
+                    <p class="executive-quote">createOrUpdate mutation — upserts user by clerkId. Called from onboarding POST.</p>
+                    <p class="executive-quote">getByClerkId query — looks up user by clerkId. Used on dashboard + admin to gate access.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">Middleware gotcha</div>
+                    <p class="executive-quote">In @clerk/astro v3, the middleware handler receives auth as a FUNCTION. Call auth() to get the auth object with redirectToSignIn(). auth.protect() does NOT exist — calling it throws "auth.protect is not a function".</p>
+                    <p class="executive-quote">Correct pattern: const authObject = auth(); if (!authObject.userId) return authObject.redirectToSignIn();</p>
                 </div>
             </div>
         </section>

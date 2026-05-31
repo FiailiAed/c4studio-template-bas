@@ -1,0 +1,103 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { getAuthedConvex } from '@lib/convex';
+import { api } from '@convex/api';
+
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect('/sign-in');
+
+// Check if user record already exists — skip onboarding if so
+const token = await Astro.locals.auth().getToken({ template: 'convex' });
+const client = getAuthedConvex(token);
+const existingUser = await client.query(api.users.getByClerkId, { clerkId: userId });
+if (existingUser) return Astro.redirect('/dashboard');
+
+let error: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const name = (data.get('name') as string)?.trim();
+  const email = (data.get('email') as string)?.trim();
+
+  if (!name || !email) {
+    error = 'Name and email are required.';
+  } else {
+    try {
+      await client.mutation(api.users.createOrUpdate, {
+        clerkId: userId,
+        name,
+        email,
+      });
+      return Astro.redirect('/dashboard');
+    } catch (e) {
+      error = 'Something went wrong. Please try again.';
+    }
+  }
+}
+
+// Pre-fill from Clerk session if available
+const clerkUser = await Astro.locals.currentUser();
+const defaultName  = clerkUser?.fullName ?? '';
+const defaultEmail = clerkUser?.emailAddresses?.[0]?.emailAddress ?? '';
+---
+
+<BaseLayout title="Welcome — c4studio BAS">
+  <div class="min-h-screen flex items-center justify-center bg-slate-50 py-16 px-4">
+    <div class="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
+      <h1 class="text-2xl font-bold tracking-tight text-slate-900 mb-1" style="font-family: 'Lexend', sans-serif;">
+        Welcome aboard
+      </h1>
+      <p class="text-sm text-slate-500 mb-8" style="font-family: 'Inter', sans-serif;">
+        Let's finish setting up your account.
+      </p>
+
+      {error && (
+        <div class="mb-6 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700" style="font-family: 'Inter', sans-serif;">
+          {error}
+        </div>
+      )}
+
+      <form method="POST" class="flex flex-col gap-5">
+        <div class="flex flex-col gap-1.5">
+          <label for="name" class="text-sm font-medium text-slate-700" style="font-family: 'Inter', sans-serif;">
+            Full name
+          </label>
+          <input
+            id="name"
+            name="name"
+            type="text"
+            required
+            value={defaultName}
+            placeholder="Jane Smith"
+            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition"
+            style="font-family: 'Inter', sans-serif;"
+          />
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label for="email" class="text-sm font-medium text-slate-700" style="font-family: 'Inter', sans-serif;">
+            Email address
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            required
+            value={defaultEmail}
+            placeholder="jane@example.com"
+            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition"
+            style="font-family: 'Inter', sans-serif;"
+          />
+        </div>
+
+        <button
+          type="submit"
+          class="w-full mt-2 py-2.5 px-4 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition"
+          style="font-family: 'Inter', sans-serif;"
+        >
+          Complete setup
+        </button>
+      </form>
+    </div>
+  </div>
+</BaseLayout>

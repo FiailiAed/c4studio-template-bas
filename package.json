@@ -9,10 +9,17 @@
     "astro": "astro"
   },
   "dependencies": {
+    "@astrojs/vercel": "^10.0.8",
+    "@clerk/astro": "^3.3.2",
     "@tailwindcss/vite": "^4.3.0",
     "@vercel/analytics": "^2.0.1",
     "astro": "^6.3.7",
     "convex": "^1.39.1",
     "tailwindcss": "^4.3.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.9",
+    "@types/node": "^25.9.1",
+    "typescript": "^6.0.3"
   }
 }
