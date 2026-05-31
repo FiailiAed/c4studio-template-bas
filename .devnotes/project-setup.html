@@ -261,7 +261,7 @@ Do not deviate from these technologies. Do not suggest alternatives.
 [x] Database & Backend: Convex v1.39.1 — schema, HTTP client, path aliases configured
 [x] Authentication: Clerk v3.3.2 via @clerk/astro — middleware, Convex JWT auth configured
 [x] Styling: TailwindCSS v4 [https://tailwindcss.com/docs]
-[ ] Emails: Resend [https://resend.com/docs/send-with-astro]
+[x] Emails: Resend v6.12.4 — internalAction sendAdminAlert, contacts CRUD, new-user alert wired
 [x] Payments: Stripe v0.1.4 via @convex-dev/stripe — convex.config.ts, http.ts webhook, payments.ts actions
 [ ] Interaction Analytics: PostHog Integration
 [x] Frontend interactivity: State lives in the DOM. NO REACT OR OTHER LIBRARIES.
@@ -580,6 +580,83 @@ Do not deviate from these technologies. Do not suggest alternatives.
                     <div class="executive-title">src/pages/admin/index.astro — dynamic sections</div>
                     <p class="executive-quote">Fetches all three lists in parallel via Promise.all at the top of the frontmatter.</p>
                     <p class="executive-quote">Static sections (Management, Content) remain unchanged. Dynamic sections (Funnels, Shops, Booking Links) rendered below: one card per DB record linking to /admin/{entity}/{id}, plus a dashed "+ New" card linking to the list page. Each section has a "View all →" link.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="admin-communications">
+            <h2>12. Admin Communications Module</h2>
+            <p>Full email management hub in the admin portal: compose one-off emails, broadcast to all users, manage reusable templates, and view a send history log. Powered by Resend via two new Convex actions.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/schema.ts — two new tables</div>
+                    <p class="executive-quote">emailTemplates — fields: name, subject, htmlBody. Index: by_name.</p>
+                    <p class="executive-quote">emailLogs — fields: type (single | broadcast), recipients (array), subject, templateId (optional), sentByClerkId, recipientCount. No index needed — queried desc by _creationTime.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/emailTemplates.ts</div>
+                    <p class="executive-quote">list (query), get (query by id), create (mutation), update (mutation), remove (mutation).</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/emailLogs.ts</div>
+                    <p class="executive-quote">create (internalMutation) — only called from email actions. list (query, order desc, take 100).</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/email.ts — new public actions</div>
+                    <p class="executive-quote">sendEmail (action) — auth-gated, admin-only. Sends to single recipient, logs to emailLogs.</p>
+                    <p class="executive-quote">sendBroadcast (action) — auth-gated, admin-only. Fetches all users, uses resend.batch.send(), logs to emailLogs.</p>
+                    <p class="executive-quote">Both actions: verify identity + admin role via ctx.auth.getUserIdentity() + ctx.runQuery(api.users.getByClerkId). Generate plain-text fallback via stripHtml().</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">Admin pages (6 files)</div>
+                    <p class="executive-quote">src/pages/admin/communications/index.astro — hub with stats (templates, emails sent, total recipients) and 4 feature cards.</p>
+                    <p class="executive-quote">src/pages/admin/communications/compose.astro — POST calls client.action(api.email.sendEmail). Users datalist for recipient autocomplete. Template picker pre-fills subject + body via inline script.</p>
+                    <p class="executive-quote">src/pages/admin/communications/broadcast.astro — POST calls client.action(api.email.sendBroadcast). Shows user count warning. Confirm dialog before submit.</p>
+                    <p class="executive-quote">src/pages/admin/communications/templates/index.astro — list + collapsible create form (POST action=create).</p>
+                    <p class="executive-quote">src/pages/admin/communications/templates/[id].astro — edit form (action=update) + danger zone delete (action=delete → redirect).</p>
+                    <p class="executive-quote">src/pages/admin/communications/history.astro — read-only log table: type badge, subject, recipients, count, sent timestamp.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/admin/index.astro — Communications section</div>
+                    <p class="executive-quote">Fetches emailTemplates.list and emailLogs.list for live counts. Renders 4 active cards above the dynamic entity sections.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="resend-setup">
+            <h2>11. Resend Email</h2>
+            <p>Install <code>resend</code>, create an internal Convex email action, wire it to contact form submissions and new user registrations via the admin notification settings.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">Install</div>
+                    <p class="executive-quote">bun add resend</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/email.ts — internalAction sendAdminAlert</div>
+                    <p class="executive-quote">"use node" — required because Resend SDK may use Node.js built-ins.</p>
+                    <p class="executive-quote">Args: to (string), subject (string), html (string).</p>
+                    <p class="executive-quote">Reads RESEND_API_KEY and RESEND_FROM_EMAIL from process.env. Returns null silently if API key is missing.</p>
+                    <p class="executive-quote">Called via ctx.scheduler.runAfter(0, internal.email.sendAdminAlert, { ... }) from mutations — never called directly from queries.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/contacts.ts — CRUD + email trigger</div>
+                    <p class="executive-quote">create mutation — inserts contact, then checks appSettings.notifyOnContact + appSettings.adminAlertEmail. Schedules sendAdminAlert if both are truthy.</p>
+                    <p class="executive-quote">list (query, desc, take 100), listUnread (query, by_read index), markRead (mutation), remove (mutation).</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/users.ts — new user email trigger</div>
+                    <p class="executive-quote">createOrUpdate mutation updated: on new insert (not update), checks appSettings.notifyOnNewUser + appSettings.adminAlertEmail. Schedules sendAdminAlert if both are truthy.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">Required Convex env vars (set via CLI)</div>
+                    <p class="executive-quote">bunx convex env set RESEND_API_KEY re_...</p>
+                    <p class="executive-quote">bunx convex env set RESEND_FROM_EMAIL noreply@yourdomain.com</p>
+                    <p class="executive-quote">NOTE: RESEND_FROM_EMAIL must be a verified domain in Resend. For testing, Resend provides onboarding@resend.dev but only sends to the account owner's email.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">Activation via admin settings</div>
+                    <p class="executive-quote">Go to /admin/settings → Notifications section. Set adminAlertEmail and toggle on "New contact submission" and/or "New user registration".</p>
+                    <p class="executive-quote">No emails send until both the env vars are set in Convex AND the toggles are enabled in settings.</p>
                 </div>
             </div>
         </section>

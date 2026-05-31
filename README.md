@@ -16,7 +16,7 @@
 
 ### Stack Integrations
 ```sh
-[ ] Resend — email sending (notifications in Settings are wired but nothing sends yet)
+[x] Resend — email sending (sendAdminAlert action, contacts CRUD, new-user alert wired)
 [ ] PostHog — interaction analytics (not started)
 ```
 

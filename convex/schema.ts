@@ -99,6 +99,23 @@ export default defineSchema({
     status: v.union(v.literal('active'), v.literal('planned'), v.literal('hidden')),
   }).index('by_route', ['route']),
 
+  // Email templates for the Communications module
+  emailTemplates: defineTable({
+    name: v.string(),
+    subject: v.string(),
+    htmlBody: v.string(),
+  }).index("by_name", ["name"]),
+
+  // Log of all emails sent from the admin portal
+  emailLogs: defineTable({
+    type: v.union(v.literal("single"), v.literal("broadcast")),
+    recipients: v.array(v.string()),
+    subject: v.string(),
+    templateId: v.optional(v.id("emailTemplates")),
+    sentByClerkId: v.string(),
+    recipientCount: v.number(),
+  }),
+
   // Singleton app-wide settings document
   appSettings: defineTable({
     // General

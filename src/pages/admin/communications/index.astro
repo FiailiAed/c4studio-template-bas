@@ -1,0 +1,109 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { SignOutButton, UserButton } from '@clerk/astro/components';
+import { getAuthedConvex } from '@lib/convex';
+import { api } from '@convex/api';
+
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect('/sign-in');
+
+const token = await Astro.locals.auth().getToken({ template: 'convex' });
+const client = getAuthedConvex(token);
+
+const currentUser = await client.query(api.users.getByClerkId, { clerkId: userId });
+if (!currentUser) return Astro.redirect('/onboarding');
+if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
+
+const [templates, logs] = await Promise.all([
+  client.query(api.emailTemplates.list, {}),
+  client.query(api.emailLogs.list, {}),
+]);
+
+const totalSent = logs.reduce((sum, l) => sum + l.recipientCount, 0);
+---
+
+<BaseLayout title="Communications — Admin Portal">
+  <div class="min-h-screen bg-slate-50">
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/admin" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Admin Portal</a>
+        <span class="text-slate-300">/</span>
+        <span class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Communications</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Home</a>
+        <a href="/dashboard" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Dashboard</a>
+        <UserButton />
+        <SignOutButton>
+          <button class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Sign out</button>
+        </SignOutButton>
+      </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-6 py-12">
+      <h1 class="text-3xl font-bold tracking-tight text-slate-900 mb-2" style="font-family: 'Lexend', sans-serif;">Communications</h1>
+      <p class="text-slate-500 mb-10" style="font-family: 'Inter', sans-serif;">Send emails, manage templates, and view send history.</p>
+
+      <!-- Stats -->
+      <div class="grid grid-cols-3 gap-4 mb-10">
+        {[
+          { label: 'Templates saved', value: templates.length },
+          { label: 'Emails sent', value: logs.length },
+          { label: 'Total recipients', value: totalSent },
+        ].map(({ label, value }) => (
+          <div class="bg-white rounded-2xl border border-slate-200 px-6 py-5">
+            <p class="text-3xl font-bold text-slate-900 tracking-tight" style="font-family: 'Lexend', sans-serif;">{value}</p>
+            <p class="text-sm text-slate-500 mt-1" style="font-family: 'Inter', sans-serif;">{label}</p>
+          </div>
+        ))}
+      </div>
+
+      <!-- Feature cards -->
+      <div class="grid grid-cols-2 gap-5">
+        {[
+          {
+            href: '/admin/communications/compose',
+            label: 'Compose',
+            desc: 'Send a one-off email to any address or pick a registered user.',
+            accent: 'border-sky-400',
+            icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75"/>`,
+          },
+          {
+            href: '/admin/communications/broadcast',
+            label: 'Broadcast',
+            desc: 'Send an email to all registered users in one action.',
+            accent: 'border-rose-400',
+            icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 1 1 0-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 0 1-1.44-4.282m3.102.069a18.03 18.03 0 0 1-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 0 1 8.835 2.535M10.34 6.66a23.847 23.847 0 0 1 8.835-2.535m0 0A23.74 23.74 0 0 1 18.795 3m.38 1.125a23.91 23.91 0 0 1 1.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 0 0 1.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 0 1 0 3.46"/>`,
+          },
+          {
+            href: '/admin/communications/templates',
+            label: 'Templates',
+            desc: `${templates.length} saved template${templates.length !== 1 ? 's' : ''}. Create reusable subjects and HTML bodies.`,
+            accent: 'border-violet-400',
+            icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>`,
+          },
+          {
+            href: '/admin/communications/history',
+            label: 'History',
+            desc: `${logs.length} email${logs.length !== 1 ? 's' : ''} sent · ${totalSent} total recipient${totalSent !== 1 ? 's' : ''}.`,
+            accent: 'border-emerald-400',
+            icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>`,
+          },
+        ].map(({ href, label, desc, accent, icon }) => (
+          <a
+            href={href}
+            class={`group bg-white rounded-2xl border border-slate-200 border-l-4 ${accent} p-6 hover:shadow-md transition flex gap-4 items-start`}
+          >
+            <div class="w-10 h-10 rounded-xl bg-slate-100 group-hover:bg-slate-200 transition flex items-center justify-center shrink-0 mt-0.5">
+              <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" set:html={icon} />
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-slate-900 group-hover:underline mb-1" style="font-family: 'Lexend', sans-serif;">{label}</p>
+              <p class="text-xs text-slate-500 leading-relaxed" style="font-family: 'Inter', sans-serif;">{desc}</p>
+            </div>
+          </a>
+        ))}
+      </div>
+    </main>
+  </div>
+</BaseLayout>

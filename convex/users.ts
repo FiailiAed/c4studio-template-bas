@@ -1,5 +1,5 @@
 import { mutation, query } from "./_generated/server";
-import { components } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import { v } from "convex/values";
 
 // Called from onboarding. Derives identity server-side — never accepts userId from client.
@@ -31,7 +31,7 @@ export const createOrUpdate = mutation({
       return existing._id;
     }
 
-    return await ctx.db.insert("users", {
+    const newId = await ctx.db.insert("users", {
       clerkId,
       tokenIdentifier,
       email: args.email,
@@ -39,6 +39,21 @@ export const createOrUpdate = mutation({
       avatarUrl: args.avatarUrl,
       role: "user",
     });
+
+    const settings = await ctx.db.query("appSettings").first();
+    if (settings?.notifyOnNewUser && settings.adminAlertEmail) {
+      await ctx.scheduler.runAfter(0, internal.email.sendAdminAlert, {
+        to: settings.adminAlertEmail,
+        subject: `New user registered: ${args.name ?? args.email}`,
+        html: `
+          <h2>New user registration</h2>
+          <p><strong>Name:</strong> ${args.name ?? "—"}</p>
+          <p><strong>Email:</strong> ${args.email}</p>
+        `,
+      });
+    }
+
+    return newId;
   },
 });
 

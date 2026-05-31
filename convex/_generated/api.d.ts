@@ -9,6 +9,10 @@
  */
 
 import type * as bookingLinks from "../bookingLinks.js";
+import type * as contacts from "../contacts.js";
+import type * as email from "../email.js";
+import type * as emailLogs from "../emailLogs.js";
+import type * as emailTemplates from "../emailTemplates.js";
 import type * as funnels from "../funnels.js";
 import type * as http from "../http.js";
 import type * as payments from "../payments.js";
@@ -25,6 +29,10 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   bookingLinks: typeof bookingLinks;
+  contacts: typeof contacts;
+  email: typeof email;
+  emailLogs: typeof emailLogs;
+  emailTemplates: typeof emailTemplates;
   funnels: typeof funnels;
   http: typeof http;
   payments: typeof payments;

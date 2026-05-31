@@ -1,0 +1,197 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { SignOutButton, UserButton } from '@clerk/astro/components';
+import { getAuthedConvex } from '@lib/convex';
+import { api } from '@convex/api';
+
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect('/sign-in');
+
+const token = await Astro.locals.auth().getToken({ template: 'convex' });
+const client = getAuthedConvex(token);
+
+const currentUser = await client.query(api.users.getByClerkId, { clerkId: userId });
+if (!currentUser) return Astro.redirect('/onboarding');
+if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
+
+let successMessage: string | null = null;
+let errorMessage: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const to = (data.get('to') as string)?.trim();
+  const subject = (data.get('subject') as string)?.trim();
+  const htmlBody = (data.get('htmlBody') as string)?.trim();
+  const templateId = (data.get('templateId') as string) || undefined;
+
+  try {
+    await client.action(api.email.sendEmail, {
+      to,
+      subject,
+      htmlBody,
+      templateId: templateId as any,
+    });
+    successMessage = `Email sent to ${to}.`;
+  } catch (err) {
+    errorMessage = err instanceof Error ? err.message : 'Failed to send email.';
+  }
+}
+
+const [users, templates] = await Promise.all([
+  client.query(api.users.list, {}),
+  client.query(api.emailTemplates.list, {}),
+]);
+---
+
+<BaseLayout title="Compose Email — Admin Portal">
+  <div class="min-h-screen bg-slate-50">
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/admin" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Admin Portal</a>
+        <span class="text-slate-300">/</span>
+        <a href="/admin/communications" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Communications</a>
+        <span class="text-slate-300">/</span>
+        <span class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Compose</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Home</a>
+        <UserButton />
+        <SignOutButton>
+          <button class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Sign out</button>
+        </SignOutButton>
+      </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-6 py-12">
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h1 class="text-3xl font-bold tracking-tight text-slate-900 mb-1" style="font-family: 'Lexend', sans-serif;">Compose Email</h1>
+          <p class="text-slate-500" style="font-family: 'Inter', sans-serif;">Send a one-off email to a specific recipient.</p>
+        </div>
+        <a href="/admin/communications/templates" class="text-xs font-semibold text-slate-500 hover:text-slate-900 transition border border-slate-200 rounded-xl px-4 py-2 bg-white" style="font-family: 'Inter', sans-serif;">
+          Manage templates →
+        </a>
+      </div>
+
+      {successMessage && (
+        <div class="mb-6 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700" style="font-family: 'Inter', sans-serif;">
+          {successMessage}
+        </div>
+      )}
+      {errorMessage && (
+        <div class="mb-6 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700" style="font-family: 'Inter', sans-serif;">
+          {errorMessage}
+        </div>
+      )}
+
+      <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div class="px-6 py-5 border-b border-slate-100">
+          <h2 class="text-base font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">New message</h2>
+        </div>
+        <form method="POST" class="px-6 py-5 flex flex-col gap-5">
+          <!-- Template picker -->
+          {templates.length > 0 && (
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Load template (optional)</label>
+              <select
+                id="templatePicker"
+                class="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                style="font-family: 'Inter', sans-serif;"
+              >
+                <option value="">— select a template —</option>
+                {templates.map((t) => (
+                  <option value={t._id} data-subject={t.subject} data-body={t.htmlBody}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <!-- To -->
+          <div class="flex flex-col gap-1.5">
+            <label for="to" class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">To</label>
+            <input
+              type="email"
+              id="to"
+              name="to"
+              required
+              list="userEmails"
+              placeholder="recipient@example.com"
+              class="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+              style="font-family: 'Inter', sans-serif;"
+            />
+            <datalist id="userEmails">
+              {users.map((u) => (
+                <option value={u.email} label={u.name ?? u.email} />
+              ))}
+            </datalist>
+            {users.length > 0 && (
+              <p class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">
+                {users.length} registered user{users.length !== 1 ? 's' : ''} available via autocomplete.
+              </p>
+            )}
+          </div>
+
+          <!-- Hidden templateId -->
+          <input type="hidden" id="templateIdField" name="templateId" value="" />
+
+          <!-- Subject -->
+          <div class="flex flex-col gap-1.5">
+            <label for="subject" class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Subject</label>
+            <input
+              type="text"
+              id="subject"
+              name="subject"
+              required
+              placeholder="Your subject line"
+              class="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+              style="font-family: 'Inter', sans-serif;"
+            />
+          </div>
+
+          <!-- HTML Body -->
+          <div class="flex flex-col gap-1.5">
+            <label for="htmlBody" class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">HTML Body</label>
+            <textarea
+              id="htmlBody"
+              name="htmlBody"
+              rows="14"
+              required
+              placeholder="<p>Hello,</p>&#10;<p>Your message here.</p>"
+              class="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent resize-y font-mono"
+            ></textarea>
+            <p class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">Write valid HTML. A plain-text fallback is generated automatically.</p>
+          </div>
+
+          <div class="flex justify-end pt-1">
+            <button type="submit" class="text-sm font-semibold bg-slate-900 text-white px-6 py-2.5 rounded-xl hover:bg-slate-700 transition flex items-center gap-2" style="font-family: 'Inter', sans-serif;">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"/>
+              </svg>
+              Send email
+            </button>
+          </div>
+        </form>
+      </div>
+    </main>
+  </div>
+</BaseLayout>
+
+<script>
+  const picker = document.getElementById('templatePicker') as HTMLSelectElement | null;
+  if (picker) {
+    picker.addEventListener('change', () => {
+      const selected = picker.options[picker.selectedIndex];
+      const subject = selected.dataset.subject ?? '';
+      const body = selected.dataset.body ?? '';
+      const templateId = selected.value;
+
+      const subjectEl = document.getElementById('subject') as HTMLInputElement | null;
+      const bodyEl = document.getElementById('htmlBody') as HTMLTextAreaElement | null;
+      const templateIdEl = document.getElementById('templateIdField') as HTMLInputElement | null;
+
+      if (subjectEl && subject) subjectEl.value = subject;
+      if (bodyEl && body) bodyEl.value = body;
+      if (templateIdEl) templateIdEl.value = templateId;
+    });
+  }
+</script>
