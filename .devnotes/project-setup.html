@@ -262,7 +262,7 @@ Do not deviate from these technologies. Do not suggest alternatives.
 [x] Authentication: Clerk v3.3.2 via @clerk/astro — middleware, Convex JWT auth configured
 [x] Styling: TailwindCSS v4 [https://tailwindcss.com/docs]
 [ ] Emails: Resend [https://resend.com/docs/send-with-astro]
-[ ] Payments: Stripe (`@convex-dev/stripe`) [https://www.convex.dev/components/stripe/stripe.md]
+[x] Payments: Stripe v0.1.4 via @convex-dev/stripe — convex.config.ts, http.ts webhook, payments.ts actions
 [ ] Interaction Analytics: PostHog Integration
 [x] Frontend interactivity: State lives in the DOM. NO REACT OR OTHER LIBRARIES.
             </div>
@@ -443,6 +443,43 @@ Do not deviate from these technologies. Do not suggest alternatives.
                     <div class="executive-title">Middleware gotcha</div>
                     <p class="executive-quote">In @clerk/astro v3, the middleware handler receives auth as a FUNCTION. Call auth() to get the auth object with redirectToSignIn(). auth.protect() does NOT exist — calling it throws "auth.protect is not a function".</p>
                     <p class="executive-quote">Correct pattern: const authObject = auth(); if (!authObject.userId) return authObject.redirectToSignIn();</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="stripe-setup">
+            <h2>7. Stripe Payments via @convex-dev/stripe</h2>
+            <p>Install the Convex Stripe component, register it in convex.config.ts, set up the webhook HTTP handler, and create app-level payment actions.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">Install</div>
+                    <p class="executive-quote">bun add @convex-dev/stripe</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/convex.config.ts</div>
+                    <p class="executive-quote">import stripe from "@convex-dev/stripe/convex.config.js";</p>
+                    <p class="executive-quote">const app = defineApp(); app.use(stripe); export default app;</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/http.ts — webhook handler</div>
+                    <p class="executive-quote">registerRoutes(http, components.stripe, { webhookPath: "/stripe/webhook" })</p>
+                    <p class="executive-quote">Webhook URL: https://&lt;deployment&gt;.convex.site/stripe/webhook</p>
+                    <p class="executive-quote">Register this URL in Stripe Dashboard → Developers → Webhooks. Copy the signing secret to STRIPE_WEBHOOK_SECRET in Convex env.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/payments.ts — app-level actions</div>
+                    <p class="executive-quote">createSubscriptionCheckout, createPaymentCheckout, createPortalSession, cancelSubscription, reactivateSubscription</p>
+                    <p class="executive-quote">listSubscriptions and listPayments query via ctx.runQuery(components.stripe.public.listSubscriptionsByUserId) — NOT methods on StripeSubscriptions class.</p>
+                    <p class="executive-quote">NOTE: createCustomerPortalSession takes { customerId, returnUrl } — not userId. Always call getOrCreateCustomer first.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">Required Convex env vars (set via CLI or dashboard)</div>
+                    <p class="executive-quote">bunx convex env set STRIPE_SECRET_KEY sk_test_...</p>
+                    <p class="executive-quote">bunx convex env set STRIPE_WEBHOOK_SECRET whsec_... (after registering webhook in Stripe dashboard)</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">Required local env vars (.env.local)</div>
+                    <p class="executive-quote">STRIPE_SECRET_KEY=sk_test_...</p>
                 </div>
             </div>
         </section>

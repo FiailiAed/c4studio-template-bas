@@ -53,6 +53,7 @@ if (user.role !== 'admin') return Astro.redirect('/dashboard');
           { label: 'Testimonials', href: '/admin/testimonials', desc: 'Approve and feature reviews',          color: 'border-amber-400',   status: 'planned' },
           { label: 'Contact',      href: '/admin/contacts',     desc: 'View contact form submissions',        color: 'border-cyan-400',    status: 'planned' },
           { label: 'Gallery',      href: '/admin/gallery',      desc: 'Upload and manage media',              color: 'border-pink-400',    status: 'planned' },
+          { label: 'Billing',      href: '/admin/billing',      desc: 'Stripe payments, subscriptions, and invoices', color: 'border-indigo-400', status: 'active'  },
           { label: 'Settings',     href: '/admin/settings',     desc: 'Site configuration and preferences',   color: 'border-slate-400',   status: 'planned' },
         ].map(({ label, href, desc, color, status }) => (
           <a

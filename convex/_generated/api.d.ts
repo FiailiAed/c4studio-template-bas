@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as http from "../http.js";
+import type * as payments from "../payments.js";
 import type * as users from "../users.js";
 
 import type {
@@ -17,6 +19,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  http: typeof http;
+  payments: typeof payments;
   users: typeof users;
 }>;
 
@@ -46,4 +50,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  stripe: import("@convex-dev/stripe/_generated/component.js").ComponentApi<"stripe">;
+};

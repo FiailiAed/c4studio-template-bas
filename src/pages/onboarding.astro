@@ -24,7 +24,6 @@ if (Astro.request.method === 'POST') {
   } else {
     try {
       await client.mutation(api.users.createOrUpdate, {
-        clerkId: userId,
         name,
         email,
       });

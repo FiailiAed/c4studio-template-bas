@@ -5,13 +5,16 @@ export default defineSchema({
   // Synced from Clerk via webhook — source of truth for user profiles
   users: defineTable({
     clerkId: v.string(),
+    // Full Convex tokenIdentifier (issuer|subject) — used as userId in Stripe component
+    tokenIdentifier: v.optional(v.string()),
     email: v.string(),
     name: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
     role: v.union(v.literal("admin"), v.literal("user")),
   })
     .index("by_clerk_id", ["clerkId"])
-    .index("by_email", ["email"]),
+    .index("by_email", ["email"])
+    .index("by_token_identifier", ["tokenIdentifier"]),
 
   // Blog posts
   posts: defineTable({
