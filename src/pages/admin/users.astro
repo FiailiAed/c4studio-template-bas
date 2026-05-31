@@ -1,0 +1,187 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { SignOutButton, UserButton } from '@clerk/astro/components';
+import { getAuthedConvex } from '@lib/convex';
+import { api } from '@convex/api';
+import type { Id } from '@convex/dataModel';
+
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect('/sign-in');
+
+const token = await Astro.locals.auth().getToken({ template: 'convex' });
+const client = getAuthedConvex(token);
+
+const currentUser = await client.query(api.users.getByClerkId, { clerkId: userId });
+if (!currentUser) return Astro.redirect('/onboarding');
+if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
+
+type ActionError = { id: string; message: string } | null;
+let actionError: ActionError = null;
+let successMessage: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const action = data.get('action') as string;
+  const targetId = data.get('userId') as Id<'users'>;
+
+  if (!targetId) {
+    actionError = { id: '', message: 'Invalid request.' };
+  } else {
+    try {
+      if (action === 'make-admin') {
+        await client.mutation(api.users.setRole, { userId: targetId, role: 'admin' });
+        successMessage = 'User promoted to admin.';
+      } else if (action === 'make-user') {
+        await client.mutation(api.users.setRole, { userId: targetId, role: 'user' });
+        successMessage = 'User demoted to user.';
+      } else if (action === 'remove') {
+        await client.mutation(api.users.remove, { userId: targetId });
+        successMessage = 'User removed.';
+      }
+    } catch {
+      actionError = { id: targetId, message: 'Action failed. Please try again.' };
+    }
+  }
+}
+
+const users = await client.query(api.users.list, {});
+---
+
+<BaseLayout title="Users — Admin Portal">
+  <div class="min-h-screen bg-slate-50">
+    <!-- Nav -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/admin" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Admin Portal</a>
+        <span class="text-slate-300">/</span>
+        <span class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Users</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Home</a>
+        <a href="/dashboard" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Dashboard</a>
+        <UserButton />
+        <SignOutButton>
+          <button class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Sign out</button>
+        </SignOutButton>
+      </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-6 py-12">
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h1 class="text-3xl font-bold tracking-tight text-slate-900" style="font-family: 'Lexend', sans-serif;">Users</h1>
+          <p class="text-slate-500 mt-1" style="font-family: 'Inter', sans-serif;">
+            {users.length} {users.length === 1 ? 'user' : 'users'} registered
+          </p>
+        </div>
+      </div>
+
+      {successMessage && (
+        <div class="mb-6 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700" style="font-family: 'Inter', sans-serif;">
+          {successMessage}
+        </div>
+      )}
+
+      {actionError && (
+        <div class="mb-6 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700" style="font-family: 'Inter', sans-serif;">
+          {actionError.message}
+        </div>
+      )}
+
+      {users.length === 0 ? (
+        <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center">
+          <p class="text-sm text-slate-400" style="font-family: 'Inter', sans-serif;">No users yet.</p>
+        </div>
+      ) : (
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-slate-100 bg-slate-50">
+                <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">User</th>
+                <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Email</th>
+                <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Role</th>
+                <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Joined</th>
+                <th class="px-5 py-3"></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              {users.map((user) => {
+                const isCurrentUser = user.clerkId === userId;
+                const joined = new Date(user._creationTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                return (
+                  <tr class="hover:bg-slate-50 transition">
+                    <!-- User -->
+                    <td class="px-5 py-4">
+                      <div class="flex items-center gap-3">
+                        {user.avatarUrl ? (
+                          <img src={user.avatarUrl} alt="" class="w-8 h-8 rounded-full object-cover" />
+                        ) : (
+                          <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center shrink-0">
+                            <span class="text-xs font-bold text-slate-500" style="font-family: 'Inter', sans-serif;">
+                              {(user.name ?? user.email)[0].toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                        <div>
+                          <p class="font-medium text-slate-900" style="font-family: 'Inter', sans-serif;">
+                            {user.name ?? '—'}
+                            {isCurrentUser && (
+                              <span class="ml-2 text-xs text-slate-400 font-normal">(you)</span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+
+                    <!-- Email -->
+                    <td class="px-5 py-4 text-slate-600" style="font-family: 'Inter', sans-serif;">{user.email}</td>
+
+                    <!-- Role -->
+                    <td class="px-5 py-4">
+                      <span class={`inline-flex text-xs font-medium px-2 py-0.5 rounded-full ${user.role === 'admin' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`} style="font-family: 'Inter', sans-serif;">
+                        {user.role}
+                      </span>
+                    </td>
+
+                    <!-- Joined -->
+                    <td class="px-5 py-4 text-slate-500" style="font-family: 'Inter', sans-serif;">{joined}</td>
+
+                    <!-- Actions -->
+                    <td class="px-5 py-4">
+                      {!isCurrentUser && (
+                        <div class="flex items-center justify-end gap-2">
+                          <form method="POST">
+                            <input type="hidden" name="userId" value={user._id} />
+                            <input type="hidden" name="action" value={user.role === 'admin' ? 'make-user' : 'make-admin'} />
+                            <button
+                              type="submit"
+                              class="text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition"
+                              style="font-family: 'Inter', sans-serif;"
+                            >
+                              {user.role === 'admin' ? 'Demote' : 'Make admin'}
+                            </button>
+                          </form>
+                          <form method="POST" onsubmit="return confirm('Remove this user? This cannot be undone.')">
+                            <input type="hidden" name="userId" value={user._id} />
+                            <input type="hidden" name="action" value="remove" />
+                            <button
+                              type="submit"
+                              class="text-xs font-medium text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition"
+                              style="font-family: 'Inter', sans-serif;"
+                            >
+                              Remove
+                            </button>
+                          </form>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </main>
+  </div>
+</BaseLayout>
