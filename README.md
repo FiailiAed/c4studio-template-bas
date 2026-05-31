@@ -28,32 +28,75 @@
 [x] Communications — /admin/communications — Compose, Broadcast, Templates, History (Resend)
 ```
 
+## Public Site — Completed
+
+```sh
+[x] Marketing components — src/components/marketing/ — Header, Hero, TrustBar, Services,
+                           About, Reviews, Gallery, CTA, Footer (all prop-driven with defaults)
+[x] Home                 — /  — assembled from all 9 marketing components, pulls appName +
+                           description from Convex app settings
+```
+
 ## Outstanding Tasks
 
-### Admin Content Modules
+Pages are ordered by priority. Admin modules must be built before their dependent public pages.
+
+### Priority 1 — No dependencies, build immediately
 ```sh
-[ ] Blog Posts   — /admin/posts        — create, edit, publish
-[ ] Testimonials — /admin/testimonials — approve, feature
-[ ] Contact      — /admin/contacts     — view submissions, mark read
-[ ] Gallery      — /admin/gallery      — upload media via Convex storage
+[ ] /contact            — contact form → Convex contacts table (closes every CTA on the site)
+[ ] /about              — static, high-trust, second most-visited page
+[ ] /services           — static, core SEO page, expands on the Services component
+[ ] /admin/contacts     — view contact submissions, mark read
 ```
 
-### Public Site Pages
+### Priority 2 — Requires admin module first
 ```sh
-[ ] Home         — /               — actual landing page (current index is the template overview)
-[ ] About        — /about
-[ ] Services     — /services
-[ ] Reviews      — /reviews
-[ ] Blog         — /blog + /blog/[slug]
-[ ] Gallery      — /gallery
-[ ] Contact      — /contact        — form that writes to the contacts Convex table
+[ ] /admin/testimonials — approve + feature reviews         ← build before /reviews
+[ ] /reviews            — reads approved testimonials from Convex
+
+[ ] /admin/posts        — create, edit, publish blog posts  ← build before /blog
+[ ] /blog               — published post list from Convex
+[ ] /blog/[slug]        — single post detail from Convex
+
+[ ] /admin/gallery      — upload media via Convex storage   ← build before /gallery
+[ ] /gallery            — published media items from Convex storage
 ```
 
-### Public Pages for Dynamic Entities
+### Priority 3 — Project-specific dynamic entity pages
 ```sh
-[ ] Funnels       — /funnels/[slug]        — public-facing funnel pages
-[ ] Shops         — /shops/[slug]          — public-facing shop pages
-[ ] Booking Links — /booking-links/[slug]  — public-facing booking pages
+[ ] /funnels/[slug]       — public-facing funnel pages (data already in Convex)
+[ ] /shops/[slug]         — public-facing shop pages (data already in Convex)
+[ ] /booking-links/[slug] — public-facing booking pages (data already in Convex)
+```
+
+## Admin Pages → Public Site Connection
+
+The `/admin/pages` module stores page statuses (active / planned / hidden) in the Convex
+`sitePages` table. This is **not yet wired to the public site**. The full connection requires:
+
+```sh
+[ ] src/lib/pageStatus.ts      — shared helper: fetch a route's status, enforce active/hidden/planned
+[ ] src/components/marketing/Header.astro  — filter nav links to only show 'active' pages
+[ ] src/components/marketing/Footer.astro  — same filter as Header
+[ ] Each public page           — call pageStatus helper at render time:
+                                   active  → render normally
+                                   hidden  → render (direct URL works), excluded from nav + sitemap
+                                   planned → redirect to 404
+```
+
+Once wired, toggling a page to "hidden" in the admin instantly removes it from nav and
+sitemap while keeping it accessible via direct URL. "Planned" pages redirect to 404.
+
+## Path Aliases
+
+```sh
+@layouts/*    → src/layouts/*
+@components/* → src/components/*
+@marketing/*  → src/components/marketing/*
+@lib/*        → src/lib/*
+@pages/*      → src/pages/*
+@styles/*     → src/styles/*
+@convex/*     → convex/_generated/*
 ```
 
 ## Commands
