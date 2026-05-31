@@ -256,11 +256,11 @@
 
 Do not deviate from these technologies. Do not suggest alternatives.
 [x] Runtime: Bun [https://bun.sh]
-[ ] Framework: Astro (SSR enabled) [https://astro.build]
+[x] Framework: Astro (SSR enabled) [https://astro.build]
 [ ] Deployment: Vercel (Using edge route handlers, speed insights, and web analytics integration)
 [ ] Database & Backend: Convex (Real-time by default, zero config) [https://docs.convex.dev/llms.txt]
 [ ] Authentication: Clerk (`@clerk/astro`) [https://clerk.com/docs/astro/getting-started/quickstart]
-[ ] Styling: TailwindCSS [https://tailwindcss.com/docs]
+[x] Styling: TailwindCSS v4 [https://tailwindcss.com/docs]
 [ ] Emails: Resend [https://resend.com/docs/send-with-astro]
 [ ] Payments: Stripe (`@convex-dev/stripe`) [https://www.convex.dev/components/stripe/stripe.md]
 [ ] Interaction Analytics: PostHog Integration
@@ -289,12 +289,47 @@ Do not deviate from these technologies. Do not suggest alternatives.
             <p>Create GitHub repo, commit changes to GitHub, deploy project to Vercel, create preview deployments (development and staging)</p>
             <div class="executive-section">
                 <div class="executive-card ceo">
-                    <div class="executive-title">Project File Setup</div>
-                    <p class="executive-quote">bun create astro@latest --template minimal</p>
-                    <p class="executive-quote">tsconfig.json --> { "compilerOptions": { "paths": { "@pages/*": ["./src/pages/"] } } } </p>
-                    <p class="executive-quote"></p>
-                    <p class="executive-quote"></p>
-                    <p class="executive-quote"></p>
+                    <div class="executive-title">Git & GitHub Setup</div>
+                    <p class="executive-quote">git remote add origin git@github.com:&lt;org&gt;/&lt;repo&gt;.git</p>
+                    <p class="executive-quote">git push --force origin main  (if remote has placeholder commit)</p>
+                    <p class="executive-quote">git checkout -b development && git push origin development</p>
+                    <p class="executive-quote">All active development happens on the `development` branch. Merge to `main` for releases.</p>
+                </div>
+            </div>
+
+            <h2>3. TailwindCSS v4 + Base Layout</h2>
+            <p>Install TailwindCSS v4 via the Vite plugin (no config file needed). Create global CSS, base layout, and path aliases.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">Install</div>
+                    <p class="executive-quote">bun add tailwindcss @tailwindcss/vite</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">astro.config.mjs — add Vite plugin</div>
+                    <p class="executive-quote">import tailwindcss from '@tailwindcss/vite';</p>
+                    <p class="executive-quote">export default defineConfig({ vite: { plugins: [tailwindcss()] } });</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/styles/global.css</div>
+                    <p class="executive-quote">@import "tailwindcss";</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">tsconfig.json — path aliases (baseUrl required)</div>
+                    <p class="executive-quote">"baseUrl": ".",</p>
+                    <p class="executive-quote">"paths": { "@pages/*": ["src/pages/*"], "@layouts/*": ["src/layouts/*"], "@styles/*": ["src/styles/*"] }</p>
+                    <p class="executive-quote">NOTE: Astro reads tsconfig paths natively — no vite.resolve.alias needed. Always add a new alias here when creating a new src/ subfolder.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/layouts/BaseLayout.astro</div>
+                    <p class="executive-quote">Imports @styles/global.css and astro:transitions ClientRouter.</p>
+                    <p class="executive-quote">Props: title (required), description, image, schema (JSON-LD).</p>
+                    <p class="executive-quote">Named slots: head, header, footer. Default slot renders inside &lt;main id="main"&gt;.</p>
+                    <p class="executive-quote">Includes skip-to-content link, Open Graph tags, Twitter Card tags, and optional canonical URL (set astro.site in config to enable).</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/index.astro — use the layout</div>
+                    <p class="executive-quote">import BaseLayout from '@layouts/BaseLayout.astro';</p>
+                    <p class="executive-quote">Wrap all page content in &lt;BaseLayout title="..."&gt; ... &lt;/BaseLayout&gt;</p>
                 </div>
             </div>
         </section>
