@@ -41,3 +41,17 @@ This is the **c4studio B.A.S.** (Basic/Bad Ass Astro Setup) template — the can
 **`.devnotes/`** contains project strategy and agent specification documents (HTML). Do not delete these files. EVERYTIME you make changes to the project you MUST update and add to `.devnotes/project-setup.html`. This file will be used as a running log of how the template project (this project) was setup. This file is intended to handoff to a human or agentic developer and they should be able to recreate this template from scratch by only following the `.devnotes/project-setup.html` file. DO NOT SKIP THIS STEP!
 
 **`src/components/TechStack.astro`** maintains the visual stack status grid shown on the index page. EVERYTIME a stack technology is installed/configured, update that technology's `status` field from `'pending'` to `'installed'`. Keep this in sync with `.devnotes/project-setup.html`. DO NOT SKIP THIS STEP!
+
+<!-- convex-ai-start -->
+
+This project uses [Convex](https://convex.dev) as its backend.
+
+When working on Convex code, **always read
+`convex/_generated/ai/guidelines.md` first** for important guidelines on
+how to correctly use Convex APIs and patterns. The file contains rules that
+override what you may have learned about Convex from training data.
+
+Convex agent skills for common tasks can be installed by running
+`npx convex ai-files install`.
+
+<!-- convex-ai-end -->

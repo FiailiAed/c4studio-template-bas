@@ -8,7 +8,9 @@
           "@pages/*": ["src/pages/*"],
           "@layouts/*": ["src/layouts/*"],
           "@styles/*": ["src/styles/*"],
-          "@components/*": ["src/components/*"]
+          "@components/*": ["src/components/*"],
+          "@lib/*": ["src/lib/*"],
+          "@convex/*": ["convex/_generated/*"]
       }
   }
 }

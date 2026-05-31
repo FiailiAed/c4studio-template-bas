@@ -258,7 +258,7 @@ Do not deviate from these technologies. Do not suggest alternatives.
 [x] Runtime: Bun [https://bun.sh]
 [x] Framework: Astro (SSR enabled) [https://astro.build]
 [x] Deployment: Vercel — Web Analytics added via @vercel/analytics v2.0.1
-[ ] Database & Backend: Convex (Real-time by default, zero config) [https://docs.convex.dev/llms.txt]
+[x] Database & Backend: Convex v1.39.1 — schema, HTTP client, path aliases configured
 [ ] Authentication: Clerk (`@clerk/astro`) [https://clerk.com/docs/astro/getting-started/quickstart]
 [x] Styling: TailwindCSS v4 [https://tailwindcss.com/docs]
 [ ] Emails: Resend [https://resend.com/docs/send-with-astro]
@@ -350,6 +350,34 @@ Do not deviate from these technologies. Do not suggest alternatives.
                 <div class="executive-card cto">
                     <div class="executive-title">src/layouts/BaseLayout.astro — place component</div>
                     <p class="executive-quote">Add <code>&lt;Analytics /&gt;</code> just before <code>&lt;/body&gt;</code>, after the footer slot.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="convex-setup">
+            <h2>5. Convex Database</h2>
+            <p>Initialize Convex, define the schema, create a server-side HTTP client helper, and add path aliases.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">Install &amp; Initialize</div>
+                    <p class="executive-quote">bun add convex</p>
+                    <p class="executive-quote">bunx convex dev  — log in, create project, generates convex/_generated/ and .env.local with CONVEX_URL, CONVEX_DEPLOYMENT, CONVEX_SITE_URL</p>
+                    <p class="executive-quote">NOTE: Running <code>bunx convex dev</code> also appends Convex AI guidelines to CLAUDE.md automatically.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/schema.ts</div>
+                    <p class="executive-quote">Tables: users (clerkId, email, name, avatarUrl, role), posts (title, slug, body, authorId, published, tags), testimonials (authorName, body, rating, featured, approved), contacts (name, email, message, read), gallery (storageId, mediaType, order, published).</p>
+                    <p class="executive-quote">All tables use strict <code>v</code> validators from <code>convex/values</code>. Indexes follow the "by_fieldname" naming convention.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/lib/convex.ts — server-side HTTP client</div>
+                    <p class="executive-quote">Exports a singleton <code>ConvexHttpClient</code> for use in Astro SSR frontmatter and API routes. NOT for real-time subscriptions — one-shot queries only.</p>
+                    <p class="executive-quote">import { convex } from '@lib/convex';</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">tsconfig.json — new path aliases</div>
+                    <p class="executive-quote">"@lib/*": ["src/lib/*"]</p>
+                    <p class="executive-quote">"@convex/*": ["convex/_generated/*"]</p>
                 </div>
             </div>
         </section>
