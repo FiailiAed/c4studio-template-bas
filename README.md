@@ -15,59 +15,97 @@
 [x] Frontend interactivity: TypeScript only. State lives in the DOM. NO REACT.
 ```
 
-## Admin Portal — Completed Modules
+## Commands
 
 ```sh
-[x] Settings       — /admin/settings       — general, feature flags, notifications, design system, danger zone
-[x] Pages          — /admin/pages          — control public page visibility (active / planned / hidden)
-[x] Users          — /admin/users          — view accounts, assign roles
-[x] Billing        — /admin/billing        — Stripe subscriptions, payments, invoices per user
-[x] Funnels        — /admin/funnels        — create, edit, publish (slug auto-gen)
-[x] Shops          — /admin/shops          — create, edit, publish (slug auto-gen)
-[x] Booking Links  — /admin/booking-links  — create, edit, publish (slug auto-gen)
-[x] Communications — /admin/communications — Compose, Broadcast, Templates, History (Resend)
+bun dev          # Start dev server at localhost:4321
+bun build        # Build production site to ./dist/
+bun preview      # Preview production build locally
+bun astro check  # Type-check .astro files
+bunx convex dev  # Start Convex dev server (run alongside bun dev)
 ```
 
-## Public Site — Completed
+---
+
+## Build Checklist
+
+### Public Pages
 
 ```sh
-[x] Marketing components — src/components/marketing/ — Header, Hero, TrustBar, Services,
-                           About, Reviews, Gallery, CTA, Footer (all prop-driven with defaults)
-[x] Home                 — /  — assembled from all 9 marketing components, pulls appName +
-                           description from Convex app settings
+[x] /                   — Home — assembled from all 9 marketing components
+[x] /contact            — Contact form → Convex contacts table (name, email, phone, subject, message)
+[x] /sign-in            — Clerk-managed
+[x] /sign-up            — Clerk-managed
+[x] /onboarding         — Syncs Clerk user to Convex users table
+[x] /404                — Custom not-found page
+[x] /about              — Story, values grid, process steps, CTA
+[x] /services           — Overview grid + deep-dive sections with #strategy #design #development #growth anchors
+[x] /privacy            — Privacy Policy — pulls appName, siteUrl, supportEmail from appSettings
+[x] /terms              — Terms of Use — pulls appName, siteUrl, supportEmail from appSettings
+[ ] /reviews            — Reads approved testimonials from Convex ← build /admin/testimonials first
+[ ] /blog               — Published post list from Convex ← build /admin/posts first
+[ ] /blog/[slug]        — Single post detail from Convex ← build /admin/posts first
+[ ] /gallery            — Published media from Convex storage ← build /admin/gallery first
+[ ] /funnels/[slug]     — Public-facing funnel pages (data already in Convex)
+[ ] /shops/[slug]       — Public-facing shop pages (data already in Convex)
+[ ] /booking-links/[slug] — Public-facing booking pages (data already in Convex)
 ```
 
-## Outstanding Tasks
+### Admin Portal
 
-Pages are ordered by priority. Admin modules must be built before their dependent public pages.
-
-### Priority 1 — No dependencies, build immediately
 ```sh
-[ ] /contact            — contact form → Convex contacts table (closes every CTA on the site)
-[ ] /about              — static, high-trust, second most-visited page
-[ ] /services           — static, core SEO page, expands on the Services component
-[ ] /admin/contacts     — view contact submissions, mark read
+[x] /admin              — Index with module cards
+[x] /admin/settings     — General, feature flags, notifications, design system, danger zone
+[x] /admin/pages        — Page visibility control (active / planned / hidden)
+[x] /admin/users        — View accounts, assign roles
+[x] /admin/billing      — Stripe subscriptions, payments, invoices per user
+[x] /admin/contacts     — List submissions, mark read, delete, mailto reply
+[x] /admin/funnels      — CRUD with slug auto-gen
+[x] /admin/shops        — CRUD with slug auto-gen
+[x] /admin/booking-links — CRUD with slug auto-gen
+[x] /admin/communications — Compose, Broadcast, Templates, History (Resend)
+[ ] /admin/testimonials  — Approve + feature reviews ← build before /reviews
+[ ] /admin/posts         — Create, edit, publish blog posts ← build before /blog
+[ ] /admin/gallery       — Upload media via Convex storage ← build before /gallery
 ```
 
-### Priority 2 — Requires admin module first
+### Incomplete Integrations
+
 ```sh
-[ ] /admin/testimonials — approve + feature reviews         ← build before /reviews
-[ ] /reviews            — reads approved testimonials from Convex
+[ ] sitePages wiring         — /admin/pages writes statuses but nothing reads them yet
+                               Needs: src/lib/pageStatus.ts helper
+                                      Header.astro + Footer.astro nav filtering
+                                      Per-page enforcement (active/hidden → 404)
 
-[ ] /admin/posts        — create, edit, publish blog posts  ← build before /blog
-[ ] /blog               — published post list from Convex
-[ ] /blog/[slug]        — single post detail from Convex
+[ ] User confirmation email  — No email sent to submitter after contact form submission
+                               Needs: sendUserConfirmation internalAction in convex/email.ts
+                                      Called from contacts.create via ctx.scheduler
 
-[ ] /admin/gallery      — upload media via Convex storage   ← build before /gallery
-[ ] /gallery            — published media items from Convex storage
+[ ] SMS infrastructure       — No Twilio integration exists yet
+                               Needs: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER env vars
+                                      convex/sms.ts internalAction
+                                      smsLogs table in schema
+                                      appSettings fields: market, primaryService, defaultBookingLink, smsTemplate
+                                      Scheduled action from contacts.create (5-min instant response)
+                                      Scheduler cancellation: store scheduledFunctionId on contacts record
+
+[ ] SMS follow-up sequence   — 24-hour + 48-hour nudge (copy in .devnotes/direct-response-copywriter-template-output.md)
+                               Depends on SMS infrastructure above
+
+[ ] Booking webhook          — Required for SMS confirmation sequence (4a/4b/4c) and no-show win-back
+                               Source: Cal.com, Calendly, or native /booking-links/[slug] pages
 ```
 
-### Priority 3 — Project-specific dynamic entity pages
+### Infrastructure / Assets
+
 ```sh
-[ ] /funnels/[slug]       — public-facing funnel pages (data already in Convex)
-[ ] /shops/[slug]         — public-facing shop pages (data already in Convex)
-[ ] /booking-links/[slug] — public-facing booking pages (data already in Convex)
+[ ] /og-image.png       — BaseLayout references it but file doesn't exist in public/
+[ ] /robots.txt         — Not present in public/
+[ ] Sitemap             — @astrojs/sitemap not configured
+[ ] smsLogs table       — Needed to log outbound SMS (mirrors existing emailLogs pattern)
 ```
+
+---
 
 ## Admin Pages → Public Site Connection
 
@@ -84,9 +122,6 @@ The `/admin/pages` module stores page statuses (active / planned / hidden) in th
                                    planned → redirect to 404
 ```
 
-Once wired, toggling a page to "hidden" in the admin instantly removes it from nav and
-sitemap while keeping it accessible via direct URL. "Planned" pages redirect to 404.
-
 ## Path Aliases
 
 ```sh
@@ -97,14 +132,4 @@ sitemap while keeping it accessible via direct URL. "Planned" pages redirect to 
 @pages/*      → src/pages/*
 @styles/*     → src/styles/*
 @convex/*     → convex/_generated/*
-```
-
-## Commands
-
-```sh
-bun dev          # Start dev server at localhost:4321
-bun build        # Build production site to ./dist/
-bun preview      # Preview production build locally
-bun astro check  # Type-check .astro files
-bunx convex dev  # Start Convex dev server (run alongside bun dev)
 ```

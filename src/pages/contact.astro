@@ -1,0 +1,201 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import Header from '@marketing/Header.astro';
+import Footer from '@marketing/Footer.astro';
+import { convex } from '@lib/convex';
+import { api } from '@convex/api';
+
+const settings = await convex.query(api.settings.get, {});
+const appName = settings?.appName ?? 'c4studio';
+const description = settings?.description ?? 'We help ambitious businesses design, build, and grow digital products that stand out.';
+
+const success = Astro.url.searchParams.get('success') === '1';
+let error: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const name    = (data.get('name')    as string)?.trim();
+  const email   = (data.get('email')   as string)?.trim();
+  const phone   = (data.get('phone')   as string)?.trim() || undefined;
+  const subject = (data.get('subject') as string)?.trim() || undefined;
+  const message = (data.get('message') as string)?.trim();
+
+  if (!name || !email || !message) {
+    error = 'Name, email, and message are required.';
+  } else {
+    try {
+      await convex.mutation(api.contacts.create, { name, email, phone, subject, message });
+      return Astro.redirect('/contact?success=1');
+    } catch {
+      error = 'Something went wrong. Please try again.';
+    }
+  }
+}
+---
+
+<BaseLayout
+  title={`Contact — ${appName}`}
+  description={`Get in touch with ${appName}. We'd love to hear about your project.`}
+>
+  <Header slot="header" appName={appName} />
+
+  <!-- Page hero -->
+  <section class="bg-slate-900 text-white py-20 md:py-28 relative overflow-hidden">
+    <div class="absolute inset-0 opacity-[0.04]" style="background-image: linear-gradient(#fff 1px, transparent 1px), linear-gradient(to right, #fff 1px, transparent 1px); background-size: 64px 64px;"></div>
+    <div class="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-blue-600/20 blur-3xl pointer-events-none"></div>
+    <div class="relative max-w-3xl mx-auto px-6 text-center">
+      <p class="inline-flex items-center gap-2 text-xs font-semibold text-sky-400 uppercase tracking-widest mb-6" style="font-family: 'Inter', sans-serif;">
+        <span class="w-6 h-px bg-sky-400"></span>
+        Contact
+      </p>
+      <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-tight mb-6" style="font-family: 'Lexend', sans-serif;">
+        Let's build something great.
+      </h1>
+      <p class="text-lg text-slate-400 leading-relaxed max-w-xl mx-auto" style="font-family: 'Inter', sans-serif;">
+        Tell us about your project. We typically respond within one business day.
+      </p>
+    </div>
+  </section>
+
+  <!-- Form section -->
+  <section class="bg-slate-50 py-20 md:py-28">
+    <div class="max-w-2xl mx-auto px-6">
+
+      {success ? (
+        <!-- Success state -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-10 text-center">
+          <div class="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-6">
+            <svg class="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+            </svg>
+          </div>
+          <h2 class="text-2xl font-bold text-slate-900 mb-3" style="font-family: 'Lexend', sans-serif;">
+            Message sent!
+          </h2>
+          <p class="text-slate-500 mb-8 leading-relaxed" style="font-family: 'Inter', sans-serif;">
+            Thanks for reaching out. We'll be in touch shortly.
+          </p>
+          <a
+            href="/"
+            class="inline-flex items-center gap-2 text-sm font-semibold bg-slate-900 text-white px-6 py-3 rounded-xl hover:bg-slate-700 transition"
+            style="font-family: 'Inter', sans-serif;"
+          >
+            Back to home
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/>
+            </svg>
+          </a>
+        </div>
+      ) : (
+        <!-- Contact form -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 md:p-10">
+          <h2 class="text-xl font-bold text-slate-900 mb-1" style="font-family: 'Lexend', sans-serif;">
+            Send a message
+          </h2>
+          <p class="text-sm text-slate-500 mb-8" style="font-family: 'Inter', sans-serif;">
+            All fields marked with * are required.
+          </p>
+
+          {error && (
+            <div class="mb-6 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700" style="font-family: 'Inter', sans-serif;">
+              {error}
+            </div>
+          )}
+
+          <form method="POST" class="flex flex-col gap-5">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div class="flex flex-col gap-1.5">
+                <label for="name" class="text-sm font-medium text-slate-700" style="font-family: 'Inter', sans-serif;">
+                  Full name *
+                </label>
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  required
+                  autocomplete="name"
+                  placeholder="Jane Smith"
+                  class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition"
+                  style="font-family: 'Inter', sans-serif;"
+                />
+              </div>
+
+              <div class="flex flex-col gap-1.5">
+                <label for="email" class="text-sm font-medium text-slate-700" style="font-family: 'Inter', sans-serif;">
+                  Email address *
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  autocomplete="email"
+                  placeholder="jane@example.com"
+                  class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition"
+                  style="font-family: 'Inter', sans-serif;"
+                />
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <label for="phone" class="text-sm font-medium text-slate-700" style="font-family: 'Inter', sans-serif;">
+                Phone number <span class="text-slate-400 font-normal">(optional)</span>
+              </label>
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                autocomplete="tel"
+                placeholder="(555) 000-0000"
+                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition"
+                style="font-family: 'Inter', sans-serif;"
+              />
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <label for="subject" class="text-sm font-medium text-slate-700" style="font-family: 'Inter', sans-serif;">
+                Subject
+              </label>
+              <input
+                id="subject"
+                name="subject"
+                type="text"
+                placeholder="What's this about?"
+                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition"
+                style="font-family: 'Inter', sans-serif;"
+              />
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <label for="message" class="text-sm font-medium text-slate-700" style="font-family: 'Inter', sans-serif;">
+                Message *
+              </label>
+              <textarea
+                id="message"
+                name="message"
+                required
+                rows="6"
+                placeholder="Tell us about your project, timeline, and goals..."
+                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition resize-none"
+                style="font-family: 'Inter', sans-serif;"
+              ></textarea>
+            </div>
+
+            <button
+              type="submit"
+              class="mt-2 inline-flex items-center justify-center gap-2 text-sm font-semibold bg-slate-900 text-white px-6 py-3 rounded-xl hover:bg-slate-700 transition self-start"
+              style="font-family: 'Inter', sans-serif;"
+            >
+              Send message
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/>
+              </svg>
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
+  </section>
+
+  <Footer slot="footer" appName={appName} tagline={description} />
+</BaseLayout>

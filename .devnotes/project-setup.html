@@ -764,5 +764,163 @@ Do not deviate from these technologies. Do not suggest alternatives.
             </div>
         </section>
 
+        <!-- ═══════════════════════════════════════════════════════════════
+             STEP 11 — /admin/contacts MODULE
+             Admin view for contact form submissions: list, mark-read, delete.
+        ═══════════════════════════════════════════════════════════════ -->
+        <section class="step">
+            <h2>Step 11 — /admin/contacts Module</h2>
+            <p>Admin module at <code>/admin/contacts</code>. Protected by Clerk + admin role check (same guard as all other admin pages). Lists all contact submissions newest-first via <code>api.contacts.list</code>. Supports two POST actions: <code>mark-read</code> and <code>delete</code>.</p>
+            <div class="executive-grid">
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/admin/contacts.astro</div>
+                    <p class="executive-quote">Auth guard: checks Clerk userId → Convex user record → role === 'admin'. POST handling reads action + contactId from formData; calls contacts.markRead or contacts.remove accordingly.</p>
+                    <p class="executive-quote">Fetches contacts via getAuthedConvex client (contacts.list returns newest-first, up to 100). Unread count displayed in page header as a cyan badge.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">Card UI design</div>
+                    <p class="executive-quote">Each submission renders as a card. Unread cards have a cyan border + dot indicator + "unread" badge. Read cards have the standard slate-200 border. Message body uses whitespace-pre-wrap to preserve line breaks.</p>
+                    <p class="executive-quote">Actions per card: Reply (mailto: link, pre-fills subject as "Re: {subject}"), Mark read (only shown if unread), Delete (confirm dialog).</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">Admin portal index updated</div>
+                    <p class="executive-quote">Contact module card in /admin/index.astro changed from status: 'planned' to status: 'active', and label updated to 'Contacts'.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             STEP 10 — /contact PAGE
+             Public contact form wired to Convex contacts table.
+        ═══════════════════════════════════════════════════════════════ -->
+        <section class="step">
+            <h2>Step 10 — /contact Page</h2>
+            <p>Public contact form. Uses SSR POST handling (same pattern as onboarding.astro). Calls the existing <code>contacts.create</code> Convex mutation. No auth required — unauthenticated <code>convex</code> client from <code>@lib/convex</code>.</p>
+            <div class="executive-grid">
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/contact.astro</div>
+                    <p class="executive-quote">Frontmatter handles POST: reads name, email, subject (optional), message from formData. Validates required fields server-side. Calls convex.mutation(api.contacts.create, {...}). On success redirects to /contact?success=1 (POST-redirect-GET pattern prevents re-submit on refresh).</p>
+                    <p class="executive-quote">success=1 query param renders a confirmation card instead of the form. Error string renders an inline red banner above the form.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">Layout structure</div>
+                    <p class="executive-quote">BaseLayout → Header (appName from Convex settings) → dark hero section → white form card on slate-50 background → Footer.</p>
+                    <p class="executive-quote">Form fields: Full name (required), Email (required), Subject (optional), Message textarea (required). Submit button inline-flex aligned left.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">Admin notification</div>
+                    <p class="executive-quote">contacts.create already schedules internal.email.sendAdminAlert if appSettings.notifyOnContact and appSettings.adminAlertEmail are set. No extra wiring needed — toggle in /admin/settings → Notifications.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             STEP 14 — PHONE FIELD ADDED TO CONTACTS
+        ═══════════════════════════════════════════════════════════════ -->
+        <section id="phone-field">
+            <h2>Step 14 — Phone Field Added to Contacts</h2>
+            <p>Added an optional phone number field to the contacts system in preparation for the SMS lead-nurturing sequence. Three files changed.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/schema.ts</div>
+                    <p class="executive-quote">Added <code>phone: v.optional(v.string())</code> to the contacts table between email and subject. Optional — no existing records are broken.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/contacts.ts — create mutation</div>
+                    <p class="executive-quote">Added <code>phone: v.optional(v.string())</code> to mutation args. Spread <code>...args</code> pattern means phone is automatically persisted without additional changes.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/contact.astro — form + POST handler</div>
+                    <p class="executive-quote">POST handler: <code>phone = (data.get('phone') as string)?.trim() || undefined</code> — empty string normalised to undefined so the field is truly absent from Convex when blank.</p>
+                    <p class="executive-quote">Form input: <code>type="tel"</code>, <code>autocomplete="tel"</code>, labelled "Phone number (optional)". Placed full-width between the email field and subject field.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/admin/contacts.astro — display</div>
+                    <p class="executive-quote">Phone number rendered as a <code>tel:</code> anchor link in the card header alongside name and email. Only shown when <code>contact.phone</code> is truthy — no empty space for records without a phone number.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">SMS sequence spec</div>
+                    <p class="executive-quote">Full 5-message SMS lead-nurturing sequence (instant response, 24h follow-up, 48h nudge, booking confirmation 4a/4b/4c, no-show win-back) written and stored at <code>.devnotes/direct-response-copywriter-template-output.md</code>.</p>
+                    <p class="executive-quote">Variables: {{FIRST_NAME}}, {{SERVICE}}, {{BUSINESS_NAME}}, {{BOOKING_LINK}}, {{REBOOKING_LINK}}, {{APPOINTMENT_DATE}}, {{APPOINTMENT_TIME}}.</p>
+                    <p class="executive-quote">SMS infrastructure (Twilio) not yet built. Requires: convex/sms.ts internalAction, smsLogs table in schema, appSettings fields for market/primaryService/defaultBookingLink/smsTemplate, scheduled action from contacts.create, scheduler cancellation pattern.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             STEP 15 — PRIVACY POLICY + TERMS OF USE PAGES
+        ═══════════════════════════════════════════════════════════════ -->
+        <section id="legal-pages">
+            <h2>Step 15 — Privacy Policy &amp; Terms of Use Pages</h2>
+            <p>Two legal pages to fix dead links in the Footer's Legal nav column (<code>/privacy</code>, <code>/terms</code>). Both pull live business data from <code>appSettings</code> — no hardcoded business info.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/privacy.astro</div>
+                    <p class="executive-quote">10 sections: Information We Collect, How We Use Your Information, SMS Communications, Sharing of Information, Data Retention, Your Rights, Cookies, Children's Privacy, Changes to This Policy, Contact Us.</p>
+                    <p class="executive-quote">Pulls <code>appName</code>, <code>siteUrl</code>, <code>supportEmail</code> from Convex <code>appSettings</code>. Hardcoded <code>lastUpdated</code> constant at top of frontmatter — update manually when content changes.</p>
+                    <p class="executive-quote">Includes SMS consent clause (required for Twilio compliance).</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/terms.astro</div>
+                    <p class="executive-quote">11 sections: Use of the Site, Accounts, Intellectual Property, User-Submitted Content, SMS Communications, Disclaimer of Warranties, Limitation of Liability, Third-Party Links, Governing Law, Changes to These Terms, Contact Us.</p>
+                    <p class="executive-quote">Same dynamic data pattern as privacy.astro. Includes SMS STOP/HELP opt-out language required by TCPA/carrier compliance.</p>
+                </div>
+                <div class="executive-card ceo">
+                    <div class="executive-title">Important: Template Disclaimer</div>
+                    <p class="executive-quote">Both pages include a visible footer note: "This is a template document. Consult a qualified attorney to ensure this policy meets the legal requirements applicable to your business and jurisdiction."</p>
+                    <p class="executive-quote">Replace or remove this disclaimer before going live with a real client. Have a lawyer review both documents.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             STEP 16 — /about AND /services PUBLIC PAGES
+        ═══════════════════════════════════════════════════════════════ -->
+        <section id="about-services-pages">
+            <h2>Step 16 — /about and /services Pages</h2>
+            <p>Two static-ish marketing pages that reuse existing marketing components and extend them with additional page-specific sections. Both pull <code>appName</code> and <code>description</code> from Convex <code>appSettings</code>.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/about.astro — structure</div>
+                    <p class="executive-quote">Dark hero → About component (reused from @marketing/About.astro, ctaHref overridden to /contact) → Values grid (4 cards: Clarity, Speed, Ownership, Long-term thinking) → Process timeline (4 steps: Discovery, Blueprint, Build, Launch & Beyond) → CTA component (links to /contact + /services) → Footer.</p>
+                    <p class="executive-quote">Values and process arrays defined in frontmatter — easy to customise per client without touching component internals.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/services.astro — structure</div>
+                    <p class="executive-quote">Dark hero → Services component (reused from @marketing/Services.astro, ctaHref overridden to /contact, ctaLabel "Start a project") → 4 deep-dive alternating sections → CTA component → Footer.</p>
+                    <p class="executive-quote">Deep-dive sections use <code>flip</code> boolean to alternate text-left / text-right layout. Each section has an <code>id</code> attribute matching the Footer's Services nav anchors: <code>#strategy</code>, <code>#design</code>, <code>#development</code>, <code>#growth</code>. Footer anchor links now scroll to the correct section.</p>
+                    <p class="executive-quote">Sections: Strategy & Discovery (#strategy), Design & Branding (#design), Development (#development), Growth & Analytics (#growth). Each includes a 5-bullet deliverable list.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">Component reuse pattern</div>
+                    <p class="executive-quote">Standalone pages pass overridden props to shared marketing components rather than duplicating markup. The home page and the standalone pages can have different CTAs from the same component by passing ctaHref/ctaLabel props.</p>
+                    <p class="executive-quote">Image placeholders in About.astro (aspect-square rounded-3xl bg-slate-200) are ready for replacement with &lt;img&gt; or Astro &lt;Image&gt; — no markup changes needed, just swap the div.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             STEP 17 — BASELAYOUT TRANSITION FIX + CLAUDE.MD / README UPDATES
+        ═══════════════════════════════════════════════════════════════ -->
+        <section id="baselayout-transition-fix">
+            <h2>Step 17 — BaseLayout Transition Fix &amp; Documentation Updates</h2>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">src/layouts/BaseLayout.astro — transition:animate added</div>
+                    <p class="executive-quote">Added <code>transition:animate="fade"</code> to the <code>&lt;main&gt;</code> element. The <code>&lt;ClientRouter /&gt;</code> was already correctly placed in <code>&lt;head&gt;</code> but the default full-page cross-fade was imperceptible at dev-server speeds.</p>
+                    <p class="executive-quote">Root cause of "no transitions": Astro 5+ disables View Transition animations when the OS <code>prefers-reduced-motion: reduce</code> flag is set. Check System Settings → Accessibility → Display → Reduce motion if transitions still appear absent.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">README.md — full build checklist added</div>
+                    <p class="executive-quote">README replaced with a comprehensive build checklist covering: Public Pages, Admin Portal, Incomplete Integrations (sitePages wiring, user confirmation email, SMS infrastructure, booking webhook), and Infrastructure/Assets (OG image, robots.txt, sitemap, smsLogs table).</p>
+                    <p class="executive-quote">README.md is the canonical, always-up-to-date task list for this template. Mark items [x] as they are completed.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">CLAUDE.md — expanded architecture docs</div>
+                    <p class="executive-quote">Added: bunx convex dev to Commands, full 7-alias path alias table, Convex+Astro SSR client pattern (convex vs getAuthedConvex), auth pattern (roles in Convex not Clerk), Stripe billing pattern, completed pages & modules list, outstanding work section with sitePages wiring steps.</p>
+                </div>
+            </div>
+        </section>
+
     </body>
 </html>

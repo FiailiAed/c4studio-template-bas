@@ -1,0 +1,206 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { SignOutButton, UserButton } from '@clerk/astro/components';
+import { getAuthedConvex } from '@lib/convex';
+import { api } from '@convex/api';
+import type { Id } from '@convex/dataModel';
+
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect('/sign-in');
+
+const token = await Astro.locals.auth().getToken({ template: 'convex' });
+const client = getAuthedConvex(token);
+
+const currentUser = await client.query(api.users.getByClerkId, { clerkId: userId });
+if (!currentUser) return Astro.redirect('/onboarding');
+if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
+
+let successMessage: string | null = null;
+let errorMessage: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const action = data.get('action') as string;
+  const contactId = data.get('contactId') as Id<'contacts'>;
+
+  if (!contactId) {
+    errorMessage = 'Invalid request.';
+  } else {
+    try {
+      if (action === 'mark-read') {
+        await client.mutation(api.contacts.markRead, { contactId });
+        successMessage = 'Marked as read.';
+      } else if (action === 'delete') {
+        await client.mutation(api.contacts.remove, { contactId });
+        successMessage = 'Submission deleted.';
+      }
+    } catch {
+      errorMessage = 'Action failed. Please try again.';
+    }
+  }
+}
+
+const contacts = await client.query(api.contacts.list, {});
+const unreadCount = contacts.filter(c => !c.read).length;
+---
+
+<BaseLayout title="Contacts — Admin Portal">
+  <div class="min-h-screen bg-slate-50">
+    <!-- Nav -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/admin" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Admin Portal</a>
+        <span class="text-slate-300">/</span>
+        <span class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Contacts</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Home</a>
+        <a href="/dashboard" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Dashboard</a>
+        <UserButton />
+        <SignOutButton>
+          <button class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Sign out</button>
+        </SignOutButton>
+      </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-6 py-12">
+      <!-- Page header -->
+      <div class="flex items-start justify-between mb-8">
+        <div>
+          <h1 class="text-3xl font-bold tracking-tight text-slate-900" style="font-family: 'Lexend', sans-serif;">Contacts</h1>
+          <p class="text-slate-500 mt-1" style="font-family: 'Inter', sans-serif;">
+            {contacts.length} {contacts.length === 1 ? 'submission' : 'submissions'}
+            {unreadCount > 0 && (
+              <span class="ml-2 inline-flex items-center text-xs font-semibold bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-full">
+                {unreadCount} unread
+              </span>
+            )}
+          </p>
+        </div>
+      </div>
+
+      {successMessage && (
+        <div class="mb-6 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700" style="font-family: 'Inter', sans-serif;">
+          {successMessage}
+        </div>
+      )}
+
+      {errorMessage && (
+        <div class="mb-6 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700" style="font-family: 'Inter', sans-serif;">
+          {errorMessage}
+        </div>
+      )}
+
+      {contacts.length === 0 ? (
+        <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center">
+          <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/>
+            </svg>
+          </div>
+          <p class="text-sm font-medium text-slate-500" style="font-family: 'Inter', sans-serif;">No contact submissions yet.</p>
+          <p class="text-xs text-slate-400 mt-1" style="font-family: 'Inter', sans-serif;">They'll appear here when someone fills out the contact form.</p>
+        </div>
+      ) : (
+        <div class="flex flex-col gap-4">
+          {contacts.map((contact) => {
+            const date = new Date(contact._creationTime).toLocaleDateString('en-US', {
+              month: 'short', day: 'numeric', year: 'numeric',
+            });
+            const time = new Date(contact._creationTime).toLocaleTimeString('en-US', {
+              hour: 'numeric', minute: '2-digit',
+            });
+
+            return (
+              <div class={`bg-white rounded-2xl border transition ${contact.read ? 'border-slate-200' : 'border-cyan-200 shadow-sm'}`}>
+                <!-- Card header -->
+                <div class="flex items-start justify-between gap-4 px-6 pt-5 pb-4">
+                  <div class="flex items-start gap-3 min-w-0">
+                    <!-- Unread dot -->
+                    <div class="mt-1.5 shrink-0">
+                      {!contact.read ? (
+                        <span class="block w-2 h-2 rounded-full bg-cyan-500"></span>
+                      ) : (
+                        <span class="block w-2 h-2 rounded-full bg-slate-200"></span>
+                      )}
+                    </div>
+                    <div class="min-w-0">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <p class="text-sm font-semibold text-slate-900" style="font-family: 'Inter', sans-serif;">{contact.name}</p>
+                        <a
+                          href={`mailto:${contact.email}`}
+                          class="text-xs text-cyan-600 hover:text-cyan-800 hover:underline transition"
+                          style="font-family: 'Inter', sans-serif;"
+                        >
+                          {contact.email}
+                        </a>
+                        {contact.phone && (
+                          <a
+                            href={`tel:${contact.phone}`}
+                            class="text-xs text-slate-500 hover:text-slate-800 hover:underline transition"
+                            style="font-family: 'Inter', sans-serif;"
+                          >
+                            {contact.phone}
+                          </a>
+                        )}
+                        {!contact.read && (
+                          <span class="text-xs font-medium bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-full" style="font-family: 'Inter', sans-serif;">unread</span>
+                        )}
+                      </div>
+                      {contact.subject && (
+                        <p class="text-xs text-slate-500 mt-0.5 font-medium" style="font-family: 'Inter', sans-serif;">
+                          Re: {contact.subject}
+                        </p>
+                      )}
+                      <p class="text-xs text-slate-400 mt-0.5" style="font-family: 'Inter', sans-serif;">{date} at {time}</p>
+                    </div>
+                  </div>
+
+                  <!-- Actions -->
+                  <div class="flex items-center gap-2 shrink-0">
+                    <a
+                      href={`mailto:${contact.email}${contact.subject ? `?subject=Re: ${encodeURIComponent(contact.subject)}` : ''}`}
+                      class="text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition"
+                      style="font-family: 'Inter', sans-serif;"
+                    >
+                      Reply
+                    </a>
+                    {!contact.read && (
+                      <form method="POST">
+                        <input type="hidden" name="contactId" value={contact._id} />
+                        <input type="hidden" name="action" value="mark-read" />
+                        <button
+                          type="submit"
+                          class="text-xs font-medium text-cyan-600 hover:text-cyan-800 bg-cyan-50 hover:bg-cyan-100 px-3 py-1.5 rounded-lg transition"
+                          style="font-family: 'Inter', sans-serif;"
+                        >
+                          Mark read
+                        </button>
+                      </form>
+                    )}
+                    <form method="POST" onsubmit="return confirm('Delete this submission? This cannot be undone.')">
+                      <input type="hidden" name="contactId" value={contact._id} />
+                      <input type="hidden" name="action" value="delete" />
+                      <button
+                        type="submit"
+                        class="text-xs font-medium text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition"
+                        style="font-family: 'Inter', sans-serif;"
+                      >
+                        Delete
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                <!-- Message body -->
+                <div class="px-6 pb-5 pl-11">
+                  <p class="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap" style="font-family: 'Inter', sans-serif;">{contact.message}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </main>
+  </div>
+</BaseLayout>

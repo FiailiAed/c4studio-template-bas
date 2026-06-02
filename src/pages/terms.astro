@@ -1,0 +1,127 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import Header from '@marketing/Header.astro';
+import Footer from '@marketing/Footer.astro';
+import { convex } from '@lib/convex';
+import { api } from '@convex/api';
+
+const settings = await convex.query(api.settings.get, {});
+const appName = settings?.appName ?? 'c4studio';
+const siteUrl = settings?.siteUrl ?? 'https://example.com';
+const supportEmail = settings?.supportEmail ?? 'hello@example.com';
+const description = settings?.description ?? 'We help ambitious businesses design, build, and grow digital products that stand out.';
+
+const lastUpdated = 'June 1, 2026';
+---
+
+<BaseLayout
+  title={`Terms of Use — ${appName}`}
+  description={`Terms of Use for ${appName}.`}
+>
+  <Header slot="header" appName={appName} />
+
+  <!-- Page hero -->
+  <section class="bg-slate-900 text-white py-16 md:py-20 relative overflow-hidden">
+    <div class="absolute inset-0 opacity-[0.04]" style="background-image: linear-gradient(#fff 1px, transparent 1px), linear-gradient(to right, #fff 1px, transparent 1px); background-size: 64px 64px;"></div>
+    <div class="relative max-w-3xl mx-auto px-6">
+      <p class="inline-flex items-center gap-2 text-xs font-semibold text-sky-400 uppercase tracking-widest mb-4" style="font-family: 'Inter', sans-serif;">
+        <span class="w-6 h-px bg-sky-400"></span>
+        Legal
+      </p>
+      <h1 class="text-4xl md:text-5xl font-bold tracking-tight leading-tight mb-4" style="font-family: 'Lexend', sans-serif;">
+        Terms of Use
+      </h1>
+      <p class="text-slate-400 text-sm" style="font-family: 'Inter', sans-serif;">Last updated: {lastUpdated}</p>
+    </div>
+  </section>
+
+  <!-- Content -->
+  <section class="bg-white py-16 md:py-20">
+    <div class="max-w-3xl mx-auto px-6">
+      <div class="prose-slate" style="font-family: 'Inter', sans-serif;">
+
+        <p class="text-slate-600 leading-relaxed mb-10">
+          Please read these Terms of Use ("<strong>Terms</strong>") carefully before using <a href={siteUrl} class="text-slate-900 underline underline-offset-2 hover:text-slate-600 transition">{siteUrl}</a> (the "<strong>Site</strong>") operated by {appName} ("<strong>we</strong>," "<strong>us</strong>," or "<strong>our</strong>"). By accessing or using the Site, you agree to be bound by these Terms. If you do not agree, do not use the Site.
+        </p>
+
+        <div class="mb-10">
+          <h2 class="text-xl font-bold text-slate-900 mb-4" style="font-family: 'Lexend', sans-serif;">1. Use of the Site</h2>
+          <p class="text-slate-600 leading-relaxed mb-4">You may use the Site only for lawful purposes and in accordance with these Terms. You agree not to:</p>
+          <ul class="list-disc list-outside pl-5 text-slate-600 leading-relaxed space-y-2">
+            <li>Use the Site in any way that violates applicable federal, state, local, or international laws or regulations.</li>
+            <li>Transmit any unsolicited or unauthorized advertising or promotional material.</li>
+            <li>Attempt to gain unauthorized access to any part of the Site or its related systems.</li>
+            <li>Engage in any conduct that restricts or inhibits anyone's use or enjoyment of the Site.</li>
+            <li>Use automated tools, bots, or scrapers to access or collect content from the Site without our written permission.</li>
+          </ul>
+        </div>
+
+        <div class="mb-10">
+          <h2 class="text-xl font-bold text-slate-900 mb-4" style="font-family: 'Lexend', sans-serif;">2. Accounts</h2>
+          <p class="text-slate-600 leading-relaxed mb-4">If you create an account on the Site, you are responsible for maintaining the confidentiality of your credentials and for all activity that occurs under your account. You agree to notify us immediately of any unauthorized use of your account.</p>
+          <p class="text-slate-600 leading-relaxed">We reserve the right to terminate or suspend accounts at our discretion, including for violations of these Terms.</p>
+        </div>
+
+        <div class="mb-10">
+          <h2 class="text-xl font-bold text-slate-900 mb-4" style="font-family: 'Lexend', sans-serif;">3. Intellectual Property</h2>
+          <p class="text-slate-600 leading-relaxed mb-4">The Site and its entire contents — including text, graphics, logos, images, and software — are owned by {appName} or its licensors and are protected by applicable intellectual property laws.</p>
+          <p class="text-slate-600 leading-relaxed">You may not reproduce, distribute, modify, create derivative works of, publicly display, or exploit any content from the Site without our prior written permission.</p>
+        </div>
+
+        <div class="mb-10">
+          <h2 class="text-xl font-bold text-slate-900 mb-4" style="font-family: 'Lexend', sans-serif;">4. User-Submitted Content</h2>
+          <p class="text-slate-600 leading-relaxed mb-4">When you submit information through our contact form or other features of the Site, you grant us a non-exclusive, royalty-free license to use that information to respond to your inquiry and operate our services.</p>
+          <p class="text-slate-600 leading-relaxed">You represent that any information you submit is accurate and that you have the right to provide it.</p>
+        </div>
+
+        <div class="mb-10">
+          <h2 class="text-xl font-bold text-slate-900 mb-4" style="font-family: 'Lexend', sans-serif;">5. SMS Communications</h2>
+          <p class="text-slate-600 leading-relaxed">By providing your phone number and submitting the contact form, you consent to receive SMS messages from {appName} related to your inquiry. Message and data rates may apply. Reply <strong class="text-slate-800">STOP</strong> at any time to opt out. Reply <strong class="text-slate-800">HELP</strong> for assistance. Message frequency varies based on your inquiry.</p>
+        </div>
+
+        <div class="mb-10">
+          <h2 class="text-xl font-bold text-slate-900 mb-4" style="font-family: 'Lexend', sans-serif;">6. Disclaimer of Warranties</h2>
+          <p class="text-slate-600 leading-relaxed">The Site is provided on an "<strong>as is</strong>" and "<strong>as available</strong>" basis without warranties of any kind, either express or implied, including but not limited to implied warranties of merchantability, fitness for a particular purpose, or non-infringement. We do not warrant that the Site will be uninterrupted, error-free, or free of viruses or other harmful components.</p>
+        </div>
+
+        <div class="mb-10">
+          <h2 class="text-xl font-bold text-slate-900 mb-4" style="font-family: 'Lexend', sans-serif;">7. Limitation of Liability</h2>
+          <p class="text-slate-600 leading-relaxed">To the fullest extent permitted by law, {appName} shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from your use of, or inability to use, the Site or its content — even if we have been advised of the possibility of such damages. Our total liability to you for any claim arising out of or relating to these Terms or the Site shall not exceed $100.</p>
+        </div>
+
+        <div class="mb-10">
+          <h2 class="text-xl font-bold text-slate-900 mb-4" style="font-family: 'Lexend', sans-serif;">8. Third-Party Links</h2>
+          <p class="text-slate-600 leading-relaxed">The Site may contain links to third-party websites. We have no control over and assume no responsibility for the content, privacy policies, or practices of any third-party sites. We encourage you to review the terms and privacy policies of any third-party sites you visit.</p>
+        </div>
+
+        <div class="mb-10">
+          <h2 class="text-xl font-bold text-slate-900 mb-4" style="font-family: 'Lexend', sans-serif;">9. Governing Law</h2>
+          <p class="text-slate-600 leading-relaxed">These Terms shall be governed by and construed in accordance with the laws of the United States, without regard to its conflict of law provisions. Any disputes arising under these Terms shall be resolved in the courts located in the United States.</p>
+        </div>
+
+        <div class="mb-10">
+          <h2 class="text-xl font-bold text-slate-900 mb-4" style="font-family: 'Lexend', sans-serif;">10. Changes to These Terms</h2>
+          <p class="text-slate-600 leading-relaxed">We may revise these Terms at any time. When we do, we'll update the "Last updated" date at the top of this page. Your continued use of the Site after any changes constitutes your acceptance of the revised Terms.</p>
+        </div>
+
+        <div class="mb-10">
+          <h2 class="text-xl font-bold text-slate-900 mb-4" style="font-family: 'Lexend', sans-serif;">11. Contact Us</h2>
+          <p class="text-slate-600 leading-relaxed">
+            Questions about these Terms? Reach us at:<br />
+            <a href={`mailto:${supportEmail}`} class="text-slate-900 underline underline-offset-2 hover:text-slate-600 transition">{supportEmail}</a>
+          </p>
+        </div>
+
+        <!-- Divider -->
+        <div class="border-t border-slate-100 pt-8 mt-8">
+          <p class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">
+            This is a template document. Consult a qualified attorney to ensure these Terms meet the legal requirements applicable to your business and jurisdiction.
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <Footer slot="footer" appName={appName} tagline={description} />
+</BaseLayout>
