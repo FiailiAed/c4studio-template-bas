@@ -53,7 +53,9 @@ export default defineSchema({
     subject: v.optional(v.string()),
     message: v.string(),
     read: v.boolean(),
-  }).index("by_read", ["read"]),
+  })
+    .index("by_read", ["read"])
+    .index("by_email", ["email"]),
 
   // Gallery media items
   gallery: defineTable({
@@ -68,6 +70,28 @@ export default defineSchema({
   })
     .index("by_order", ["order"])
     .index("by_published", ["published"]),
+
+  pricingTiers: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+    price: v.optional(v.number()),
+    currency: v.string(),
+    billingPeriod: v.union(
+      v.literal("monthly"),
+      v.literal("annual"),
+      v.literal("one_time"),
+      v.literal("custom")
+    ),
+    priceLabel: v.optional(v.string()),
+    features: v.array(v.string()),
+    highlighted: v.boolean(),
+    ctaLabel: v.string(),
+    ctaHref: v.string(),
+    published: v.boolean(),
+    order: v.number(),
+  })
+    .index("by_published", ["published"])
+    .index("by_order", ["order"]),
 
   funnels: defineTable({
     name: v.string(),

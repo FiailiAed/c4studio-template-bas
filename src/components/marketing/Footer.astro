@@ -1,4 +1,6 @@
 ---
+import { getPageStatusMap } from '@lib/pageStatus';
+
 interface Props {
   appName?: string;
   tagline?: string;
@@ -9,19 +11,27 @@ const {
   tagline = 'Building digital products people love.',
 } = Astro.props;
 
+const statusMap = await getPageStatusMap();
+const isActive = (route: string) => (statusMap[route] ?? 'planned') === 'active';
+// Services section links are all under /services — show if /services is active
+const servicesActive = isActive('/services');
+
+const allCompany = [
+  { label: 'About',   href: '/about' },
+  { label: 'Pricing', href: '/pricing' },
+  { label: 'Blog',    href: '/blog' },
+  { label: 'Gallery', href: '/gallery' },
+  { label: 'Contact', href: '/contact' },
+];
+
 const nav = {
-  Company: [
-    { label: 'About',   href: '/about' },
-    { label: 'Blog',    href: '/blog' },
-    { label: 'Gallery', href: '/gallery' },
-    { label: 'Contact', href: '/contact' },
-  ],
-  Services: [
-    { label: 'Strategy',     href: '/services#strategy' },
-    { label: 'Design',       href: '/services#design' },
-    { label: 'Development',  href: '/services#development' },
-    { label: 'Growth',       href: '/services#growth' },
-  ],
+  Company: allCompany.filter(({ href }) => isActive(href)),
+  Services: servicesActive ? [
+    { label: 'Strategy',    href: '/services#strategy' },
+    { label: 'Design',      href: '/services#design' },
+    { label: 'Development', href: '/services#development' },
+    { label: 'Growth',      href: '/services#growth' },
+  ] : [],
   Legal: [
     { label: 'Privacy Policy', href: '/privacy' },
     { label: 'Terms of Use',   href: '/terms' },
@@ -62,8 +72,8 @@ const year = new Date().getFullYear();
         </div>
       </div>
 
-      <!-- Nav columns -->
-      {Object.entries(nav).map(([group, links]) => (
+      <!-- Nav columns — only render if the column has links -->
+      {Object.entries(nav).filter(([, links]) => links.length > 0).map(([group, links]) => (
         <div>
           <p class="text-xs font-semibold text-white uppercase tracking-widest mb-4" style="font-family: 'Inter', sans-serif;">{group}</p>
           <ul class="flex flex-col gap-2.5">

@@ -26,8 +26,13 @@ if (Astro.request.method === 'POST') {
     try {
       await convex.mutation(api.contacts.create, { name, email, phone, subject, message });
       return Astro.redirect('/contact?success=1');
-    } catch {
-      error = 'Something went wrong. Please try again.';
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      if (msg.includes('RATE_LIMITED')) {
+        error = "You've already submitted a message recently. Please wait a few minutes before trying again.";
+      } else {
+        error = 'Something went wrong. Please try again.';
+      }
     }
   }
 }

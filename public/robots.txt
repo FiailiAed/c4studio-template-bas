@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+Disallow: /admin
+Disallow: /admin/
+Disallow: /dashboard
+Disallow: /dashboard/
+Disallow: /onboarding
+Disallow: /sign-in
+Disallow: /sign-up
+Disallow: /api/
+
+Sitemap: /sitemap.xml

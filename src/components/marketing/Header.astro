@@ -1,4 +1,6 @@
 ---
+import { getPageStatusMap } from '@lib/pageStatus';
+
 interface Props {
   appName?: string;
   ctaHref?: string;
@@ -11,15 +13,19 @@ const {
   ctaLabel = 'Get started',
 } = Astro.props;
 
-const nav = [
+const allNav = [
   { label: 'Home',     href: '/' },
   { label: 'About',    href: '/about' },
   { label: 'Services', href: '/services' },
+  { label: 'Pricing',  href: '/pricing' },
   { label: 'Reviews',  href: '/reviews' },
   { label: 'Blog',     href: '/blog' },
   { label: 'Gallery',  href: '/gallery' },
   { label: 'Contact',  href: '/contact' },
 ];
+
+const statusMap = await getPageStatusMap();
+const nav = allNav.filter(({ href }) => (statusMap[href] ?? 'planned') === 'active');
 
 const current = Astro.url.pathname;
 ---

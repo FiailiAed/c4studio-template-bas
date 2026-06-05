@@ -45,23 +45,44 @@ This is the **c4studio B.A.S.** (Basic/Bad Ass Astro Setup) template — the can
 @convex/*     → convex/_generated/*
 ```
 
-**Astro conventions:** Pages in `src/pages/` are file-based routes. Components go in `src/components/`. Static assets go in `public/`. `src/` directory will be added upon.
+**Astro conventions:** Pages in `src/pages/` are file-based routes. Components go in `src/components/`. Static assets go in `public/`.
 
 **Convex schema** (`convex/schema.ts`) must use strict TypeScript types via `v` from `convex/values`.
 
-**`.devnotes/`** contains project strategy and agent specification documents (HTML). Do not delete these files. EVERYTIME you make changes to the project you MUST update and add to `.devnotes/project-setup.html`. This file will be used as a running log of how the template project (this project) was setup. This file is intended to handoff to a human or agentic developer and they should be able to recreate this template from scratch by only following the `.devnotes/project-setup.html` file. DO NOT SKIP THIS STEP!
+**Convex generated types** (`convex/_generated/api.d.ts`) must be manually updated when a new `convex/*.ts` module is added — add the import and entry in `ApiFromModules`. Running `bunx convex dev` regenerates this file automatically; editing it by hand avoids needing the dev server running during type-checking.
 
-**`src/components/TechStack.astro`** maintains the visual stack status grid shown on the index page. EVERYTIME a stack technology is installed/configured, update that technology's `status` field from `'pending'` to `'installed'`. Keep this in sync with `.devnotes/project-setup.html`. DO NOT SKIP THIS STEP!
+**`.devnotes/`** contains project strategy and agent specification documents (HTML). Do not delete these files. EVERYTIME you make changes to the project you MUST update and add to `.devnotes/project-setup.html`. This file is intended to handoff to a human or agentic developer and they should be able to recreate this template from scratch by only following it. DO NOT SKIP THIS STEP!
 
 **Convex + Astro SSR pattern:** Use `src/lib/convex.ts` for server-side queries. `convex` (unauthenticated) for public reads; `getAuthedConvex(token)` for user-scoped mutations — get the token via `await Astro.locals.auth().getToken({ template: 'convex' })`. Never use a Convex browser client in SSR frontmatter.
 
+**Admin page auth guard** — every admin page opens with this exact pattern:
+```ts
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect('/sign-in');
+const token = await Astro.locals.auth().getToken({ template: 'convex' });
+const client = getAuthedConvex(token);
+const currentUser = await client.query(api.users.getByClerkId, { clerkId: userId });
+if (!currentUser) return Astro.redirect('/onboarding');
+if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
+```
+
 **Auth:** Clerk middleware (`src/middleware.ts`) protects `/admin/*` and `/dashboard/*`. Users are synced to Convex `users` table via the `users.createOrUpdate` mutation called from `/onboarding`. Role field (`"admin"` | `"user"`) is stored in Convex, not Clerk.
+
+**Convex file storage upload pattern** — uploads run entirely server-side in SSR frontmatter, never from browser JS:
+1. Call `client.mutation(api.gallery.generateUploadUrl, {})` to get a one-time upload URL
+2. `fetch(uploadUrl, { method: 'POST', headers: { 'Content-Type': mimeType }, body: file })` — Convex returns `{ storageId }`
+3. Call `client.mutation(api.gallery.create, { storageId, ... })` to save the record
+4. To retrieve the URL later: `ctx.storage.getUrl(storageId)` inside any query or mutation
 
 **Payments:** Stripe is wired via `@convex-dev/stripe` component. The HTTP webhook endpoint is registered in `convex/http.ts` at `/stripe/webhook`. Stripe billing data is queried through `users.adminGetBillingData` — it joins Convex users with Stripe subscriptions/payments/invoices via `tokenIdentifier`.
 
+**PostHog scripts** must use `is:inline` — without it, Astro processes the script and throws TypeScript errors. Use `define:vars` to inject env vars.
+
+**`src/lib/pages.ts`** exports `PAGE_CATALOG` — the single source of truth for the public page list (name, route, category, defaultStatus). Both `src/components/SitePages.astro` and `src/pages/admin/pages.astro` import from it. Do not duplicate this data.
+
 ## Completed Pages & Modules
 
-**Public pages:** `/`, `/contact`, `/about`, `/services`, `/privacy`, `/terms`, `/sign-in`, `/sign-up`, `/onboarding`, `/404`, `/reviews`, `/blog`, `/blog/[slug]`, `/gallery`
+**Public pages:** `/`, `/contact`, `/about`, `/services`, `/pricing`, `/privacy`, `/terms`, `/sign-in`, `/sign-up`, `/onboarding`, `/404`, `/reviews`, `/blog`, `/blog/[slug]`, `/gallery`
 
 **Admin portal** (`/admin/*` — all Clerk-protected):
 - `/admin/settings` — general, feature flags, notifications, design system, danger zone
@@ -70,8 +91,9 @@ This is the **c4studio B.A.S.** (Basic/Bad Ass Astro Setup) template — the can
 - `/admin/billing` — Stripe subscriptions, payments, invoices per user
 - `/admin/contacts` — list submissions, mark read, delete, mailto reply
 - `/admin/testimonials` — add, approve, feature, delete reviews; feeds `/reviews`
-- `/admin/posts` — read-only listing of file-based posts; links to `/blog`
+- `/admin/posts` — create, edit, publish, delete blog posts; feeds `/blog`, `/blog/[slug]`
 - `/admin/gallery` — upload images/videos/PDFs to Convex storage; publish/unpublish; feeds `/gallery` and home page Gallery component
+- `/admin/pricing` — create, edit, publish pricing tiers; highlight/unhighlight; feeds `/pricing`
 - `/admin/funnels`, `/admin/shops`, `/admin/booking-links` — CRUD with slug auto-gen
 - `/admin/communications` — Compose, Broadcast, Templates, History (Resend)
 
@@ -79,11 +101,12 @@ This is the **c4studio B.A.S.** (Basic/Bad Ass Astro Setup) template — the can
 
 ## Outstanding Work
 
-**Priority 1 — COMPLETE:**
-- `/admin/gallery` → `/gallery` ✓
-
-**Priority 2 — dynamic entity pages (Convex data already exists):**
+**Priority 1 — dynamic entity public pages (Convex data already exists):**
 - `/funnels/[slug]`, `/shops/[slug]`, `/booking-links/[slug]`
+
+**sitePages per-page enforcement — still needed:**
+- Helper (`src/lib/pageStatus.ts`) and Header/Footer filtering are done.
+- Remaining: each public page calls `enforcePageStatus(route, Astro)` at the top of its frontmatter so `planned` routes return 404.
 
 **Incomplete integrations:**
 
@@ -100,7 +123,9 @@ SMS infrastructure (Twilio — not yet integrated):
 - `convex/sms.ts` internalAction + `smsLogs` table in schema (mirrors `emailLogs` pattern)
 - `appSettings` fields: `market`, `primaryService`, `defaultBookingLink`, `smsTemplate`
 - Scheduled 5-min instant response from `contacts.create`; store `scheduledFunctionId` on contacts record for cancellation
-- 24h + 48h follow-up sequence (copy in `.devnotes/direct-response-copywriter-template-output.md`)
+- SMS copy sequences in `.devnotes/drc-lead-nurturing.md`, `.devnotes/drc-reactivation.md`, `.devnotes/drc-reviews-and-referrals.md`
+
+**maintenanceMode** — wired. BaseLayout fetches `appSettings.maintenanceMode`; when true, renders a full-page overlay for all non-admin/non-auth routes. Toggle at `/admin/settings → Feature Flags`.
 
 Booking webhook — required for SMS confirmation sequence and no-show win-back (Cal.com, Calendly, or native `/booking-links/[slug]`)
 

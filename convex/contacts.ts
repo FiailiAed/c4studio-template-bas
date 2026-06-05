@@ -11,6 +11,16 @@ export const create = mutation({
     message: v.string(),
   },
   handler: async (ctx, args) => {
+    // Rate limit: one submission per email per 5 minutes
+    const recent = await ctx.db
+      .query("contacts")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .order("desc")
+      .first();
+    if (recent && Date.now() - recent._creationTime < 5 * 60 * 1000) {
+      throw new Error("RATE_LIMITED");
+    }
+
     const id = await ctx.db.insert("contacts", { ...args, read: false });
 
     const settings = await ctx.db.query("appSettings").first();

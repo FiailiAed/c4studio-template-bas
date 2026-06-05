@@ -18,6 +18,7 @@ import type * as gallery from "../gallery.js";
 import type * as http from "../http.js";
 import type * as payments from "../payments.js";
 import type * as posts from "../posts.js";
+import type * as pricing from "../pricing.js";
 import type * as settings from "../settings.js";
 import type * as shops from "../shops.js";
 import type * as sitePages from "../sitePages.js";
@@ -41,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   payments: typeof payments;
   posts: typeof posts;
+  pricing: typeof pricing;
   settings: typeof settings;
   shops: typeof shops;
   sitePages: typeof sitePages;

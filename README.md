@@ -46,6 +46,7 @@ bunx convex dev  # Start Convex dev server (run alongside bun dev)
 [x] /blog               — Published post list from Convex
 [x] /blog/[slug]        — Single post detail from Convex
 [x] /gallery            — Published media from Convex storage
+[x] /pricing            — Dynamic pricing tiers from Convex
 [ ] /funnels/[slug]     — Public-facing funnel pages (data already in Convex)
 [ ] /shops/[slug]       — Public-facing shop pages (data already in Convex)
 [ ] /booking-links/[slug] — Public-facing booking pages (data already in Convex)
@@ -67,15 +68,16 @@ bunx convex dev  # Start Convex dev server (run alongside bun dev)
 [x] /admin/testimonials  — Approve + feature reviews → /reviews
 [x] /admin/posts         — Create, edit, publish blog posts → /blog, /blog/[slug]
 [x] /admin/gallery       — Upload media via Convex storage
+[x] /admin/pricing       — CRUD pricing tiers → /pricing
 ```
 
 ### Incomplete Integrations
 
 ```sh
-[ ] sitePages wiring         — /admin/pages writes statuses but nothing reads them yet
-                               Needs: src/lib/pageStatus.ts helper
+[~] sitePages wiring         — helper + Header/Footer wiring DONE; per-page enforcement still needed
+                               Done:  src/lib/pageStatus.ts helper
                                       Header.astro + Footer.astro nav filtering
-                                      Per-page enforcement (active/hidden → 404)
+                               Needs: Per-page enforcement on each public page (planned → 404)
 
 [ ] User confirmation email  — No email sent to submitter after contact form submission
                                Needs: sendUserConfirmation internalAction in convex/email.ts
@@ -89,7 +91,7 @@ bunx convex dev  # Start Convex dev server (run alongside bun dev)
                                       Scheduled action from contacts.create (5-min instant response)
                                       Scheduler cancellation: store scheduledFunctionId on contacts record
 
-[ ] SMS follow-up sequence   — 24-hour + 48-hour nudge (copy in .devnotes/direct-response-copywriter-template-output.md)
+[ ] SMS follow-up sequence   — 24-hour + 48-hour nudge (copy in .devnotes/drc-lead-nurturing.md)
                                Depends on SMS infrastructure above
 
 [ ] Booking webhook          — Required for SMS confirmation sequence (4a/4b/4c) and no-show win-back
@@ -105,7 +107,7 @@ bunx convex dev  # Start Convex dev server (run alongside bun dev)
 
 ```sh
 [ ] /og-image.png       — BaseLayout references it but file doesn't exist in public/
-[ ] /robots.txt         — Not present in public/
+[x] /robots.txt         — Disallows admin/dashboard/auth routes; sitemap line ready
 [ ] Sitemap             — @astrojs/sitemap not configured
 [ ] smsLogs table       — Needed to log outbound SMS (mirrors existing emailLogs pattern)
 ```

@@ -1,0 +1,328 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { SignOutButton, UserButton } from '@clerk/astro/components';
+import { getAuthedConvex } from '@lib/convex';
+import { api } from '@convex/api';
+import type { Id } from '@convex/dataModel';
+
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect('/sign-in');
+
+const token = await Astro.locals.auth().getToken({ template: 'convex' });
+const client = getAuthedConvex(token);
+
+const currentUser = await client.query(api.users.getByClerkId, { clerkId: userId });
+if (!currentUser) return Astro.redirect('/onboarding');
+if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
+
+let successMessage: string | null = null;
+let errorMessage: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const action = data.get('action') as string;
+
+  try {
+    if (action === 'create') {
+      const name = (data.get('name') as string)?.trim();
+      if (!name) throw new Error('Name is required.');
+
+      const priceRaw = (data.get('price') as string)?.trim();
+      const price = priceRaw ? parseFloat(priceRaw) : undefined;
+      const billingPeriod = (data.get('billingPeriod') as string) as
+        | 'monthly' | 'annual' | 'one_time' | 'custom';
+      const featuresRaw = (data.get('features') as string)?.trim();
+      const features = featuresRaw
+        ? featuresRaw.split('\n').map((f) => f.trim()).filter(Boolean)
+        : [];
+
+      await client.mutation(api.pricing.create, {
+        name,
+        description: (data.get('description') as string)?.trim() || undefined,
+        price,
+        currency: 'USD',
+        billingPeriod: billingPeriod || 'monthly',
+        priceLabel: (data.get('priceLabel') as string)?.trim() || undefined,
+        features,
+        ctaLabel: (data.get('ctaLabel') as string)?.trim() || 'Get started',
+        ctaHref: (data.get('ctaHref') as string)?.trim() || '/contact',
+        highlighted: data.get('highlighted') === 'on',
+      });
+      successMessage = 'Pricing tier created.';
+    } else {
+      const id = data.get('id') as Id<'pricingTiers'>;
+      if (!id) throw new Error('Invalid request.');
+
+      if (action === 'publish') {
+        await client.mutation(api.pricing.update, { id, published: true });
+        successMessage = 'Tier published.';
+      } else if (action === 'unpublish') {
+        await client.mutation(api.pricing.update, { id, published: false });
+        successMessage = 'Tier unpublished.';
+      } else if (action === 'highlight') {
+        await client.mutation(api.pricing.update, { id, highlighted: true });
+        successMessage = 'Tier highlighted.';
+      } else if (action === 'unhighlight') {
+        await client.mutation(api.pricing.update, { id, highlighted: false });
+        successMessage = 'Highlight removed.';
+      } else if (action === 'edit') {
+        const priceRaw = (data.get('price') as string)?.trim();
+        const featuresRaw = (data.get('features') as string)?.trim();
+        await client.mutation(api.pricing.update, {
+          id,
+          name: (data.get('name') as string)?.trim() || undefined,
+          description: (data.get('description') as string)?.trim() || undefined,
+          price: priceRaw ? parseFloat(priceRaw) : undefined,
+          priceLabel: (data.get('priceLabel') as string)?.trim() || undefined,
+          features: featuresRaw
+            ? featuresRaw.split('\n').map((f) => f.trim()).filter(Boolean)
+            : [],
+          ctaLabel: (data.get('ctaLabel') as string)?.trim() || undefined,
+          ctaHref: (data.get('ctaHref') as string)?.trim() || undefined,
+        });
+        successMessage = 'Tier updated.';
+      } else if (action === 'delete') {
+        await client.mutation(api.pricing.remove, { id });
+        successMessage = 'Tier deleted.';
+      }
+    }
+  } catch (e) {
+    errorMessage = e instanceof Error ? e.message : 'Action failed. Please try again.';
+  }
+}
+
+const tiers = await client.query(api.pricing.list, {});
+const publishedCount = tiers.filter((t) => t.published).length;
+
+const billingLabels: Record<string, string> = {
+  monthly: '/mo',
+  annual: '/yr',
+  one_time: 'one-time',
+  custom: 'custom',
+};
+---
+
+<BaseLayout title="Pricing — Admin Portal">
+  <div class="min-h-screen bg-slate-50">
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/admin" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Admin Portal</a>
+        <span class="text-slate-300">/</span>
+        <span class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Pricing</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="/pricing" target="_blank" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">View /pricing ↗</a>
+        <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Home</a>
+        <UserButton />
+        <SignOutButton>
+          <button class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Sign out</button>
+        </SignOutButton>
+      </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-6 py-12">
+      <div class="flex items-start justify-between mb-8">
+        <div>
+          <h1 class="text-3xl font-bold tracking-tight text-slate-900" style="font-family: 'Lexend', sans-serif;">Pricing Tiers</h1>
+          <p class="text-slate-500 mt-1" style="font-family: 'Inter', sans-serif;">
+            {tiers.length} tier{tiers.length !== 1 ? 's' : ''}
+            {publishedCount > 0 && (
+              <span class="ml-2 inline-flex items-center text-xs font-semibold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+                {publishedCount} published
+              </span>
+            )}
+          </p>
+        </div>
+      </div>
+
+      {successMessage && (
+        <div class="mb-6 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700" style="font-family: 'Inter', sans-serif;">{successMessage}</div>
+      )}
+      {errorMessage && (
+        <div class="mb-6 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700" style="font-family: 'Inter', sans-serif;">{errorMessage}</div>
+      )}
+
+      <!-- Create tier form -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-6 mb-8">
+        <h2 class="text-sm font-semibold text-slate-900 mb-5" style="font-family: 'Lexend', sans-serif;">Add pricing tier</h2>
+        <form method="POST" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <input type="hidden" name="action" value="create" />
+
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">Name <span class="text-red-400">*</span></label>
+            <input name="name" type="text" placeholder="Pro" required class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200" style="font-family: 'Inter', sans-serif;" />
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">Description</label>
+            <input name="description" type="text" placeholder="Best for growing teams" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200" style="font-family: 'Inter', sans-serif;" />
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">Price (USD, leave blank for "Contact us")</label>
+            <input name="price" type="number" min="0" step="0.01" placeholder="99" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200" style="font-family: 'Inter', sans-serif;" />
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">Billing period</label>
+            <select name="billingPeriod" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200" style="font-family: 'Inter', sans-serif;">
+              <option value="monthly">Monthly</option>
+              <option value="annual">Annual</option>
+              <option value="one_time">One-time</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">Price label override (optional, e.g. "Starting at $99/mo")</label>
+            <input name="priceLabel" type="text" placeholder="Starting at $99/mo" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200" style="font-family: 'Inter', sans-serif;" />
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">CTA label</label>
+            <input name="ctaLabel" type="text" placeholder="Get started" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200" style="font-family: 'Inter', sans-serif;" />
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">CTA link</label>
+            <input name="ctaHref" type="text" placeholder="/contact" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200" style="font-family: 'Inter', sans-serif;" />
+          </div>
+
+          <div class="flex flex-col gap-1 sm:col-span-2">
+            <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">Features (one per line)</label>
+            <textarea name="features" rows="4" placeholder="Unlimited projects&#10;Priority support&#10;Custom domain" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 resize-none" style="font-family: 'Inter', sans-serif;"></textarea>
+          </div>
+
+          <div class="flex items-center gap-3 sm:col-span-2">
+            <label class="flex items-center gap-2 cursor-pointer select-none" style="font-family: 'Inter', sans-serif;">
+              <input type="checkbox" name="highlighted" class="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-200" />
+              <span class="text-sm text-slate-700">Mark as highlighted ("Most popular")</span>
+            </label>
+            <button type="submit" class="ml-auto px-5 py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition" style="font-family: 'Inter', sans-serif;">
+              Add tier
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Tiers list -->
+      {tiers.length === 0 ? (
+        <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center">
+          <p class="text-sm font-medium text-slate-500" style="font-family: 'Inter', sans-serif;">No pricing tiers yet.</p>
+          <p class="text-xs text-slate-400 mt-1" style="font-family: 'Inter', sans-serif;">Add one above to get started.</p>
+        </div>
+      ) : (
+        <div class="flex flex-col gap-4">
+          {tiers.map((tier) => {
+            const priceDisplay = tier.priceLabel
+              ? tier.priceLabel
+              : tier.price !== undefined && tier.price !== null
+              ? `$${tier.price}${billingLabels[tier.billingPeriod] ? ' ' + billingLabels[tier.billingPeriod] : ''}`
+              : 'Contact us';
+            return (
+              <div class={`bg-white rounded-2xl border transition ${tier.highlighted ? 'border-amber-200' : tier.published ? 'border-emerald-200' : 'border-slate-200'}`}>
+                <div class="flex items-start justify-between gap-4 px-6 pt-5 pb-4">
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <p class="text-sm font-semibold text-slate-900" style="font-family: 'Inter', sans-serif;">{tier.name}</p>
+                      <p class="text-sm font-bold text-slate-700" style="font-family: 'Inter', sans-serif;">{priceDisplay}</p>
+                      {tier.highlighted && <span class="text-xs font-medium bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full" style="font-family: 'Inter', sans-serif;">highlighted</span>}
+                      {tier.published && !tier.highlighted && <span class="text-xs font-medium bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full" style="font-family: 'Inter', sans-serif;">published</span>}
+                      {!tier.published && <span class="text-xs font-medium bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full" style="font-family: 'Inter', sans-serif;">draft</span>}
+                    </div>
+                    {tier.description && <p class="text-xs text-slate-500 mt-0.5" style="font-family: 'Inter', sans-serif;">{tier.description}</p>}
+                    {tier.features.length > 0 && (
+                      <p class="text-xs text-slate-400 mt-1" style="font-family: 'Inter', sans-serif;">{tier.features.length} feature{tier.features.length !== 1 ? 's' : ''}</p>
+                    )}
+                  </div>
+
+                  <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                    {tier.published ? (
+                      <form method="POST">
+                        <input type="hidden" name="id" value={tier._id} />
+                        <input type="hidden" name="action" value="unpublish" />
+                        <button type="submit" class="text-xs font-medium text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition" style="font-family: 'Inter', sans-serif;">Unpublish</button>
+                      </form>
+                    ) : (
+                      <form method="POST">
+                        <input type="hidden" name="id" value={tier._id} />
+                        <input type="hidden" name="action" value="publish" />
+                        <button type="submit" class="text-xs font-medium text-emerald-600 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition" style="font-family: 'Inter', sans-serif;">Publish</button>
+                      </form>
+                    )}
+
+                    {tier.highlighted ? (
+                      <form method="POST">
+                        <input type="hidden" name="id" value={tier._id} />
+                        <input type="hidden" name="action" value="unhighlight" />
+                        <button type="submit" class="text-xs font-medium text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition" style="font-family: 'Inter', sans-serif;">Unhighlight</button>
+                      </form>
+                    ) : (
+                      <form method="POST">
+                        <input type="hidden" name="id" value={tier._id} />
+                        <input type="hidden" name="action" value="highlight" />
+                        <button type="submit" class="text-xs font-medium text-amber-600 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition" style="font-family: 'Inter', sans-serif;">Highlight</button>
+                      </form>
+                    )}
+
+                    <button
+                      type="button"
+                      onclick={`document.getElementById('edit-${tier._id}').classList.toggle('hidden')`}
+                      class="text-xs font-medium text-sky-600 hover:text-sky-800 bg-sky-50 hover:bg-sky-100 px-3 py-1.5 rounded-lg transition"
+                      style="font-family: 'Inter', sans-serif;"
+                    >Edit</button>
+
+                    <form method="POST" onsubmit="return confirm('Delete this tier? This cannot be undone.')">
+                      <input type="hidden" name="id" value={tier._id} />
+                      <input type="hidden" name="action" value="delete" />
+                      <button type="submit" class="text-xs font-medium text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition" style="font-family: 'Inter', sans-serif;">Delete</button>
+                    </form>
+                  </div>
+                </div>
+
+                <!-- Inline edit form -->
+                <div id={`edit-${tier._id}`} class="hidden px-6 pb-5 border-t border-slate-100 pt-4">
+                  <form method="POST" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <input type="hidden" name="action" value="edit" />
+                    <input type="hidden" name="id" value={tier._id} />
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">Name</label>
+                      <input name="name" type="text" value={tier.name} class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200" style="font-family: 'Inter', sans-serif;" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">Description</label>
+                      <input name="description" type="text" value={tier.description ?? ''} class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200" style="font-family: 'Inter', sans-serif;" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">Price</label>
+                      <input name="price" type="number" min="0" step="0.01" value={tier.price ?? ''} class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200" style="font-family: 'Inter', sans-serif;" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">Price label override</label>
+                      <input name="priceLabel" type="text" value={tier.priceLabel ?? ''} class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200" style="font-family: 'Inter', sans-serif;" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">CTA label</label>
+                      <input name="ctaLabel" type="text" value={tier.ctaLabel} class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200" style="font-family: 'Inter', sans-serif;" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">CTA link</label>
+                      <input name="ctaHref" type="text" value={tier.ctaHref} class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200" style="font-family: 'Inter', sans-serif;" />
+                    </div>
+                    <div class="flex flex-col gap-1 sm:col-span-2">
+                      <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">Features (one per line)</label>
+                      <textarea name="features" rows="4" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 resize-none" style="font-family: 'Inter', sans-serif;">{tier.features.join('\n')}</textarea>
+                    </div>
+                    <div class="sm:col-span-2">
+                      <button type="submit" class="px-4 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-700 transition" style="font-family: 'Inter', sans-serif;">Save changes</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </main>
+  </div>
+</BaseLayout>

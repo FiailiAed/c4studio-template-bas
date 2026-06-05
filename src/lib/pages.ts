@@ -39,6 +39,14 @@ export const PAGE_CATALOG: CatalogPage[] = [
     colorClasses: { card: 'bg-violet-50 border-violet-600', badge: 'bg-violet-600', text: 'text-violet-900' },
   },
   {
+    name: 'Pricing',
+    route: '/pricing',
+    description: 'Pricing tiers, feature comparison, and plan CTAs',
+    category: 'Marketing',
+    defaultStatus: 'planned',
+    colorClasses: { card: 'bg-green-50 border-green-600', badge: 'bg-green-600', text: 'text-green-900' },
+  },
+  {
     name: 'Reviews',
     route: '/reviews',
     description: 'Client testimonials, case studies, and social proof',
