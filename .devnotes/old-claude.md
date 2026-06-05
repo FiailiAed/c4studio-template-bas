@@ -61,57 +61,36 @@ This is the **c4studio B.A.S.** (Basic/Bad Ass Astro Setup) template — the can
 
 ## Completed Pages & Modules
 
-**Public pages:** `/`, `/contact`, `/about`, `/services`, `/privacy`, `/terms`, `/sign-in`, `/sign-up`, `/onboarding`, `/404`, `/reviews`, `/blog`, `/blog/[slug]`, `/gallery`
-
 **Admin portal** (`/admin/*` — all Clerk-protected):
 - `/admin/settings` — general, feature flags, notifications, design system, danger zone
 - `/admin/pages` — page visibility control (active / planned / hidden) stored in `sitePages` table
 - `/admin/users` — view accounts, assign roles
 - `/admin/billing` — Stripe subscriptions, payments, invoices per user
-- `/admin/contacts` — list submissions, mark read, delete, mailto reply
-- `/admin/testimonials` — add, approve, feature, delete reviews; feeds `/reviews`
-- `/admin/posts` — read-only listing of file-based posts; links to `/blog`
-- `/admin/gallery` — upload images/videos/PDFs to Convex storage; publish/unpublish; feeds `/gallery` and home page Gallery component
 - `/admin/funnels`, `/admin/shops`, `/admin/booking-links` — CRUD with slug auto-gen
 - `/admin/communications` — Compose, Broadcast, Templates, History (Resend)
 
 **Public marketing components** (`src/components/marketing/`): Header, Hero, TrustBar, Services, About, Reviews, Gallery, CTA, Footer — all prop-driven with defaults, assembled on `/`.
 
-## Outstanding Work
+## Outstanding Work (from README)
 
-**Priority 1 — COMPLETE:**
-- `/admin/gallery` → `/gallery` ✓
+**Priority 1 — no dependencies:**
+- `/contact` — contact form → Convex `contacts` table
+- `/about`, `/services` — static pages
+- `/admin/contacts` — view submissions, mark read
 
-**Priority 2 — dynamic entity pages (Convex data already exists):**
+**Priority 2 — requires admin module first:**
+- `/admin/testimonials` → `/reviews`
+- `/admin/posts` → `/blog`, `/blog/[slug]`
+- `/admin/gallery` → `/gallery`
+
+**Priority 3 — dynamic entity pages (Convex data already exists):**
 - `/funnels/[slug]`, `/shops/[slug]`, `/booking-links/[slug]`
 
-**Incomplete integrations:**
-
-`sitePages` wiring — `/admin/pages` writes statuses but nothing reads them yet:
+**Incomplete integration — `sitePages` wiring:**
+The `/admin/pages` module writes `sitePages` records but they are not yet consumed by the public site. To complete the integration:
 1. `src/lib/pageStatus.ts` — helper to fetch a route's status from Convex
 2. `src/components/marketing/Header.astro` + `Footer.astro` — filter nav to `active` pages only
 3. Each public page — call the helper: `active` → render, `hidden` → render but exclude from nav/sitemap, `planned` → 404
-
-Contact confirmation email — no email sent to submitter after contact form submission:
-- `sendUserConfirmation` internalAction in `convex/email.ts`, called from `contacts.create` via `ctx.scheduler`
-
-SMS infrastructure (Twilio — not yet integrated):
-- Env vars: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`
-- `convex/sms.ts` internalAction + `smsLogs` table in schema (mirrors `emailLogs` pattern)
-- `appSettings` fields: `market`, `primaryService`, `defaultBookingLink`, `smsTemplate`
-- Scheduled 5-min instant response from `contacts.create`; store `scheduledFunctionId` on contacts record for cancellation
-- 24h + 48h follow-up sequence (copy in `.devnotes/direct-response-copywriter-template-output.md`)
-
-Booking webhook — required for SMS confirmation sequence and no-show win-back (Cal.com, Calendly, or native `/booking-links/[slug]`)
-
-**Tabled — pending decision:**
-
-Google reviews import — decide whether to build Outscraper bulk import flow on `/admin/testimonials` or move to another outstanding task. Outscraper (paid API key, no OAuth) preferred for agency use case; Google Business Profile API via Clerk OAuth is the alternative for owner-operated businesses.
-
-**Missing assets/infrastructure:**
-- `public/og-image.png` — referenced in BaseLayout but file doesn't exist
-- `public/robots.txt` — not present
-- Sitemap — `@astrojs/sitemap` not configured
 
 <!-- convex-ai-start -->
 

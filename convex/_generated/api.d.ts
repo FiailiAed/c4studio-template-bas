@@ -14,11 +14,14 @@ import type * as email from "../email.js";
 import type * as emailLogs from "../emailLogs.js";
 import type * as emailTemplates from "../emailTemplates.js";
 import type * as funnels from "../funnels.js";
+import type * as gallery from "../gallery.js";
 import type * as http from "../http.js";
 import type * as payments from "../payments.js";
+import type * as posts from "../posts.js";
 import type * as settings from "../settings.js";
 import type * as shops from "../shops.js";
 import type * as sitePages from "../sitePages.js";
+import type * as testimonials from "../testimonials.js";
 import type * as users from "../users.js";
 
 import type {
@@ -34,11 +37,14 @@ declare const fullApi: ApiFromModules<{
   emailLogs: typeof emailLogs;
   emailTemplates: typeof emailTemplates;
   funnels: typeof funnels;
+  gallery: typeof gallery;
   http: typeof http;
   payments: typeof payments;
+  posts: typeof posts;
   settings: typeof settings;
   shops: typeof shops;
   sitePages: typeof sitePages;
+  testimonials: typeof testimonials;
   users: typeof users;
 }>;
 

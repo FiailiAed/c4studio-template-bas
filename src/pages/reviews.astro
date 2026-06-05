@@ -1,0 +1,119 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import Header from '@marketing/Header.astro';
+import CTA from '@marketing/CTA.astro';
+import Footer from '@marketing/Footer.astro';
+import { convex } from '@lib/convex';
+import { api } from '@convex/api';
+
+const settings = await convex.query(api.settings.get, {});
+const appName = settings?.appName ?? 'c4studio';
+const description = settings?.description ?? 'We help ambitious businesses design, build, and grow digital products that stand out.';
+
+const testimonials = await convex.query(api.testimonials.listApproved, {});
+---
+
+<BaseLayout
+  title={`Reviews — ${appName}`}
+  description={`See what clients say about working with ${appName}.`}
+>
+  <Header slot="header" appName={appName} />
+
+  <!-- Hero -->
+  <section class="bg-slate-900 text-white py-20 md:py-28 relative overflow-hidden">
+    <div class="absolute inset-0 opacity-[0.04]" style="background-image: linear-gradient(#fff 1px, transparent 1px), linear-gradient(to right, #fff 1px, transparent 1px); background-size: 64px 64px;"></div>
+    <div class="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-amber-500/10 blur-3xl pointer-events-none"></div>
+    <div class="relative max-w-3xl mx-auto px-6">
+      <p class="inline-flex items-center gap-2 text-xs font-semibold text-amber-400 uppercase tracking-widest mb-6" style="font-family: 'Inter', sans-serif;">
+        <span class="w-6 h-px bg-amber-400"></span>
+        Testimonials
+      </p>
+      <h1 class="text-5xl md:text-6xl font-bold tracking-tight leading-[1.05] mb-6" style="font-family: 'Lexend', sans-serif;">
+        Loved by the<br />people we serve.
+      </h1>
+      <p class="text-lg text-slate-400 leading-relaxed max-w-xl" style="font-family: 'Inter', sans-serif;">
+        Real feedback from real clients. No cherry-picking, no rewrites.
+      </p>
+    </div>
+  </section>
+
+  <!-- Reviews grid -->
+  <section class="bg-white py-24 md:py-32">
+    <div class="max-w-6xl mx-auto px-6">
+      {settings?.googleReviewUrl && (
+        <div class="flex justify-end mb-10">
+          <a
+            href={settings.googleReviewUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-2.5 bg-white border border-slate-200 hover:border-slate-400 text-slate-700 hover:text-slate-900 text-sm font-semibold px-5 py-3 rounded-2xl shadow-sm hover:shadow-md transition"
+            style="font-family: 'Inter', sans-serif;"
+          >
+            <!-- Google G logo -->
+            <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+            Leave us a Google review
+          </a>
+        </div>
+      )}
+
+      {testimonials.length === 0 ? (
+        <div class="text-center py-24">
+          <p class="text-slate-400 text-sm" style="font-family: 'Inter', sans-serif;">No reviews yet — check back soon.</p>
+        </div>
+      ) : (
+        <div class="columns-1 sm:columns-2 lg:columns-3 gap-6 space-y-6">
+          {testimonials.map((t) => (
+            <div class={`break-inside-avoid flex flex-col gap-4 rounded-2xl border p-6 ${t.featured ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'}`}>
+              <!-- Stars -->
+              <div class="flex gap-0.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <svg class={`w-4 h-4 ${i < t.rating ? 'text-amber-400' : 'text-slate-200'}`} fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 0 0 .95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 0 0-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 0 0-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 0 0-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 0 0 .951-.69l1.07-3.292Z"/>
+                  </svg>
+                ))}
+              </div>
+
+              <!-- Quote -->
+              <p class="text-slate-700 leading-relaxed text-sm flex-1" style="font-family: 'Inter', sans-serif;">
+                &ldquo;{t.body}&rdquo;
+              </p>
+
+              <!-- Author -->
+              <div class="flex items-center gap-3 pt-3 border-t border-slate-200">
+                <div class={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${t.featured ? 'bg-amber-200' : 'bg-slate-200'}`}>
+                  <span class="text-xs font-bold text-slate-600" style="font-family: 'Inter', sans-serif;">
+                    {t.authorName.charAt(0)}
+                  </span>
+                </div>
+                <div>
+                  <p class="text-sm font-semibold text-slate-900" style="font-family: 'Inter', sans-serif;">{t.authorName}</p>
+                  {t.authorTitle && (
+                    <p class="text-xs text-slate-500" style="font-family: 'Inter', sans-serif;">{t.authorTitle}</p>
+                  )}
+                </div>
+                {t.featured && (
+                  <span class="ml-auto text-xs font-medium text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full shrink-0" style="font-family: 'Inter', sans-serif;">featured</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <CTA
+    heading={"Ready to become\na success story?"}
+    subheading="Tell us about your project. We'll get back to you within one business day."
+    primaryCta={{ label: 'Get in touch', href: '/contact' }}
+    secondaryCta={{ label: 'See our services', href: '/services' }}
+  />
+
+  <Footer slot="footer" appName={appName} tagline={description} />
+</BaseLayout>

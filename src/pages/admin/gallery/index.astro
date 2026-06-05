@@ -1,0 +1,418 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { SignOutButton, UserButton } from '@clerk/astro/components';
+import { getAuthedConvex } from '@lib/convex';
+import { api } from '@convex/api';
+import type { Id } from '@convex/dataModel';
+
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect('/sign-in');
+
+const token = await Astro.locals.auth().getToken({ template: 'convex' });
+const client = getAuthedConvex(token);
+
+const currentUser = await client.query(api.users.getByClerkId, { clerkId: userId });
+if (!currentUser) return Astro.redirect('/onboarding');
+if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
+
+let successMessage: string | null = null;
+let errorMessage: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const action = data.get('action') as string;
+
+  try {
+    if (action === 'upload') {
+      const file = data.get('file') as File | null;
+      if (!file || file.size === 0) {
+        errorMessage = 'Please select a file to upload.';
+      } else {
+        const mimeType = file.type;
+        let mediaType: 'image' | 'video' | 'pdf';
+        if (mimeType.startsWith('image/')) {
+          mediaType = 'image';
+        } else if (mimeType.startsWith('video/')) {
+          mediaType = 'video';
+        } else if (mimeType === 'application/pdf') {
+          mediaType = 'pdf';
+        } else {
+          errorMessage = 'Unsupported file type. Upload an image, video, or PDF.';
+          mediaType = 'image'; // won't be used
+        }
+
+        if (!errorMessage) {
+          const uploadUrl = await client.mutation(api.gallery.generateUploadUrl, {});
+          const uploadResponse = await fetch(uploadUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': mimeType },
+            body: file,
+          });
+
+          if (!uploadResponse.ok) {
+            errorMessage = 'File upload failed. Please try again.';
+          } else {
+            const { storageId } = await uploadResponse.json() as { storageId: Id<'_storage'> };
+            const title = (data.get('title') as string)?.trim() || undefined;
+            const description = (data.get('description') as string)?.trim() || undefined;
+
+            await client.mutation(api.gallery.create, {
+              storageId,
+              mediaType,
+              title,
+              description,
+            });
+            successMessage = 'File uploaded successfully.';
+          }
+        }
+      }
+    } else if (action === 'publish') {
+      const id = data.get('id') as Id<'gallery'>;
+      await client.mutation(api.gallery.update, { id, published: true });
+      successMessage = 'Item published.';
+    } else if (action === 'unpublish') {
+      const id = data.get('id') as Id<'gallery'>;
+      await client.mutation(api.gallery.update, { id, published: false });
+      successMessage = 'Item unpublished.';
+    } else if (action === 'edit') {
+      const id = data.get('id') as Id<'gallery'>;
+      const title = (data.get('title') as string)?.trim() || undefined;
+      const description = (data.get('description') as string)?.trim() || undefined;
+      await client.mutation(api.gallery.update, { id, title, description });
+      successMessage = 'Item updated.';
+    } else if (action === 'delete') {
+      const id = data.get('id') as Id<'gallery'>;
+      await client.mutation(api.gallery.remove, { id });
+      successMessage = 'Item deleted.';
+    }
+  } catch {
+    errorMessage = 'Action failed. Please try again.';
+  }
+}
+
+const items = await client.query(api.gallery.listWithUrls, {});
+const publishedCount = items.filter((i) => i.published).length;
+---
+
+<BaseLayout title="Gallery — Admin Portal">
+  <div class="min-h-screen bg-slate-50">
+    <!-- Nav -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/admin" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Admin Portal</a>
+        <span class="text-slate-300">/</span>
+        <span class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Gallery</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="/gallery" target="_blank" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">View /gallery ↗</a>
+        <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Home</a>
+        <UserButton />
+        <SignOutButton>
+          <button class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Sign out</button>
+        </SignOutButton>
+      </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-6 py-12">
+      <!-- Page header -->
+      <div class="flex items-start justify-between mb-8">
+        <div>
+          <h1 class="text-3xl font-bold tracking-tight text-slate-900" style="font-family: 'Lexend', sans-serif;">Gallery</h1>
+          <p class="text-slate-500 mt-1" style="font-family: 'Inter', sans-serif;">
+            {items.length} item{items.length !== 1 ? 's' : ''}
+            {publishedCount > 0 && (
+              <span class="ml-2 inline-flex items-center text-xs font-semibold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+                {publishedCount} published
+              </span>
+            )}
+          </p>
+        </div>
+      </div>
+
+      {successMessage && (
+        <div class="mb-6 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700" style="font-family: 'Inter', sans-serif;">
+          {successMessage}
+        </div>
+      )}
+      {errorMessage && (
+        <div class="mb-6 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700" style="font-family: 'Inter', sans-serif;">
+          {errorMessage}
+        </div>
+      )}
+
+      <!-- Upload form -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-6 mb-8">
+        <h2 class="text-sm font-semibold text-slate-900 mb-4" style="font-family: 'Lexend', sans-serif;">Upload media</h2>
+        <form method="POST" enctype="multipart/form-data" class="flex flex-col gap-4">
+          <input type="hidden" name="action" value="upload" />
+
+          <!-- Drop zone -->
+          <label
+            id="drop-zone"
+            class="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-slate-200 hover:border-slate-400 rounded-2xl p-10 cursor-pointer transition group"
+          >
+            <div class="w-12 h-12 rounded-full bg-slate-100 group-hover:bg-slate-200 flex items-center justify-center transition">
+              <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
+              </svg>
+            </div>
+            <div class="text-center">
+              <p class="text-sm font-medium text-slate-700" style="font-family: 'Inter', sans-serif;" id="drop-label">Click to choose a file</p>
+              <p class="text-xs text-slate-400 mt-1" style="font-family: 'Inter', sans-serif;">Images (JPG, PNG, WebP, GIF), Videos (MP4, WebM), PDFs — max 20 MB</p>
+            </div>
+            <input
+              type="file"
+              name="file"
+              id="file-input"
+              accept="image/*,video/*,application/pdf"
+              required
+              class="sr-only"
+            />
+          </label>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">Title (optional)</label>
+              <input
+                name="title"
+                type="text"
+                placeholder="e.g. Brand Redesign 2024"
+                class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+                style="font-family: 'Inter', sans-serif;"
+              />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">Description (optional)</label>
+              <input
+                name="description"
+                type="text"
+                placeholder="Short caption or context"
+                class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+                style="font-family: 'Inter', sans-serif;"
+              />
+            </div>
+          </div>
+
+          <div>
+            <button
+              type="submit"
+              class="px-5 py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition"
+              style="font-family: 'Inter', sans-serif;"
+            >
+              Upload
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Gallery grid -->
+      {items.length === 0 ? (
+        <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center">
+          <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"/>
+            </svg>
+          </div>
+          <p class="text-sm font-medium text-slate-500" style="font-family: 'Inter', sans-serif;">No media uploaded yet.</p>
+          <p class="text-xs text-slate-400 mt-1" style="font-family: 'Inter', sans-serif;">Upload images, videos, or PDFs above to get started.</p>
+        </div>
+      ) : (
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {items.map((item) => {
+            const date = new Date(item._creationTime).toLocaleDateString('en-US', {
+              month: 'short', day: 'numeric', year: 'numeric',
+            });
+            return (
+              <div class={`bg-white rounded-2xl border overflow-hidden transition ${item.published ? 'border-emerald-200' : 'border-slate-200'}`}>
+                <!-- Thumbnail -->
+                <div class="aspect-video bg-slate-100 relative overflow-hidden">
+                  {item.mediaType === 'image' && item.url && (
+                    <img
+                      src={item.url}
+                      alt={item.title ?? 'Gallery image'}
+                      class="w-full h-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  )}
+                  {item.mediaType === 'video' && item.url && (
+                    <video
+                      src={item.url}
+                      class="w-full h-full object-cover"
+                      muted
+                      preload="metadata"
+                    />
+                  )}
+                  {item.mediaType === 'pdf' && (
+                    <div class="w-full h-full flex flex-col items-center justify-center gap-2 bg-red-50">
+                      <svg class="w-8 h-8 text-red-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
+                      </svg>
+                      <span class="text-xs font-medium text-red-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">PDF</span>
+                    </div>
+                  )}
+                  <!-- Type badge -->
+                  <div class="absolute top-2 left-2">
+                    <span class={`text-xs font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide ${
+                      item.mediaType === 'image' ? 'bg-sky-900/70 text-sky-100' :
+                      item.mediaType === 'video' ? 'bg-purple-900/70 text-purple-100' :
+                      'bg-red-900/70 text-red-100'
+                    }`} style="font-family: 'Inter', sans-serif;">{item.mediaType}</span>
+                  </div>
+                  <!-- Published badge -->
+                  {item.published && (
+                    <div class="absolute top-2 right-2">
+                      <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-900/70 text-emerald-100 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">live</span>
+                    </div>
+                  )}
+                </div>
+
+                <!-- Info -->
+                <div class="p-4">
+                  <p class="text-sm font-semibold text-slate-900 truncate" style="font-family: 'Inter', sans-serif;">
+                    {item.title ?? <span class="text-slate-400 font-normal italic">Untitled</span>}
+                  </p>
+                  {item.description && (
+                    <p class="text-xs text-slate-500 truncate mt-0.5" style="font-family: 'Inter', sans-serif;">{item.description}</p>
+                  )}
+                  <p class="text-xs text-slate-400 mt-1" style="font-family: 'Inter', sans-serif;">{date}</p>
+                </div>
+
+                <!-- Actions -->
+                <div class="px-4 pb-4 flex items-center gap-2 flex-wrap border-t border-slate-100 pt-3">
+                  {item.published ? (
+                    <form method="POST">
+                      <input type="hidden" name="action" value="unpublish" />
+                      <input type="hidden" name="id" value={item._id} />
+                      <button type="submit" class="text-xs font-medium text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition" style="font-family: 'Inter', sans-serif;">
+                        Unpublish
+                      </button>
+                    </form>
+                  ) : (
+                    <form method="POST">
+                      <input type="hidden" name="action" value="publish" />
+                      <input type="hidden" name="id" value={item._id} />
+                      <button type="submit" class="text-xs font-medium text-emerald-600 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition" style="font-family: 'Inter', sans-serif;">
+                        Publish
+                      </button>
+                    </form>
+                  )}
+
+                  <!-- Edit inline -->
+                  <button
+                    type="button"
+                    onclick={`document.getElementById('edit-${item._id}').classList.toggle('hidden')`}
+                    class="text-xs font-medium text-sky-600 hover:text-sky-800 bg-sky-50 hover:bg-sky-100 px-3 py-1.5 rounded-lg transition"
+                    style="font-family: 'Inter', sans-serif;"
+                  >
+                    Edit
+                  </button>
+
+                  {item.url && (item.mediaType === 'image' || item.mediaType === 'video') && (
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="text-xs font-medium text-slate-500 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-lg transition"
+                      style="font-family: 'Inter', sans-serif;"
+                    >
+                      View ↗
+                    </a>
+                  )}
+                  {item.url && item.mediaType === 'pdf' && (
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="text-xs font-medium text-slate-500 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-lg transition"
+                      style="font-family: 'Inter', sans-serif;"
+                    >
+                      Open ↗
+                    </a>
+                  )}
+
+                  <form method="POST" class="ml-auto" onsubmit="return confirm('Delete this item? This also removes the file from storage and cannot be undone.')">
+                    <input type="hidden" name="action" value="delete" />
+                    <input type="hidden" name="id" value={item._id} />
+                    <button type="submit" class="text-xs font-medium text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition" style="font-family: 'Inter', sans-serif;">
+                      Delete
+                    </button>
+                  </form>
+                </div>
+
+                <!-- Edit form (hidden by default) -->
+                <div id={`edit-${item._id}`} class="hidden px-4 pb-4 border-t border-slate-100 pt-3">
+                  <form method="POST" class="flex flex-col gap-3">
+                    <input type="hidden" name="action" value="edit" />
+                    <input type="hidden" name="id" value={item._id} />
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">Title</label>
+                      <input
+                        name="title"
+                        type="text"
+                        value={item.title ?? ''}
+                        placeholder="Untitled"
+                        class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+                        style="font-family: 'Inter', sans-serif;"
+                      />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">Description</label>
+                      <input
+                        name="description"
+                        type="text"
+                        value={item.description ?? ''}
+                        placeholder="Optional caption"
+                        class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+                        style="font-family: 'Inter', sans-serif;"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      class="self-start px-4 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-700 transition"
+                      style="font-family: 'Inter', sans-serif;"
+                    >
+                      Save
+                    </button>
+                  </form>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </main>
+  </div>
+</BaseLayout>
+
+<script>
+  const input = document.getElementById('file-input') as HTMLInputElement;
+  const label = document.getElementById('drop-label') as HTMLElement;
+  const zone = document.getElementById('drop-zone') as HTMLElement;
+
+  input?.addEventListener('change', () => {
+    const file = input.files?.[0];
+    label.textContent = file ? file.name : 'Click to choose a file';
+  });
+
+  zone?.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    zone.classList.add('border-slate-400', 'bg-slate-50');
+  });
+
+  zone?.addEventListener('dragleave', () => {
+    zone.classList.remove('border-slate-400', 'bg-slate-50');
+  });
+
+  zone?.addEventListener('drop', (e) => {
+    e.preventDefault();
+    zone.classList.remove('border-slate-400', 'bg-slate-50');
+    const file = e.dataTransfer?.files[0];
+    if (file && input) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      label.textContent = file.name;
+    }
+  });
+</script>

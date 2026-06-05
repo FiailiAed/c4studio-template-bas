@@ -42,10 +42,10 @@ bunx convex dev  # Start Convex dev server (run alongside bun dev)
 [x] /services           — Overview grid + deep-dive sections with #strategy #design #development #growth anchors
 [x] /privacy            — Privacy Policy — pulls appName, siteUrl, supportEmail from appSettings
 [x] /terms              — Terms of Use — pulls appName, siteUrl, supportEmail from appSettings
-[ ] /reviews            — Reads approved testimonials from Convex ← build /admin/testimonials first
-[ ] /blog               — Published post list from Convex ← build /admin/posts first
-[ ] /blog/[slug]        — Single post detail from Convex ← build /admin/posts first
-[ ] /gallery            — Published media from Convex storage ← build /admin/gallery first
+[x] /reviews            — Reads approved testimonials from Convex
+[x] /blog               — Published post list from Convex
+[x] /blog/[slug]        — Single post detail from Convex
+[x] /gallery            — Published media from Convex storage
 [ ] /funnels/[slug]     — Public-facing funnel pages (data already in Convex)
 [ ] /shops/[slug]       — Public-facing shop pages (data already in Convex)
 [ ] /booking-links/[slug] — Public-facing booking pages (data already in Convex)
@@ -64,9 +64,9 @@ bunx convex dev  # Start Convex dev server (run alongside bun dev)
 [x] /admin/shops        — CRUD with slug auto-gen
 [x] /admin/booking-links — CRUD with slug auto-gen
 [x] /admin/communications — Compose, Broadcast, Templates, History (Resend)
-[ ] /admin/testimonials  — Approve + feature reviews ← build before /reviews
-[ ] /admin/posts         — Create, edit, publish blog posts ← build before /blog
-[ ] /admin/gallery       — Upload media via Convex storage ← build before /gallery
+[x] /admin/testimonials  — Approve + feature reviews → /reviews
+[x] /admin/posts         — Create, edit, publish blog posts → /blog, /blog/[slug]
+[x] /admin/gallery       — Upload media via Convex storage
 ```
 
 ### Incomplete Integrations
@@ -94,6 +94,11 @@ bunx convex dev  # Start Convex dev server (run alongside bun dev)
 
 [ ] Booking webhook          — Required for SMS confirmation sequence (4a/4b/4c) and no-show win-back
                                Source: Cal.com, Calendly, or native /booking-links/[slug] pages
+
+[ ] TABLED: Google reviews import — Decide whether to build Outscraper bulk import flow on
+                               /admin/testimonials or move to another outstanding task.
+                               Context: Outscraper API (paid, no OAuth) vs Google Business Profile
+                               API via Clerk OAuth. Outscraper preferred for agency use case.
 ```
 
 ### Infrastructure / Assets

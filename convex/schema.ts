@@ -60,7 +60,9 @@ export default defineSchema({
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     storageId: v.id("_storage"),
-    mediaType: v.union(v.literal("image"), v.literal("video")),
+    mediaType: v.union(v.literal("image"), v.literal("video"), v.literal("pdf")),
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
     order: v.number(),
     published: v.boolean(),
   })
@@ -141,5 +143,7 @@ export default defineSchema({
     tertiaryName: v.optional(v.string()),
     neutralColor: v.optional(v.string()),
     neutralName: v.optional(v.string()),
+    // External review link — e.g. Google review form URL
+    googleReviewUrl: v.optional(v.string()),
   }),
 });

@@ -922,5 +922,94 @@ Do not deviate from these technologies. Do not suggest alternatives.
             </div>
         </section>
 
+        <!-- ═══════════════════════════════════════════════════════════════
+             STEP 18 — TESTIMONIALS WORKFLOW (/admin/testimonials + /reviews)
+        ═══════════════════════════════════════════════════════════════ -->
+        <section id="testimonials-workflow">
+            <h2>Step 18 — Testimonials Workflow</h2>
+            <p>Full testimonials pipeline: admin CRUD + approval flow feeding a public <code>/reviews</code> page. Three new files and updates to the admin index, README, and CLAUDE.md.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/testimonials.ts — backend</div>
+                    <p class="executive-quote">Six functions using the existing <code>testimonials</code> table from <code>convex/schema.ts</code> (fields: authorName, authorTitle, body, rating, approved, featured).</p>
+                    <p class="executive-quote"><code>list</code> — all records desc, admin-only. <code>listApproved</code> — index query on <code>by_approved</code>, used by the public page. <code>create</code> — inserts with approved/featured both false by default. <code>setApproved</code> — also sets featured=false when unapproving (invariant: featured requires approved). <code>setFeatured</code> — toggle featured state. <code>remove</code> — hard delete.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/admin/testimonials.astro — admin page</div>
+                    <p class="executive-quote">Follows the contacts.astro pattern: auth guard (clerk → convex role check), POST handler with action dispatch, then SSR-rendered list.</p>
+                    <p class="executive-quote">POST actions: <code>create</code> (inline form: name, title, body, rating select), <code>approve</code>, <code>unapprove</code>, <code>feature</code>, <code>unfeature</code>, <code>delete</code> (confirm dialog). Card border color signals state: amber=featured, emerald=approved, slate=pending. Feature button only appears on approved testimonials.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/reviews.astro — public page</div>
+                    <p class="executive-quote">Uses the unauthenticated <code>convex</code> client (not <code>getAuthedConvex</code>) to call <code>api.testimonials.listApproved</code>. Dark hero → masonry-column grid (CSS columns, break-inside-avoid) → CTA → Footer.</p>
+                    <p class="executive-quote">Featured testimonials get amber card styling and a "featured" badge. Empty state shows a graceful placeholder. Columns: 1 / sm:2 / lg:3.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/admin/index.astro — Testimonials status updated</div>
+                    <p class="executive-quote">Changed Testimonials module status from <code>'planned'</code> to <code>'active'</code> so the admin portal card shows the green checkmark.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             STEP 19 — GALLERY MODULE (/admin/gallery + /gallery)
+             Convex file storage for images, videos, and PDFs.
+        ═══════════════════════════════════════════════════════════════ -->
+        <section id="gallery-module">
+            <h2>Step 19 — Gallery Module</h2>
+            <p>Full media management pipeline: admin upload + CRUD feeding a public <code>/gallery</code> page and the home page Gallery marketing component. Uses Convex file storage for all media types. No Astro <code>&lt;Image&gt;</code> — plain <code>&lt;img loading="lazy"&gt;</code> with optional <code>width</code>/<code>height</code> to prevent layout shift.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/schema.ts — gallery table updated</div>
+                    <p class="executive-quote">Added <code>width: v.optional(v.number())</code> and <code>height: v.optional(v.number())</code> for layout shift prevention.</p>
+                    <p class="executive-quote">Added <code>v.literal("pdf")</code> to the <code>mediaType</code> union alongside <code>image</code> and <code>video</code>.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/gallery.ts — backend</div>
+                    <p class="executive-quote"><code>generateUploadUrl</code> (mutation, auth-gated) — calls <code>ctx.storage.generateUploadUrl()</code>. Called server-side from the Astro SSR POST handler, never from the browser.</p>
+                    <p class="executive-quote"><code>listWithUrls</code> (query) — all items ordered by <code>order</code> asc, resolves storageId → signed URL via <code>ctx.storage.getUrl()</code>. Used by the admin page.</p>
+                    <p class="executive-quote"><code>listPublishedWithUrls</code> (query) — published items only, sorted by <code>order</code>. Used by <code>/gallery</code> and <code>/</code>.</p>
+                    <p class="executive-quote"><code>create</code> (mutation, auth-gated) — inserts with <code>order: Date.now()</code> and <code>published: false</code>.</p>
+                    <p class="executive-quote"><code>update</code> (mutation, auth-gated) — patches title, description, published, or order.</p>
+                    <p class="executive-quote"><code>remove</code> (mutation, auth-gated) — deletes the Convex storage file via <code>ctx.storage.delete(storageId)</code> then deletes the DB record.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">Upload flow — fully server-side (no browser JS required for upload)</div>
+                    <p class="executive-quote">1. Form submits as <code>multipart/form-data</code> with <code>action=upload</code> to the Astro SSR POST handler.</p>
+                    <p class="executive-quote">2. Server reads the <code>File</code> from <code>formData.get('file')</code> and determines <code>mediaType</code> from <code>file.type</code> (image/* → image, video/* → video, application/pdf → pdf).</p>
+                    <p class="executive-quote">3. Server calls <code>client.mutation(api.gallery.generateUploadUrl, {})</code> to get a short-lived Convex upload URL.</p>
+                    <p class="executive-quote">4. Server POSTs the file to that URL: <code>fetch(uploadUrl, { method: 'POST', headers: { 'Content-Type': mimeType }, body: file })</code>.</p>
+                    <p class="executive-quote">5. Convex returns <code>{ storageId }</code>. Server calls <code>api.gallery.create</code> with storageId + metadata.</p>
+                    <p class="executive-quote">NOTE: Client-side drag-and-drop enhancement is present (updates the filename label and injects dropped files into the input), but the actual upload always goes through the SSR POST handler.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/admin/gallery/index.astro</div>
+                    <p class="executive-quote">Auth guard (clerk → convex role check, same as all other admin pages). POST handler dispatches on <code>action</code>: upload, publish, unpublish, edit, delete.</p>
+                    <p class="executive-quote">Upload form: drag-and-drop zone (CSS + inline script), file input (accept image/*, video/*, application/pdf), optional title/description.</p>
+                    <p class="executive-quote">Grid view: aspect-video thumbnail, type badge, published badge. Per-item actions: Publish/Unpublish, Edit (inline toggle), View/Open (direct Convex URL), Delete (confirm dialog — also deletes from storage).</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/gallery.astro — public page</div>
+                    <p class="executive-quote">Uses the unauthenticated <code>convex</code> client to call <code>api.gallery.listPublishedWithUrls</code>. Dark hero → masonry columns (CSS columns, break-inside-avoid, 1/sm:2/lg:3).</p>
+                    <p class="executive-quote">Images: <code>&lt;img loading="lazy" decoding="async"&gt;</code> with optional width/height. Videos: <code>&lt;video controls&gt;</code>. PDFs: anchor card linking to Convex URL.</p>
+                    <p class="executive-quote">Empty state with graceful placeholder message.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/components/marketing/Gallery.astro — updated</div>
+                    <p class="executive-quote">GalleryItem interface updated: added optional <code>width</code> and <code>height</code> fields passed through to <code>&lt;img&gt;</code>.</p>
+                    <p class="executive-quote">Added <code>loading="lazy" decoding="async"</code> to real item images.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/index.astro — updated</div>
+                    <p class="executive-quote">Added <code>api.gallery.listPublishedWithUrls</code> to the parallel fetch. Filters to images only (videos/PDFs don't render in the home page marketing grid), slices to first 6, maps to <code>GalleryItem</code> shape, and passes to <code>&lt;Gallery items={galleryImages} /&gt;</code>.</p>
+                    <p class="executive-quote">When no published images exist, the Gallery component shows the placeholder tiles (existing fallback behavior).</p>
+                </div>
+                <div class="executive-card ceo">
+                    <div class="executive-title">Design decision: no Astro &lt;Image&gt; for Convex media</div>
+                    <p class="executive-quote">Astro's <code>&lt;Image&gt;</code> can process remote URLs from allowlisted domains, but adds Sharp-based server-side resizing latency per request. Convex has no CDN transform layer. For a portfolio/gallery use case, native lazy loading is sufficient. Revisit only if image performance becomes a measured concern — at that point, a dedicated image CDN (Cloudflare Images, Uploadthing) would be a better fit than Astro's transform service.</p>
+                </div>
+            </div>
+        </section>
+
     </body>
 </html>

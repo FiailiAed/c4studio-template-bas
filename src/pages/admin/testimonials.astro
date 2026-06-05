@@ -1,0 +1,374 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { SignOutButton, UserButton } from '@clerk/astro/components';
+import { getAuthedConvex } from '@lib/convex';
+import { api } from '@convex/api';
+import type { Id } from '@convex/dataModel';
+
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect('/sign-in');
+
+const token = await Astro.locals.auth().getToken({ template: 'convex' });
+const client = getAuthedConvex(token);
+
+const currentUser = await client.query(api.users.getByClerkId, { clerkId: userId });
+if (!currentUser) return Astro.redirect('/onboarding');
+if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
+
+let successMessage: string | null = null;
+let errorMessage: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const action = data.get('action') as string;
+
+  try {
+    if (action === 'create') {
+      const authorName = (data.get('authorName') as string)?.trim();
+      const authorTitle = (data.get('authorTitle') as string)?.trim() || undefined;
+      const body = (data.get('body') as string)?.trim();
+      const rating = parseInt(data.get('rating') as string, 10);
+
+      if (!authorName || !body || isNaN(rating) || rating < 1 || rating > 5) {
+        errorMessage = 'Name, review text, and a valid rating (1–5) are required.';
+      } else {
+        await client.mutation(api.testimonials.create, {
+          authorName,
+          authorTitle,
+          body,
+          rating,
+          approved: false,
+          featured: false,
+        });
+        successMessage = 'Testimonial added.';
+      }
+    } else if (action === 'update-google-url') {
+      const googleReviewUrl = (data.get('googleReviewUrl') as string)?.trim() || undefined;
+      await client.mutation(api.settings.upsert, { googleReviewUrl });
+      successMessage = 'Google review link updated.';
+    } else {
+      const testimonialId = data.get('testimonialId') as Id<'testimonials'>;
+      if (!testimonialId) {
+        errorMessage = 'Invalid request.';
+      } else if (action === 'approve') {
+        await client.mutation(api.testimonials.setApproved, { testimonialId, approved: true });
+        successMessage = 'Testimonial approved.';
+      } else if (action === 'unapprove') {
+        await client.mutation(api.testimonials.setApproved, { testimonialId, approved: false });
+        successMessage = 'Approval removed.';
+      } else if (action === 'feature') {
+        await client.mutation(api.testimonials.setFeatured, { testimonialId, featured: true });
+        successMessage = 'Testimonial featured.';
+      } else if (action === 'unfeature') {
+        await client.mutation(api.testimonials.setFeatured, { testimonialId, featured: false });
+        successMessage = 'Removed from featured.';
+      } else if (action === 'delete') {
+        await client.mutation(api.testimonials.remove, { testimonialId });
+        successMessage = 'Testimonial deleted.';
+      }
+    }
+  } catch {
+    errorMessage = 'Action failed. Please try again.';
+  }
+}
+
+const [testimonials, settings] = await Promise.all([
+  client.query(api.testimonials.list, {}),
+  client.query(api.settings.get, {}),
+]);
+const approvedCount = testimonials.filter(t => t.approved).length;
+const featuredCount = testimonials.filter(t => t.featured).length;
+---
+
+<BaseLayout title="Testimonials — Admin Portal">
+  <div class="min-h-screen bg-slate-50">
+    <!-- Nav -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/admin" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Admin Portal</a>
+        <span class="text-slate-300">/</span>
+        <span class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Testimonials</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="/reviews" target="_blank" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">View /reviews ↗</a>
+        <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Home</a>
+        <UserButton />
+        <SignOutButton>
+          <button class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Sign out</button>
+        </SignOutButton>
+      </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-6 py-12">
+      <!-- Page header -->
+      <div class="flex items-start justify-between mb-8">
+        <div>
+          <h1 class="text-3xl font-bold tracking-tight text-slate-900" style="font-family: 'Lexend', sans-serif;">Testimonials</h1>
+          <p class="text-slate-500 mt-1" style="font-family: 'Inter', sans-serif;">
+            {testimonials.length} total
+            {approvedCount > 0 && (
+              <span class="ml-2 inline-flex items-center text-xs font-semibold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+                {approvedCount} approved
+              </span>
+            )}
+            {featuredCount > 0 && (
+              <span class="ml-2 inline-flex items-center text-xs font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                {featuredCount} featured
+              </span>
+            )}
+          </p>
+        </div>
+      </div>
+
+      {successMessage && (
+        <div class="mb-6 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700" style="font-family: 'Inter', sans-serif;">
+          {successMessage}
+        </div>
+      )}
+      {errorMessage && (
+        <div class="mb-6 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700" style="font-family: 'Inter', sans-serif;">
+          {errorMessage}
+        </div>
+      )}
+
+      <!-- Google review link -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
+        <div class="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <h2 class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Google review link</h2>
+            <p class="text-xs text-slate-500 mt-0.5" style="font-family: 'Inter', sans-serif;">Shown as a button on the public <a href="/reviews" target="_blank" class="text-slate-700 hover:underline">/reviews</a> page.</p>
+          </div>
+          {settings?.googleReviewUrl && (
+            <a
+              href={settings.googleReviewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="shrink-0 text-xs font-medium text-slate-500 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition"
+              style="font-family: 'Inter', sans-serif;"
+            >
+              Test link ↗
+            </a>
+          )}
+        </div>
+        <form method="POST" class="flex flex-col gap-3">
+          <input type="hidden" name="action" value="update-google-url" />
+          <div class="flex gap-3">
+            <input
+              type="url"
+              name="googleReviewUrl"
+              value={settings?.googleReviewUrl ?? ''}
+              placeholder="https://search.google.com/local/writereview?placeid=..."
+              class="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+              style="font-family: 'Inter', sans-serif;"
+            />
+            <button
+              type="submit"
+              class="shrink-0 px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition"
+              style="font-family: 'Inter', sans-serif;"
+            >
+              Save
+            </button>
+          </div>
+          <details class="group">
+            <summary class="text-xs text-slate-400 cursor-pointer hover:text-slate-600 transition select-none list-none flex items-center gap-1" style="font-family: 'Inter', sans-serif;">
+              <svg class="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/>
+              </svg>
+              How to find your Google review link
+            </summary>
+            <div class="mt-3 p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-2.5">
+              <p class="text-xs font-semibold text-slate-700" style="font-family: 'Inter', sans-serif;">Easiest method — Google Business Profile dashboard:</p>
+              <ol class="flex flex-col gap-1.5 text-xs text-slate-600 list-decimal list-inside" style="font-family: 'Inter', sans-serif;">
+                <li>Go to <strong>business.google.com</strong> and sign in</li>
+                <li>Select your business location</li>
+                <li>Click <strong>"Ask for reviews"</strong> in the overview panel</li>
+                <li>Copy the link — paste it in the field above</li>
+              </ol>
+              <p class="text-xs font-semibold text-slate-700 mt-1" style="font-family: 'Inter', sans-serif;">Alternative — Google Maps:</p>
+              <ol class="flex flex-col gap-1.5 text-xs text-slate-600 list-decimal list-inside" style="font-family: 'Inter', sans-serif;">
+                <li>Open <strong>maps.google.com</strong> and search for your business</li>
+                <li>Click your business listing in the results</li>
+                <li>Click <strong>Share</strong> → <strong>Copy link</strong></li>
+                <li>Paste and add <code class="bg-slate-200 px-1 rounded">/review</code> to the end of the URL, or use the Place ID format: <code class="bg-slate-200 px-1 rounded">search.google.com/local/writereview?placeid=YOUR_ID</code></li>
+              </ol>
+              <p class="text-xs text-slate-400 mt-1" style="font-family: 'Inter', sans-serif;">The "Ask for reviews" link from your Business Profile dashboard is the most reliable — it opens directly to the review form.</p>
+            </div>
+          </details>
+        </form>
+      </div>
+
+      <!-- Add testimonial form -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-6 mb-8">
+        <h2 class="text-sm font-semibold text-slate-900 mb-4" style="font-family: 'Lexend', sans-serif;">Add testimonial</h2>
+        <form method="POST" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <input type="hidden" name="action" value="create" />
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">Name <span class="text-red-400">*</span></label>
+            <input
+              name="authorName"
+              type="text"
+              placeholder="Jane Smith"
+              required
+              class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+              style="font-family: 'Inter', sans-serif;"
+            />
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">Title / Company</label>
+            <input
+              name="authorTitle"
+              type="text"
+              placeholder="CEO, Acme Inc."
+              class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+              style="font-family: 'Inter', sans-serif;"
+            />
+          </div>
+          <div class="flex flex-col gap-1 sm:col-span-2">
+            <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">Review <span class="text-red-400">*</span></label>
+            <textarea
+              name="body"
+              rows="3"
+              placeholder="What did they say?"
+              required
+              class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 resize-none"
+              style="font-family: 'Inter', sans-serif;"
+            ></textarea>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-medium text-slate-600" style="font-family: 'Inter', sans-serif;">Rating <span class="text-red-400">*</span></label>
+            <select
+              name="rating"
+              required
+              class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+              style="font-family: 'Inter', sans-serif;"
+            >
+              <option value="5">★★★★★ — 5 stars</option>
+              <option value="4">★★★★☆ — 4 stars</option>
+              <option value="3">★★★☆☆ — 3 stars</option>
+              <option value="2">★★☆☆☆ — 2 stars</option>
+              <option value="1">★☆☆☆☆ — 1 star</option>
+            </select>
+          </div>
+          <div class="flex items-end">
+            <button
+              type="submit"
+              class="w-full sm:w-auto px-5 py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition"
+              style="font-family: 'Inter', sans-serif;"
+            >
+              Add testimonial
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Testimonials list -->
+      {testimonials.length === 0 ? (
+        <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center">
+          <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z"/>
+            </svg>
+          </div>
+          <p class="text-sm font-medium text-slate-500" style="font-family: 'Inter', sans-serif;">No testimonials yet.</p>
+          <p class="text-xs text-slate-400 mt-1" style="font-family: 'Inter', sans-serif;">Add one above to get started.</p>
+        </div>
+      ) : (
+        <div class="flex flex-col gap-4">
+          {testimonials.map((t) => {
+            const date = new Date(t._creationTime).toLocaleDateString('en-US', {
+              month: 'short', day: 'numeric', year: 'numeric',
+            });
+            return (
+              <div class={`bg-white rounded-2xl border transition ${t.featured ? 'border-amber-200' : t.approved ? 'border-emerald-200' : 'border-slate-200'}`}>
+                <div class="flex items-start justify-between gap-4 px-6 pt-5 pb-4">
+                  <div class="flex items-start gap-3 min-w-0">
+                    <!-- Avatar initial -->
+                    <div class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+                      <span class="text-xs font-bold text-slate-600" style="font-family: 'Inter', sans-serif;">{t.authorName.charAt(0)}</span>
+                    </div>
+                    <div class="min-w-0">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <p class="text-sm font-semibold text-slate-900" style="font-family: 'Inter', sans-serif;">{t.authorName}</p>
+                        {t.authorTitle && (
+                          <p class="text-xs text-slate-500" style="font-family: 'Inter', sans-serif;">{t.authorTitle}</p>
+                        )}
+                        {t.featured && (
+                          <span class="text-xs font-medium bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full" style="font-family: 'Inter', sans-serif;">featured</span>
+                        )}
+                        {t.approved && !t.featured && (
+                          <span class="text-xs font-medium bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full" style="font-family: 'Inter', sans-serif;">approved</span>
+                        )}
+                        {!t.approved && (
+                          <span class="text-xs font-medium bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full" style="font-family: 'Inter', sans-serif;">pending</span>
+                        )}
+                      </div>
+                      <div class="flex items-center gap-0.5 mt-0.5">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <svg class={`w-3 h-3 ${i < t.rating ? 'text-amber-400' : 'text-slate-200'}`} fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 0 0 .95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 0 0-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 0 0-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 0 0-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 0 0 .951-.69l1.07-3.292Z"/>
+                          </svg>
+                        ))}
+                        <span class="text-xs text-slate-400 ml-1" style="font-family: 'Inter', sans-serif;">{date}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Actions -->
+                  <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                    {!t.approved ? (
+                      <form method="POST">
+                        <input type="hidden" name="testimonialId" value={t._id} />
+                        <input type="hidden" name="action" value="approve" />
+                        <button type="submit" class="text-xs font-medium text-emerald-600 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition" style="font-family: 'Inter', sans-serif;">
+                          Approve
+                        </button>
+                      </form>
+                    ) : (
+                      <form method="POST">
+                        <input type="hidden" name="testimonialId" value={t._id} />
+                        <input type="hidden" name="action" value="unapprove" />
+                        <button type="submit" class="text-xs font-medium text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition" style="font-family: 'Inter', sans-serif;">
+                          Unapprove
+                        </button>
+                      </form>
+                    )}
+                    {t.approved && !t.featured && (
+                      <form method="POST">
+                        <input type="hidden" name="testimonialId" value={t._id} />
+                        <input type="hidden" name="action" value="feature" />
+                        <button type="submit" class="text-xs font-medium text-amber-600 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition" style="font-family: 'Inter', sans-serif;">
+                          Feature
+                        </button>
+                      </form>
+                    )}
+                    {t.featured && (
+                      <form method="POST">
+                        <input type="hidden" name="testimonialId" value={t._id} />
+                        <input type="hidden" name="action" value="unfeature" />
+                        <button type="submit" class="text-xs font-medium text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition" style="font-family: 'Inter', sans-serif;">
+                          Unfeature
+                        </button>
+                      </form>
+                    )}
+                    <form method="POST" onsubmit="return confirm('Delete this testimonial? This cannot be undone.')">
+                      <input type="hidden" name="testimonialId" value={t._id} />
+                      <input type="hidden" name="action" value="delete" />
+                      <button type="submit" class="text-xs font-medium text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition" style="font-family: 'Inter', sans-serif;">
+                        Delete
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                <!-- Body -->
+                <div class="px-6 pb-5 pl-[3.75rem]">
+                  <p class="text-sm text-slate-700 leading-relaxed" style="font-family: 'Inter', sans-serif;">"{t.body}"</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </main>
+  </div>
+</BaseLayout>

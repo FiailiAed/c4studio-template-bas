@@ -12,10 +12,23 @@ import Footer from '@marketing/Footer.astro';
 import { convex } from '@lib/convex';
 import { api } from '@convex/api';
 
-const settings = await convex.query(api.settings.get, {});
+const [settings, galleryItems] = await Promise.all([
+  convex.query(api.settings.get, {}),
+  convex.query(api.gallery.listPublishedWithUrls, {}),
+]);
 
 const appName = settings?.appName ?? 'c4studio';
 const description = settings?.description ?? 'We help ambitious businesses design, build, and grow digital products that stand out.';
+
+const galleryImages = galleryItems
+  .filter((item) => item.mediaType === 'image' && item.url)
+  .slice(0, 6)
+  .map((item) => ({
+    src: item.url as string,
+    alt: item.title ?? 'Gallery image',
+    width: item.width,
+    height: item.height,
+  }));
 ---
 
 <BaseLayout
@@ -31,7 +44,7 @@ const description = settings?.description ?? 'We help ambitious businesses desig
   <Services />
   <About />
   <Reviews />
-  <Gallery />
+  <Gallery items={galleryImages} />
   <CTA />
 
   <Footer slot="footer" appName={appName} tagline={description} />

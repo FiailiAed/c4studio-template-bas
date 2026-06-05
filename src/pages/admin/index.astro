@@ -69,10 +69,10 @@ const [funnels, shops, bookingLinks, emailTemplates, emailLogs] = await Promise.
           heading: 'Content',
           subheading: 'Manage the content displayed on the public site.',
           modules: [
-            { label: 'Blog Posts',   href: '/admin/posts',        desc: 'Create and publish blog content',      color: 'border-emerald-400', status: 'planned' },
-            { label: 'Testimonials', href: '/admin/testimonials', desc: 'Approve and feature reviews',          color: 'border-amber-400',   status: 'planned' },
+            { label: 'Blog Posts',   href: '/admin/posts',        desc: 'Create and publish blog content',      color: 'border-emerald-400', status: 'active'  },
+            { label: 'Testimonials', href: '/admin/testimonials', desc: 'Approve and feature reviews',          color: 'border-amber-400',   status: 'active'  },
             { label: 'Contacts',     href: '/admin/contacts',     desc: 'View contact form submissions',        color: 'border-cyan-400',    status: 'active'  },
-            { label: 'Gallery',      href: '/admin/gallery',      desc: 'Upload and manage media',              color: 'border-pink-400',    status: 'planned' },
+            { label: 'Gallery',      href: '/admin/gallery',      desc: 'Upload and manage media',              color: 'border-pink-400',    status: 'active'  },
           ],
         },
       ] as const).map(({ heading, subheading, modules }) => (

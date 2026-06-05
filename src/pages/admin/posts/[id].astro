@@ -1,0 +1,239 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { SignOutButton, UserButton } from '@clerk/astro/components';
+import { getAuthedConvex } from '@lib/convex';
+import { api } from '@convex/api';
+import type { Id } from '@convex/dataModel';
+
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect('/sign-in');
+
+const token = await Astro.locals.auth().getToken({ template: 'convex' });
+const client = getAuthedConvex(token);
+
+const currentUser = await client.query(api.users.getByClerkId, { clerkId: userId });
+if (!currentUser) return Astro.redirect('/onboarding');
+if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
+
+const id = Astro.params.id as Id<'posts'>;
+let successMessage: string | null = null;
+let errorMessage: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const action = data.get('action') as string;
+
+  try {
+    if (action === 'update') {
+      const title = (data.get('title') as string).trim();
+      const slug = (data.get('slug') as string).trim();
+      const body = (data.get('body') as string) ?? '';
+      if (!title || !slug) throw new Error('Title and slug are required.');
+      const tagsRaw = (data.get('tags') as string).trim();
+      const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+      await client.mutation(api.posts.update, {
+        id,
+        title,
+        slug,
+        body,
+        excerpt: (data.get('excerpt') as string).trim() || undefined,
+        published: data.get('published') === 'on',
+        tags,
+      });
+      successMessage = 'Post saved.';
+    } else if (action === 'delete') {
+      await client.mutation(api.posts.remove, { id });
+      return Astro.redirect('/admin/posts');
+    }
+  } catch (e) {
+    errorMessage = e instanceof Error ? e.message : 'Action failed.';
+  }
+}
+
+const post = await client.query(api.posts.get, { id });
+if (!post) return Astro.redirect('/admin/posts');
+
+const publishedDate = post.publishedAt
+  ? new Date(post.publishedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+  : null;
+---
+
+<BaseLayout title={`${post.title} — Posts`}>
+  <div class="min-h-screen bg-slate-50">
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/admin" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Admin Portal</a>
+        <span class="text-slate-300">/</span>
+        <a href="/admin/posts" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Posts</a>
+        <span class="text-slate-300">/</span>
+        <span class="text-sm font-semibold text-slate-900 truncate max-w-48" style="font-family: 'Lexend', sans-serif;">{post.title}</span>
+      </div>
+      <div class="flex items-center gap-4">
+        {post.published && (
+          <a href={`/blog/${post.slug}`} target="_blank" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">
+            View post ↗
+          </a>
+        )}
+        <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Home</a>
+        <UserButton />
+        <SignOutButton>
+          <button class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Sign out</button>
+        </SignOutButton>
+      </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-6 py-12">
+      <div class="flex items-center justify-between mb-8">
+        <div class="flex items-center gap-3">
+          <h1 class="text-3xl font-bold tracking-tight text-slate-900 truncate" style="font-family: 'Lexend', sans-serif;">{post.title}</h1>
+          <span class={`shrink-0 text-xs font-medium px-2.5 py-1 rounded-full ${post.published ? 'text-emerald-600 bg-emerald-50 border border-emerald-100' : 'text-slate-400 bg-slate-100'}`} style="font-family: 'Inter', sans-serif;">
+            {post.published ? 'published' : 'draft'}
+          </span>
+        </div>
+        {publishedDate && (
+          <p class="text-xs text-slate-400 shrink-0" style="font-family: 'Inter', sans-serif;">Published {publishedDate}</p>
+        )}
+      </div>
+
+      {successMessage && (
+        <div class="mb-6 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700" style="font-family: 'Inter', sans-serif;">{successMessage}</div>
+      )}
+      {errorMessage && (
+        <div class="mb-6 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700" style="font-family: 'Inter', sans-serif;">{errorMessage}</div>
+      )}
+
+      <form method="POST" class="flex flex-col gap-6">
+        <input type="hidden" name="action" value="update" />
+
+        <!-- Details -->
+        <section class="bg-white rounded-2xl border border-slate-200 p-6">
+          <h2 class="text-sm font-semibold text-slate-900 mb-4" style="font-family: 'Lexend', sans-serif;">Details</h2>
+          <div class="flex flex-col gap-4">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Title <span class="text-red-500">*</span></label>
+              <input
+                id="edit-title"
+                type="text"
+                name="title"
+                required
+                value={post.title}
+                class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                style="font-family: 'Inter', sans-serif;"
+              />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Slug <span class="text-red-500">*</span></label>
+              <input
+                id="edit-slug"
+                type="text"
+                name="slug"
+                required
+                value={post.slug}
+                class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono"
+                style="font-family: 'Inter', sans-serif;"
+              />
+              <p class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">Public URL: /blog/{post.slug}</p>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Excerpt</label>
+              <textarea
+                name="excerpt"
+                rows="2"
+                placeholder="A short summary shown on the blog listing page..."
+                class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none"
+                style="font-family: 'Inter', sans-serif;"
+              >{post.excerpt ?? ''}</textarea>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Tags</label>
+              <input
+                type="text"
+                name="tags"
+                value={post.tags.join(', ')}
+                placeholder="design, strategy, development"
+                class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                style="font-family: 'Inter', sans-serif;"
+              />
+              <p class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">Comma-separated.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Body -->
+        <section class="bg-white rounded-2xl border border-slate-200 p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Content</h2>
+            <p class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">HTML supported — paste from any editor or write directly</p>
+          </div>
+          <textarea
+            name="body"
+            rows="24"
+            placeholder="Write your post content here. Basic HTML is supported: <h2>, <p>, <strong>, <em>, <ul>, <li>, <a href='...'>, <blockquote>, <pre><code>..."
+            class="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 resize-y font-mono leading-relaxed"
+          >{post.body}</textarea>
+        </section>
+
+        <!-- Publish + Save -->
+        <section class="bg-white rounded-2xl border border-slate-200 p-6">
+          <div class="flex items-center justify-between">
+            <label class="flex items-center gap-3 cursor-pointer">
+              <div class="relative">
+                <input type="checkbox" name="published" value="on" checked={post.published} class="peer sr-only" />
+                <div class="w-10 h-6 bg-slate-200 rounded-full peer-checked:bg-emerald-500 transition-colors"></div>
+                <div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
+              </div>
+              <div>
+                <p class="text-sm font-medium text-slate-900" style="font-family: 'Inter', sans-serif;">Published</p>
+                <p class="text-xs text-slate-500" style="font-family: 'Inter', sans-serif;">Visible on /blog when enabled</p>
+              </div>
+            </label>
+            <button
+              type="submit"
+              class="text-sm font-semibold bg-slate-900 text-white px-6 py-2.5 rounded-xl hover:bg-slate-700 transition"
+              style="font-family: 'Inter', sans-serif;"
+            >
+              Save post
+            </button>
+          </div>
+        </section>
+      </form>
+
+      <!-- Danger zone -->
+      <section class="bg-white rounded-2xl border border-red-200 overflow-hidden mt-6">
+        <div class="px-6 py-5 border-b border-red-100">
+          <h2 class="text-base font-semibold text-red-700" style="font-family: 'Lexend', sans-serif;">Danger Zone</h2>
+        </div>
+        <div class="px-6 py-5 flex items-center justify-between gap-6">
+          <div>
+            <p class="text-sm font-medium text-slate-900" style="font-family: 'Inter', sans-serif;">Delete this post</p>
+            <p class="text-xs text-slate-500 mt-0.5" style="font-family: 'Inter', sans-serif;">Permanently removes the post. This cannot be undone.</p>
+          </div>
+          <form method="POST" onsubmit={`return confirm('Delete "${post.title}"? This cannot be undone.')`}>
+            <input type="hidden" name="action" value="delete" />
+            <button
+              type="submit"
+              class="shrink-0 text-xs font-semibold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 border border-red-200 px-4 py-2 rounded-xl transition"
+              style="font-family: 'Inter', sans-serif;"
+            >
+              Delete post
+            </button>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+</BaseLayout>
+
+<script>
+  const titleInput = document.getElementById('edit-title') as HTMLInputElement | null;
+  const slugInput = document.getElementById('edit-slug') as HTMLInputElement | null;
+  titleInput?.addEventListener('input', () => {
+    if (slugInput && !slugInput.dataset.edited) {
+      slugInput.value = titleInput.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    }
+  });
+  slugInput?.addEventListener('input', () => {
+    if (slugInput.value) slugInput.dataset.edited = 'true';
+    else delete slugInput.dataset.edited;
+  });
+</script>
