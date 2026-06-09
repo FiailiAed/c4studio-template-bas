@@ -34,6 +34,10 @@ if (Astro.request.method === 'POST') {
         slug,
         description: (data.get('description') as string).trim() || undefined,
         published: data.get('published') === 'on',
+        headline: (data.get('headline') as string).trim() || undefined,
+        subheadline: (data.get('subheadline') as string).trim() || undefined,
+        ctaLabel: (data.get('ctaLabel') as string).trim() || undefined,
+        ctaHref: (data.get('ctaHref') as string).trim() || undefined,
       });
       successMessage = 'Funnel updated.';
     } else if (action === 'delete') {
@@ -116,6 +120,56 @@ if (!funnel) return Astro.redirect('/admin/funnels');
             </label>
             <button type="submit" class="text-sm font-semibold bg-slate-900 text-white px-5 py-2.5 rounded-xl hover:bg-slate-700 transition" style="font-family: 'Inter', sans-serif;">
               Save changes
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Page content -->
+      <section class="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
+        <div class="mb-5">
+          <h2 class="text-base font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Page Content</h2>
+          <p class="text-xs text-slate-500 mt-1" style="font-family: 'Inter', sans-serif;">Controls what appears on the public <code class="bg-slate-100 px-1 rounded">/funnels/{funnel.slug}</code> page.</p>
+        </div>
+        <form method="POST" class="flex flex-col gap-4">
+          <input type="hidden" name="action" value="update" />
+          <input type="hidden" name="name" value={funnel.name} />
+          <input type="hidden" name="slug" value={funnel.slug} />
+          <input type="hidden" name="description" value={funnel.description ?? ''} />
+          {funnel.published && <input type="hidden" name="published" value="on" />}
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Headline</label>
+            <input type="text" name="headline" value={funnel.headline ?? ''}
+              placeholder="The bold statement at the top of the page"
+              class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              style="font-family: 'Inter', sans-serif;" />
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Subheadline</label>
+            <textarea name="subheadline" rows="2"
+              placeholder="Supporting paragraph beneath the headline"
+              class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none"
+              style="font-family: 'Inter', sans-serif;">{funnel.subheadline ?? ''}</textarea>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">CTA Label</label>
+              <input type="text" name="ctaLabel" value={funnel.ctaLabel ?? ''}
+                placeholder="Get started"
+                class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                style="font-family: 'Inter', sans-serif;" />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">CTA Link</label>
+              <input type="text" name="ctaHref" value={funnel.ctaHref ?? ''}
+                placeholder="/contact"
+                class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                style="font-family: 'Inter', sans-serif;" />
+            </div>
+          </div>
+          <div class="flex justify-end pt-1">
+            <button type="submit" class="text-sm font-semibold bg-slate-900 text-white px-5 py-2.5 rounded-xl hover:bg-slate-700 transition" style="font-family: 'Inter', sans-serif;">
+              Save content
             </button>
           </div>
         </form>

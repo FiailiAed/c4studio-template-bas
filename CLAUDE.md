@@ -27,7 +27,7 @@ Do not deviate from or suggest alternatives to these technologies:
 | Email | Resend |
 | Payments | Stripe via `@convex-dev/stripe` |
 | Analytics | PostHog |
-| Frontend interactivity | TypeScript only — state lives in the DOM. **No React or other UI libraries.** |
+| Frontend interactivity | TypeScript only — state lives in the DOM. **No React or other UI libraries.** Svelte is used for complex interactive islands (booking widget). |
 
 ## Architecture
 
@@ -99,44 +99,34 @@ if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
 
 **Public marketing components** (`src/components/marketing/`): Header, Hero, TrustBar, Services, About, Reviews, Gallery, CTA, Footer — all prop-driven with defaults, assembled on `/`.
 
+## Feature Flags (`appSettings` in Convex)
+
+| Flag | Status | Notes |
+|---|---|---|
+| `maintenanceMode` | Wired | BaseLayout shows full-page overlay for all non-admin/non-auth routes |
+| `registrationEnabled` | Wired | `/sign-up` redirects to `/` when false |
+| `blogEnabled` | Wired | `/blog` + `/blog/[slug]` redirect to `/404` when false; `getPageStatusMap` treats `/blog` as `planned` so it drops from Header nav |
+
+Toggle all flags at `/admin/settings → Feature Flags`.
+
+## Contact Form
+
+Rate limiting is implemented — email-based, 5-minute window using the `by_email` index on the `contacts` table. `RATE_LIMITED` error is surfaced with a user-friendly message on `/contact`.
+
 ## Outstanding Work
 
-**Priority 1 — dynamic entity public pages (Convex data already exists):**
-- `/funnels/[slug]`, `/shops/[slug]`, `/booking-links/[slug]`
+> **`README.md` is the canonical `[x]/[ ]` checklist.** Update it (and `.devnotes/project-setup.html`) whenever a task is completed — do not maintain a parallel list here.
 
-**sitePages per-page enforcement — still needed:**
-- Helper (`src/lib/pageStatus.ts`) and Header/Footer filtering are done.
-- Remaining: each public page calls `enforcePageStatus(route, Astro)` at the top of its frontmatter so `planned` routes return 404.
-
-**Incomplete integrations:**
-
-`sitePages` wiring — `/admin/pages` writes statuses but nothing reads them yet:
-1. `src/lib/pageStatus.ts` — helper to fetch a route's status from Convex
-2. `src/components/marketing/Header.astro` + `Footer.astro` — filter nav to `active` pages only
-3. Each public page — call the helper: `active` → render, `hidden` → render but exclude from nav/sitemap, `planned` → 404
-
-Contact confirmation email — no email sent to submitter after contact form submission:
-- `sendUserConfirmation` internalAction in `convex/email.ts`, called from `contacts.create` via `ctx.scheduler`
-
-SMS infrastructure (Twilio — not yet integrated):
+**SMS infrastructure (Twilio — not yet integrated):**
 - Env vars: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`
 - `convex/sms.ts` internalAction + `smsLogs` table in schema (mirrors `emailLogs` pattern)
 - `appSettings` fields: `market`, `primaryService`, `defaultBookingLink`, `smsTemplate`
 - Scheduled 5-min instant response from `contacts.create`; store `scheduledFunctionId` on contacts record for cancellation
 - SMS copy sequences in `.devnotes/drc-lead-nurturing.md`, `.devnotes/drc-reactivation.md`, `.devnotes/drc-reviews-and-referrals.md`
 
-**maintenanceMode** — wired. BaseLayout fetches `appSettings.maintenanceMode`; when true, renders a full-page overlay for all non-admin/non-auth routes. Toggle at `/admin/settings → Feature Flags`.
-
-Booking webhook — required for SMS confirmation sequence and no-show win-back (Cal.com, Calendly, or native `/booking-links/[slug]`)
-
 **Tabled — pending decision:**
 
-Google reviews import — decide whether to build Outscraper bulk import flow on `/admin/testimonials` or move to another outstanding task. Outscraper (paid API key, no OAuth) preferred for agency use case; Google Business Profile API via Clerk OAuth is the alternative for owner-operated businesses.
-
-**Missing assets/infrastructure:**
-- `public/og-image.png` — referenced in BaseLayout but file doesn't exist
-- `public/robots.txt` — not present
-- Sitemap — `@astrojs/sitemap` not configured
+Google reviews import — Outscraper (paid API key, no OAuth) vs Google Business Profile API via Clerk OAuth. Decision needed before implementation.
 
 <!-- convex-ai-start -->
 
@@ -148,6 +138,6 @@ how to correctly use Convex APIs and patterns. The file contains rules that
 override what you may have learned about Convex from training data.
 
 Convex agent skills for common tasks can be installed by running
-`bunx convex ai-files install`.
+`npx convex ai-files install`.
 
 <!-- convex-ai-end -->

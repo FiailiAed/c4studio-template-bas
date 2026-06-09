@@ -9,6 +9,7 @@
  */
 
 import type * as bookingLinks from "../bookingLinks.js";
+import type * as bookings from "../bookings.js";
 import type * as contacts from "../contacts.js";
 import type * as email from "../email.js";
 import type * as emailLogs from "../emailLogs.js";
@@ -16,10 +17,17 @@ import type * as emailTemplates from "../emailTemplates.js";
 import type * as funnels from "../funnels.js";
 import type * as gallery from "../gallery.js";
 import type * as http from "../http.js";
+import type * as nurturing from "../nurturing.js";
+import type * as nurturingActions from "../nurturingActions.js";
 import type * as payments from "../payments.js";
 import type * as posts from "../posts.js";
 import type * as pricing from "../pricing.js";
+import type * as reactivation from "../reactivation.js";
+import type * as reactivationActions from "../reactivationActions.js";
+import type * as reviewActions from "../reviewActions.js";
+import type * as reviews from "../reviews.js";
 import type * as settings from "../settings.js";
+import type * as shopItems from "../shopItems.js";
 import type * as shops from "../shops.js";
 import type * as sitePages from "../sitePages.js";
 import type * as testimonials from "../testimonials.js";
@@ -33,6 +41,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   bookingLinks: typeof bookingLinks;
+  bookings: typeof bookings;
   contacts: typeof contacts;
   email: typeof email;
   emailLogs: typeof emailLogs;
@@ -40,10 +49,17 @@ declare const fullApi: ApiFromModules<{
   funnels: typeof funnels;
   gallery: typeof gallery;
   http: typeof http;
+  nurturing: typeof nurturing;
+  nurturingActions: typeof nurturingActions;
   payments: typeof payments;
   posts: typeof posts;
   pricing: typeof pricing;
+  reactivation: typeof reactivation;
+  reactivationActions: typeof reactivationActions;
+  reviewActions: typeof reviewActions;
+  reviews: typeof reviews;
   settings: typeof settings;
+  shopItems: typeof shopItems;
   shops: typeof shops;
   sitePages: typeof sitePages;
   testimonials: typeof testimonials;

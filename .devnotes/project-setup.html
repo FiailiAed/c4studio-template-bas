@@ -558,12 +558,20 @@ Do not deviate from these technologies. Do not suggest alternatives.
             <div class="executive-section">
                 <div class="executive-card cto">
                     <div class="executive-title">convex/schema.ts — three new tables</div>
-                    <p class="executive-quote">funnels, shops, bookingLinks — identical shape: name (string), slug (string), description (optional string), published (boolean).</p>
+                    <p class="executive-quote">funnels — name (string), slug (string), description (optional string), published (boolean), headline (optional string), subheadline (optional string), ctaLabel (optional string), ctaHref (optional string).</p>
+                    <p class="executive-quote">shops — name, slug, description, published, headline, subheadline. Products managed via shopItems child table (shopId FK, name, description, price in cents, currency, stripePriceId, imageUrl, published, order). Admin creates products in Stripe dashboard, pastes Price ID into admin portal. Checkout via POST /api/shop-checkout → Convex payments.createPaymentCheckout action → Stripe redirect. Requires Clerk auth to purchase.</p>
+                    <p class="executive-quote">bookingLinks — name, slug, description, published, headline, subheadline, duration (minutes), bufferTime (minutes), availabilityStart ("HH:MM"), availabilityEnd ("HH:MM"), availableDays (array of 0-6 ints), timezone. Bookings stored in bookings table (bookingLinkId FK, name, email, phone, date "YYYY-MM-DD", startTime "HH:MM", status confirmed|cancelled, notes).</p>
                     <p class="executive-quote">Indexes: by_slug and by_published on each table.</p>
                 </div>
                 <div class="executive-card cto">
                     <div class="executive-title">convex/funnels.ts, shops.ts, bookingLinks.ts</div>
-                    <p class="executive-quote">Each exports: list (query, ordered desc, take 100), get (query by id), create (mutation), update (mutation — patches by id), remove (mutation).</p>
+                    <p class="executive-quote">Each exports: list (query, ordered desc, take 100), get (query by id), getBySlug (query by slug index), create (mutation), update (mutation — patches by id), remove (mutation).</p>
+                    <p class="executive-quote">getBySlug added to funnels.ts, shops.ts, and bookingLinks.ts. New modules: convex/bookings.ts (CRUD + listByDate), convex/shopItems.ts (CRUD by shopId). Stack now includes @astrojs/svelte for the booking widget island.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/funnels/[slug].astro — public funnel page</div>
+                    <p class="executive-quote">Queries convex via api.funnels.getBySlug. Redirects to /404 if not found or not published. Renders a dark hero section with the funnel name and description, plus a CTA section. Uses the standard Header / CTA / Footer layout pattern.</p>
+                    <p class="executive-quote">Pattern mirrors blog/[slug].astro: unauthenticated convex client, slug from Astro.params, 404 guard, BaseLayout wrapper.</p>
                 </div>
                 <div class="executive-card cto">
                     <div class="executive-title">List pages (index.astro per entity)</div>
@@ -1007,6 +1015,377 @@ Do not deviate from these technologies. Do not suggest alternatives.
                 <div class="executive-card ceo">
                     <div class="executive-title">Design decision: no Astro &lt;Image&gt; for Convex media</div>
                     <p class="executive-quote">Astro's <code>&lt;Image&gt;</code> can process remote URLs from allowlisted domains, but adds Sharp-based server-side resizing latency per request. Convex has no CDN transform layer. For a portfolio/gallery use case, native lazy loading is sufficient. Revisit only if image performance becomes a measured concern — at that point, a dedicated image CDN (Cloudflare Images, Uploadthing) would be a better fit than Astro's transform service.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             STEP 20 — robots.txt
+        ═══════════════════════════════════════════════════════════════ -->
+        <section id="robots-txt">
+            <h2>Step 20 — robots.txt</h2>
+            <p>Created <code>public/robots.txt</code> to control crawler access. Admin, auth, and dashboard routes are disallowed. The sitemap line is pre-wired for when <code>@astrojs/sitemap</code> is configured.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">public/robots.txt</div>
+                    <p class="executive-quote">User-agent: * / Allow: / — all public routes are crawlable by default.</p>
+                    <p class="executive-quote">Disallow: /admin, /admin/, /dashboard, /dashboard/, /onboarding, /sign-in, /sign-up, /api/ — prevents indexing of protected and transient auth routes.</p>
+                    <p class="executive-quote">Sitemap: /sitemap.xml — placeholder; uncomment/update once @astrojs/sitemap is installed and astro.site is set in astro.config.mjs.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             STEP 21 — sitePages WIRING: pageStatus HELPER + HEADER/FOOTER
+        ═══════════════════════════════════════════════════════════════ -->
+        <section id="sitepages-wiring">
+            <h2>Step 21 — sitePages Wiring: pageStatus Helper + Header/Footer Nav Filtering</h2>
+            <p>Wired the <code>/admin/pages</code> module to the public site. The helper merges Convex status overrides with <code>PAGE_CATALOG</code> defaults. Header and Footer now show only <code>active</code> pages. Per-page enforcement (redirecting <code>planned</code> routes to 404) is the remaining step.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">src/lib/pageStatus.ts — new helper file</div>
+                    <p class="executive-quote"><code>getPageStatus(route)</code> — queries <code>api.sitePages.listStatuses</code> via the public <code>convex</code> client, finds the override for the given route, falls back to <code>PAGE_CATALOG</code> defaultStatus, then falls back to <code>'planned'</code>.</p>
+                    <p class="executive-quote"><code>getPageStatusMap()</code> — builds a full <code>Record&lt;string, PageStatus&gt;</code> for all catalog routes plus any override-only routes. Used by Header and Footer for bulk filtering in a single Convex query.</p>
+                    <p class="executive-quote"><code>enforcePageStatus(route, astro)</code> — returns <code>astro.redirect('/404')</code> if status is <code>'planned'</code>, null otherwise. Call at the top of each public page frontmatter for per-page enforcement (not yet applied to all pages).</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/lib/pages.ts — /pricing added to PAGE_CATALOG</div>
+                    <p class="executive-quote">Added <code>/pricing</code> entry (Marketing category, <code>defaultStatus: 'planned'</code>) so it is manageable from <code>/admin/pages</code>.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/components/marketing/Header.astro — nav filtered</div>
+                    <p class="executive-quote">Calls <code>getPageStatusMap()</code> in the frontmatter. The <code>allNav</code> array (Home, About, Services, Pricing, Reviews, Blog, Gallery, Contact) is filtered to only include routes whose resolved status is <code>'active'</code>. Both the desktop nav and mobile menu iterate the same filtered array.</p>
+                    <p class="executive-quote">The CTA button (ctaHref / ctaLabel prop) is unconditional — never filtered.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/components/marketing/Footer.astro — nav filtered</div>
+                    <p class="executive-quote">Calls <code>getPageStatusMap()</code>. Company column (About, Pricing, Blog, Gallery, Contact) filtered by individual page status. Services column (four /services#anchor links) shown only when <code>/services</code> is active, hidden entirely otherwise. Legal column (Privacy, Terms) always visible. Empty columns not rendered — <code>Object.entries(nav).filter(([, links]) =&gt; links.length &gt; 0)</code> guards the column loop.</p>
+                </div>
+                <div class="executive-card ceo">
+                    <div class="executive-title">Remaining: per-page enforcement</div>
+                    <p class="executive-quote">Call <code>enforcePageStatus('/route', Astro)</code> at the top of each public page frontmatter and return the result if non-null. This makes <code>planned</code> pages return 404 even if accessed via direct URL. Not yet applied to any page — see CLAUDE.md Outstanding Work.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             STEP 22 — CONTACT FORM RATE LIMITING
+        ═══════════════════════════════════════════════════════════════ -->
+        <section id="contact-rate-limiting">
+            <h2>Step 22 — Contact Form Rate Limiting</h2>
+            <p>Added email-based rate limiting to prevent repeated submissions from the same address within a 5-minute window. Implemented as a Convex mutation guard — no external service required.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/schema.ts — by_email index on contacts</div>
+                    <p class="executive-quote">Added <code>.index("by_email", ["email"])</code> to the contacts table alongside the existing <code>by_read</code> index. Required by the Convex guideline to never use <code>.filter()</code> in queries — always use <code>.withIndex()</code>.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/contacts.ts — rate check in create mutation</div>
+                    <p class="executive-quote">At the top of the <code>create</code> handler, before inserting: queries <code>by_email</code> index descending, takes the first result.</p>
+                    <p class="executive-quote">If a record exists and <code>Date.now() - record._creationTime &lt; 5 * 60 * 1000</code> (5 minutes), throws <code>new Error("RATE_LIMITED")</code>. All other create logic runs unchanged after the check.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/contact.astro — user-facing error</div>
+                    <p class="executive-quote">Updated catch block: checks <code>e.message?.includes('RATE_LIMITED')</code>. When true, sets error to <em>"You've already submitted a message recently. Please wait a few minutes before trying again."</em> All other errors fall through to the generic message.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             STEP 23 — PRICING TIERS MODULE (/admin/pricing + /pricing)
+        ═══════════════════════════════════════════════════════════════ -->
+        <section id="pricing-module">
+            <h2>Step 23 — Pricing Tiers Module</h2>
+            <p>Full dynamic pricing pipeline: Convex schema + CRUD backend + admin management page + public <code>/pricing</code> page. Tiers are stored in Convex and managed entirely through the admin portal — no hardcoded pricing in the frontend.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/schema.ts — pricingTiers table</div>
+                    <p class="executive-quote">Fields: <code>name</code> (string), <code>description</code> (optional), <code>price</code> (optional number — null means "Contact us"), <code>currency</code> (string, "USD"), <code>billingPeriod</code> (union: monthly | annual | one_time | custom), <code>priceLabel</code> (optional string override for display), <code>features</code> (array of strings), <code>highlighted</code> (boolean — "Most popular" badge), <code>ctaLabel</code> (string), <code>ctaHref</code> (string), <code>published</code> (boolean), <code>order</code> (number).</p>
+                    <p class="executive-quote">Indexes: <code>by_published</code> and <code>by_order</code>.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/pricing.ts — CRUD functions</div>
+                    <p class="executive-quote"><code>list</code> (query) — all tiers ordered by <code>order</code> asc via <code>by_order</code> index, take 50.</p>
+                    <p class="executive-quote"><code>listPublished</code> (query) — <code>by_published</code> index, eq published=true, take 50, sorted by <code>order</code> in JS (secondary sort not available via single index).</p>
+                    <p class="executive-quote"><code>create</code>, <code>update</code>, <code>remove</code> — all auth-gated (identity check). <code>create</code> defaults <code>order: Date.now()</code> and <code>published: false</code>.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/admin/pricing/index.astro</div>
+                    <p class="executive-quote">Standard admin auth guard (Clerk → Convex role check). POST actions: <code>create</code>, <code>publish</code>, <code>unpublish</code>, <code>highlight</code>, <code>unhighlight</code>, <code>edit</code>, <code>delete</code>. Features textarea accepts one feature per line — split on <code>\n</code> in the POST handler.</p>
+                    <p class="executive-quote">Card border color: amber=highlighted, emerald=published, slate=draft (same signaling pattern as testimonials). Inline edit form toggled via <code>onclick</code> + <code>classList.toggle('hidden')</code>.</p>
+                    <p class="executive-quote">"View /pricing ↗" link in nav header.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/pricing.astro — public page</div>
+                    <p class="executive-quote">Uses unauthenticated <code>convex</code> client. Dark hero section with eyebrow + heading. Responsive tier grid: 1 col / md:2 cols / lg:3 cols (adjusts based on tier count).</p>
+                    <p class="executive-quote">Highlighted tiers: <code>bg-slate-900 text-white ring-2 ring-slate-900</code> + "Most popular" badge pill centered at top. Non-highlighted: white card with <code>border-slate-200</code>.</p>
+                    <p class="executive-quote">Price display hierarchy: (1) <code>priceLabel</code> override, (2) <code>$price + billingLabel</code>, (3) "Contact us". Feature list uses checkmark SVG icons. Per-tier CTA button: white bg for highlighted tiers, slate-900 bg for others.</p>
+                    <p class="executive-quote">Empty state (no published tiers): centered placeholder card with "Pricing coming soon" + /contact button.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">Supporting updates</div>
+                    <p class="executive-quote"><code>convex/_generated/api.d.ts</code> — pricing module registered (import + ApiFromModules entry).</p>
+                    <p class="executive-quote"><code>src/lib/pages.ts</code> — <code>/pricing</code> added to <code>PAGE_CATALOG</code> (Marketing, defaultStatus: 'planned') so it appears in <code>/admin/pages</code>.</p>
+                    <p class="executive-quote"><code>src/pages/admin/index.astro</code> — Pricing card added to Content section (green-400 accent, status: 'active').</p>
+                    <p class="executive-quote">Header and Footer nav already include <code>/pricing</code> — it will appear automatically once set to <code>active</code> in <code>/admin/pages</code>.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             STEP 25 — COMMERCE: FUNNELS (STRUCTURED), SHOPS + ITEMS, BOOKING LINKS (NATIVE)
+        ═══════════════════════════════════════════════════════════════ -->
+        <section id="commerce-modules">
+            <h2>Step 25 — Commerce Modules: Funnels (structured content), Shops + Products (Stripe), Booking Links (native Svelte widget)</h2>
+            <p>Three entity types promoted from stubs to fully functional public-facing pages. Svelte added as a dependency for the booking widget island. Six new files created, eight files updated, three Convex modules added or expanded.</p>
+
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">Stack addition — @astrojs/svelte + svelte</div>
+                    <p class="executive-quote">Installed @astrojs/svelte@8.1.2 and svelte@5.56.2. Added <code>svelte()</code> to integrations in <code>astro.config.mjs</code>. Svelte is used exclusively for interactive islands — the rest of the codebase remains TypeScript-only. CLAUDE.md stack table updated to reflect this.</p>
+                </div>
+
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/schema.ts — four tables updated/added</div>
+                    <p class="executive-quote"><strong>funnels</strong> — added: headline, subheadline, ctaLabel, ctaHref (all optional strings). These are the public page content fields; name/slug remain the admin labels.</p>
+                    <p class="executive-quote"><strong>shops</strong> — added: headline, subheadline (optional strings).</p>
+                    <p class="executive-quote"><strong>shopItems</strong> — new child table: shopId (FK), name, description, price (number, cents), currency, stripePriceId (string), imageUrl, published, order. Indexes: by_shop, by_shop_and_published.</p>
+                    <p class="executive-quote"><strong>bookingLinks</strong> — added: headline, subheadline, duration (minutes, optional), bufferTime (minutes, optional), availabilityStart ("HH:MM"), availabilityEnd ("HH:MM"), availableDays (array of 0–6 ints), timezone.</p>
+                    <p class="executive-quote"><strong>bookings</strong> — new table: bookingLinkId (FK), name, email, phone, date ("YYYY-MM-DD"), startTime ("HH:MM"), status (confirmed | cancelled), notes. Indexes: by_booking_link, by_booking_link_and_date.</p>
+                </div>
+
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/funnels.ts, shops.ts, bookingLinks.ts — getBySlug added</div>
+                    <p class="executive-quote">All three modules received a <code>getBySlug</code> query using the existing <code>by_slug</code> index. create/update mutations updated to accept new optional fields.</p>
+                </div>
+
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/shopItems.ts — new module</div>
+                    <p class="executive-quote">Exports: listByShop (query, by_shop index, asc order, take 100), create (mutation), update (mutation — patches by id), remove (mutation).</p>
+                </div>
+
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/bookings.ts — new module</div>
+                    <p class="executive-quote">Exports: listByBookingLink (query, by_booking_link index, desc, take 200), listByDate (query, by_booking_link_and_date index — used by slot availability check), create (mutation — inserts with status: "confirmed"), cancel (mutation — patches status to "cancelled"), remove (mutation).</p>
+                </div>
+
+                <div class="executive-card cto">
+                    <div class="executive-title">API routes — src/pages/api/</div>
+                    <p class="executive-quote"><strong>GET /api/booking-slots</strong> — Params: bookingLinkId, date. Fetches booking link config + confirmed bookings for that date in parallel. Generates all possible slots from availabilityStart/End + duration + bufferTime. Returns { availableSlots: string[] } after filtering booked times.</p>
+                    <p class="executive-quote"><strong>POST /api/bookings</strong> — JSON body: bookingLinkId, name, email, phone, date, startTime, notes. Performs a real-time conflict check (re-queries listByDate) before inserting. Returns 409 if the slot was taken between widget load and submit.</p>
+                    <p class="executive-quote"><strong>POST /api/shop-checkout</strong> — Form or JSON body: stripePriceId, successUrl, cancelUrl. Requires Clerk session (401 if not). Gets Convex auth token, calls payments.createPaymentCheckout action via ConvexHttpClient.action(). Redirects 303 to Stripe checkout URL. Handles both string and { url } return shapes.</p>
+                </div>
+
+                <div class="executive-card cto">
+                    <div class="executive-title">src/components/BookingWidget.svelte — Svelte island</div>
+                    <p class="executive-quote">Props: bookingLinkId, duration, bufferTime, availabilityStart, availabilityEnd, availableDays. Used with <code>client:load</code> directive.</p>
+                    <p class="executive-quote">Four-step state machine: calendar → slots → form → confirmed. Calendar is a hand-built month grid (no library). Available days derived from availableDays prop. Past days and unavailable days rendered as non-interactive. Month navigation with prev/next disabled when already at current month.</p>
+                    <p class="executive-quote">On date select: fetches /api/booking-slots, shows time slot grid (3 columns). On slot select: shows contact form (name*, email*, phone, notes). On submit: POSTs to /api/bookings, shows confirmation screen with formatted date + time. Errors surfaced at each step.</p>
+                    <p class="executive-quote">All time display uses fmt12h() (12-hour with AM/PM). Dates formatted with toLocaleDateString. No external date library.</p>
+                </div>
+
+                <div class="executive-card cto">
+                    <div class="executive-title">Public pages — /funnels/[slug], /shops/[slug], /booking-links/[slug]</div>
+                    <p class="executive-quote"><strong>/funnels/[slug]</strong> — Uses api.funnels.getBySlug. Redirects to /404 if not found or unpublished. Dark hero with headline ?? name, subheadline ?? description. CTA button uses ctaLabel ?? "Get started" and ctaHref ?? "/contact".</p>
+                    <p class="executive-quote"><strong>/shops/[slug]</strong> — Uses api.shops.getBySlug + api.shopItems.listByShop. Filters to published items. Product card grid with image (or placeholder SVG), name, description, formatted price (Intl.NumberFormat). Buy button is a form POST to /api/shop-checkout. Unauthenticated visitors see "Sign in to purchase" instead. ?success=1 banner after successful Stripe redirect.</p>
+                    <p class="executive-quote"><strong>/booking-links/[slug]</strong> — SSR hero section + BookingWidget.svelte island (client:load). Passes all availability props from the Convex record. Unauthenticated access allowed — anyone can book.</p>
+                </div>
+
+                <div class="executive-card cto">
+                    <div class="executive-title">Index pages — /funnels, /shops, /booking-links</div>
+                    <p class="executive-quote">Three new index pages, each following the same pattern: dark hero → card grid of published items → CTA section → Footer. Cards link to the individual [slug] pages. Empty state shown when no published items exist.</p>
+                    <p class="executive-quote">Color accents: funnels = orange, shops = teal, booking-links = indigo.</p>
+                </div>
+
+                <div class="executive-card cto">
+                    <div class="executive-title">Navigation + PAGE_CATALOG</div>
+                    <p class="executive-quote">Header.astro allNav expanded with Funnels (/funnels), Shops (/shops), Booking Links (/booking-links). All three filtered by getPageStatusMap() — invisible until admin activates them at /admin/pages.</p>
+                    <p class="executive-quote">src/lib/pages.ts — Commerce category added to the type union and CATEGORY_COLORS map (orange-100/text-orange-700). Three new PAGE_CATALOG entries with defaultStatus: 'planned'.</p>
+                </div>
+
+                <div class="executive-card cto">
+                    <div class="executive-title">Admin pages updated</div>
+                    <p class="executive-quote"><strong>/admin/funnels/[id]</strong> — Added "Page Content" section card (headline, subheadline, ctaLabel, ctaHref fields). Second form on the page; carries hidden fields for name/slug/description/published to satisfy mutation validator.</p>
+                    <p class="executive-quote"><strong>/admin/shops/[id]</strong> — Added headline/subheadline to Details form. Added Products section: collapsible "Add product" form (name, Stripe Price ID, price, currency, description, imageUrl, published). Existing products shown in a &lt;details&gt;-based expand-to-edit list. Delete per item with confirm dialog.</p>
+                    <p class="executive-quote"><strong>/admin/booking-links/[id]</strong> — Added headline/subheadline to Details form. Added Availability section (duration, bufferTime, start/end time inputs, day checkboxes, timezone). Added Bookings section: lists all confirmed bookings sorted by date/time with Cancel action. "View page ↗" link in header nav.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             STEP 28 — AGENTS 3 & 4: REACTIVATION CAMPAIGN + REVIEWS & REFERRALS
+        ═══════════════════════════════════════════════════════════════ -->
+        <section id="agents-3-4">
+            <h2>Step 28 — Agents 3 &amp; 4: Reactivation Campaign + Reviews &amp; Referrals</h2>
+            <p>Two additional agent sequences wired to live send pipelines, following the same architecture established by Agent 5 (Lead Nurturing). Each has a dedicated admin page at <code>/admin/agents/3</code> and <code>/admin/agents/4</code> overriding the generic <code>[id].astro</code> dynamic route.</p>
+
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/schema.ts — four new tables, three tables updated</div>
+                    <p class="executive-quote"><strong>reactivationMessages</strong> — mirrors nurturingMessages. Keys: d1, d2, d3, yes_handler, no_handler. Fields: messageKey (index), label, triggerDescription, smsBody, emailSubject, emailBody, enabled, channel, order.</p>
+                    <p class="executive-quote"><strong>reactivationLogs</strong> — mirrors nurturingLogs without bookingId (reactivation is contact-only). Indexes: by_message_key, by_contact_id.</p>
+                    <p class="executive-quote"><strong>reviewsMessages</strong> — adds messageType field: "automated" (R1–R4, can be triggered) | "template" (R5a–R5e, copy-paste only). Keys: r1–r4, r5a–r5e. Indexes: by_message_key.</p>
+                    <p class="executive-quote"><strong>reviewsLogs</strong> — mirrors nurturingLogs without contactId (reviews are booking-only). Indexes: by_message_key, by_booking_id.</p>
+                    <p class="executive-quote"><strong>contacts</strong> updated — added reacD2ScheduledId, reacD3ScheduledId (optional strings) for future Twilio cancellation when contact responds.</p>
+                    <p class="executive-quote"><strong>bookings</strong> updated — added r1ScheduledId (optional string) + by_email index. bookings.getLatestByEmail query added for Agent 4 manual trigger.</p>
+                    <p class="executive-quote"><strong>appSettings</strong> updated — added rafflePrize, raffleLink (Agent 3), feedbackFormLink, referralShareLink, referralIntroOffer (Agent 4). contacts.getByEmail query added.</p>
+                </div>
+
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/reactivation.ts — CRUD + campaign trigger</div>
+                    <p class="executive-quote">Exports: listMessages, listLogs, getStats, upsertMessage, initializeDefaults (idempotent), triggerCampaign (mutation — schedules D1 now / D2 +24h / D3 +48h, stores scheduled IDs on contact), triggerMessageForContact (manual YES/NO trigger), createLog (internalMutation). Also exports getMessageByKey internalQuery helper used by reactivationActions.</p>
+                    <p class="executive-quote">Default copy faithfully adapted from .devnotes/drc-reactivation.md (Athletes United / Coach Colin example). Variables: FIRST_NAME, BUSINESS_NAME, RAFFLE_PRIZE, RAFFLE_LINK, BOOKING_LINK.</p>
+                </div>
+
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/reactivationActions.ts — send logic</div>
+                    <p class="executive-quote">"use node" file. sendReactivationMessage(contactId, messageKey) internalAction. Calls ctx.runQuery(internal.nurturing.getContactById) and ctx.runQuery(internal.nurturing.getSettingsInternal) to reuse shared query helpers. Resolves RAFFLE_PRIZE/RAFFLE_LINK from appSettings. Email via Resend. SMS logged as skipped (Twilio pending).</p>
+                </div>
+
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/reviews.ts — CRUD + scheduleRatingRequest</div>
+                    <p class="executive-quote">Exports: listMessages, listLogs, getStats, upsertMessage, initializeDefaults, scheduleRatingRequest (mutation — called from bookings.create, schedules R1 at appointmentTs + 2h via ctx.scheduler.runAt), triggerMessageForBooking (manual send), createLog (internalMutation). Also exports getMessageByKey internalQuery.</p>
+                    <p class="executive-quote">9 default messages: R1 (rating request), R2 (5-star response), R3 (1–3 star response), R4 (referral ask), R5a–R5e (Google review reply templates). R5 templates have messageType: "template" — never sent via system.</p>
+                    <p class="executive-quote">Default copy faithfully adapted from .devnotes/drc-reviews-and-referrals.md. Variables: FIRST_NAME, CUSTOMER_FIRST_NAME, SERVICE, BUSINESS_NAME, APPOINTMENT_TIME, RAFFLE_PRIZE, GOOGLE_REVIEW_LINK, FEEDBACK_FORM_LINK, REFERRAL_SHARE_LINK, REFERRAL_INTRO_OFFER.</p>
+                </div>
+
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/reviewActions.ts — send logic</div>
+                    <p class="executive-quote">"use node" file. sendReviewsMessage(bookingId, messageKey) internalAction. Reuses internal.nurturing.getBookingById, getBookingLinkById, getSettingsInternal helper queries. Resolves all 10 review variables from booking + bookingLink + appSettings. Email via Resend. SMS logged as skipped.</p>
+                </div>
+
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/bookings.ts — R1 trigger added</div>
+                    <p class="executive-quote">On bookings.create, calls ctx.scheduler.runAfter(0, internal.reviews.scheduleRatingRequest, { bookingId, appointmentTs }) immediately after M4a is scheduled. scheduleRatingRequest then computes appointmentTs + 2h and uses ctx.scheduler.runAt. Stores r1ScheduledId on the booking.</p>
+                </div>
+
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/admin/agents/3.astro — Reactivation Campaign page</div>
+                    <p class="executive-quote">Four tabs (Campaign default, Messages, History, Prompt). Campaign tab: stats strip (campaigns sent, emails sent, YES responses, messages active) + amber warning about YES/NO requiring Twilio inbound + manual trigger form (enter contact email → triggers 3-day D1/D2/D3 sequence via triggerCampaign mutation).</p>
+                    <p class="executive-quote">Messages tab: 5 &lt;details&gt; expand-to-edit cards (D1, D2, D3, YES, NO). Accent color: amber. History + Prompt tabs follow Agent 5 pattern.</p>
+                </div>
+
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/admin/agents/4.astro — Reviews & Referrals page</div>
+                    <p class="executive-quote">Three tabs (Messages default, History, Prompt). Messages tab has two sections: "Automated Messages" (R1–R4, expand-to-edit &lt;details&gt; cards) and "Google Review Reply Templates" (R5a–R5e, compact copyable cards with one-click Copy button + inline edit via nested &lt;details&gt;).</p>
+                    <p class="executive-quote">Blue info banner explains trigger logic: R1 auto (2h after appointment), R2/R3 need inbound rating (Twilio pending), R4 manual, R5 copy-paste. Manual trigger form for R2/R3/R4: enter customer email + select message → looks up most recent booking by email and sends immediately. Accent color: violet.</p>
+                    <p class="executive-quote">Stats strip: rating requests (R1), 5-star responses (R2), referral asks (R4), messages active count.</p>
+                </div>
+
+                <div class="executive-card ceo">
+                    <div class="executive-title">Current state of all three agent sequences</div>
+                    <p class="executive-quote"><strong>Email:</strong> Fully wired via Resend for all three agents (5, 3, 4). Fires on every trigger event.</p>
+                    <p class="executive-quote"><strong>SMS:</strong> Stubs in place — each action logs channel: "sms", status: "skipped", errorMessage: "SMS not configured — Twilio integration pending". No messages are lost; the log entry records the intent.</p>
+                    <p class="executive-quote"><strong>Inbound responses:</strong> YES/NO handlers (Agent 3) and R2/R3 conditional routing (Agent 4) require Twilio inbound SMS webhook at a new HTTP endpoint in convex/http.ts. Until then, these messages are triggerable via the admin manual trigger only.</p>
+                    <p class="executive-quote"><strong>LLM connection:</strong> Each agent page has an amber banner noting this will become a live chat interface in a future version. Currently prompt-assembly + copy only.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             STEP 27 — LEAD NURTURING (Agent 5) — FULL IMPLEMENTATION
+        ═══════════════════════════════════════════════════════════════ -->
+        <section id="lead-nurturing">
+            <h2>Step 27 — Lead Nurturing: Agent 5 Wired to Live Application</h2>
+            <p>Agent 5 (Lead Nurturing Copywriter) promoted from prompt-assembly tool to a fully operational message sequence. 7 messages (M1–M5 with M4a/4b/4c) fire automatically from contact form submissions and booking creation events. Admin manages message templates, channel settings, and views send history at <code>/admin/agents/5</code>.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/schema.ts — two new tables, three tables updated</div>
+                    <p class="executive-quote"><strong>nurturingMessages</strong> — one record per message key (m1–m5). Fields: messageKey (index), label, triggerDescription, smsBody, emailSubject, emailBody, enabled, channel (email|sms|both), order.</p>
+                    <p class="executive-quote"><strong>nurturingLogs</strong> — one record per send attempt. Fields: messageKey (index), contactId (optional FK, index), bookingId (optional FK), recipientName, recipientEmail, recipientPhone, channel, status (sent|failed|skipped), errorMessage. Indexes: by_message_key, by_contact_id.</p>
+                    <p class="executive-quote"><strong>contacts</strong> updated — added m2ScheduledId, m3ScheduledId (optional string) for future cancellation when lead books.</p>
+                    <p class="executive-quote"><strong>bookings</strong> updated — added m4bScheduledId, m4cScheduledId, m5ScheduledId (optional string).</p>
+                    <p class="executive-quote"><strong>appSettings</strong> updated — added primaryService (string), defaultBookingLink (string) for variable substitution in nurturing messages.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/nurturing.ts — CRUD + queries</div>
+                    <p class="executive-quote">Exports: listMessages (query), listLogs (query, optional messageKey filter), getStats (query — aggregate sent/failed/skipped per messageKey from last 2000 logs), upsertMessage (mutation), initializeDefaults (mutation — idempotent seed of 7 defaults), createLog (internalMutation).</p>
+                    <p class="executive-quote">Also exports 5 internalQuery helpers used by nurturingActions: getContactById, getBookingById, getBookingLinkById, getMessageByKey, getSettingsInternal.</p>
+                    <p class="executive-quote">Default message templates are faithful to .devnotes/drc-lead-nurturing.md content.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/nurturingActions.ts — send logic</div>
+                    <p class="executive-quote">"use node" file. Only exports internalActions. Calls ctx.runQuery(internal.nurturing.*) for all DB access.</p>
+                    <p class="executive-quote">sendContactNurturing(contactId, messageKey) — used for M1/M2/M3. Resolves FIRST_NAME, SERVICE, BOOKING_LINK, BUSINESS_NAME from contact + appSettings. Sends email via Resend if channel is email/both. Logs SMS as skipped (Twilio pending). Phone fallback: if no phone, SMS logs as "No phone number".</p>
+                    <p class="executive-quote">sendBookingNurturing(bookingId, messageKey) — used for M4a/4b/4c/M5. Resolves appointment variables from booking + bookingLink + appSettings. M5 no-show check: skips if booking.status === "cancelled".</p>
+                    <p class="executive-quote">Both actions: check message enabled state at fire time (not at schedule time), log every attempt to nurturingLogs.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/contacts.ts — M1/M2/M3 triggers</div>
+                    <p class="executive-quote">After contact.create insert: schedules M1 after 5 min, M2 after 24h, M3 after 48h via ctx.scheduler.runAfter. Stores M2/M3 scheduled IDs on the contact record for future cancellation.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/bookings.ts — M4a/4b/4c/M5 triggers</div>
+                    <p class="executive-quote">After booking.create insert: schedules M4a immediately, M4b at (appointment - 24h), M4c at (appointment - 2h), M5 at (appointment + 60 min) via ctx.scheduler.runAt. M4b/4c skipped if appointment is too soon. Stores scheduled IDs on booking record.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/admin/agents/5.astro — dedicated override page</div>
+                    <p class="executive-quote">Overrides the dynamic [id].astro for /admin/agents/5. Three tabs: Messages (default), History, Prompt (Settings).</p>
+                    <p class="executive-quote">Messages tab: stats strip (email sent, SMS sent, sequences triggered, messages active), amber SMS warning, 7 message cards using &lt;details&gt; for expand-to-edit. Each card shows: key badge, enabled/disabled, channel, sent count. Edit panel: enabled checkbox, channel radio (email/sms/both), SMS body textarea, email subject input, email body textarea, variable reference list.</p>
+                    <p class="executive-quote">History tab: per-message aggregate table (sent/failed/skipped/last sent) + recent activity timeline table (contact, message key, channel, status, relative time).</p>
+                    <p class="executive-quote">Prompt tab: existing prompt assembly tool from Agent 5 (long/short toggle, variable form, live assembled output, copy button).</p>
+                    <p class="executive-quote">Auto-initializes default messages on first visit (calls initializeDefaults if messages table is empty). Tab state preserved via ?tab= query param after POST redirects.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             STEP 26 — AGENTS MODULE (/admin/agents/[id])
+        ═══════════════════════════════════════════════════════════════ -->
+        <section id="agents-module">
+            <h2>Step 26 — Agents Module: 7-Day AI Agency Playbook</h2>
+            <p>Static prompt library for a 7-agent AI agency system. Admins fill in variables, copy the assembled prompt, and paste it into Claude. Built as a prompt assembly tool; future version will be a live chat interface.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">src/lib/agents.ts — static data</div>
+                    <p class="executive-quote">Exports AGENTS array (7 items) and getAgent(id) helper. Each agent has: id, name, description, day, accentColor, and two modes (long/short), each with a prompt string and a variables array.</p>
+                    <p class="executive-quote">Variable type: { key, label, placeholder, type ('text'|'textarea'|'select'), options?, required, rows?, helpText? }. Prompts use {{KEY}} placeholders for user-input variables. System output placeholders like [BOOKING_LINK] use single brackets and are preserved as-is in the assembled output.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/admin/agents/[id].astro — detail page</div>
+                    <p class="executive-quote">Standard admin auth guard. Loads agent via getAgent(parseInt(id)). Serializes agentData (prompts + variable definitions) into the page via define:vars for client-side JS.</p>
+                    <p class="executive-quote">Layout: two-column (380px variables form + 1fr assembled output). Collapsible template preview with yellow-highlighted {{VARIABLE}} tokens. Live assembled prompt textarea updates on every keystroke. Copy button uses navigator.clipboard.writeText.</p>
+                    <p class="executive-quote">Long/Short prompt toggle: JS re-renders the variable form and template preview, clears inputs, and rebuilds the assembled output. No page reload.</p>
+                    <p class="executive-quote">Amber "Coming soon" banner: notes this will become an interactive chat UI in a future version.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">The 7 agents</div>
+                    <p class="executive-quote">Agent 1 (Day 1): Market Selection Analyst — returns ranked top-3 markets based on background, connections, familiarity, budget.</p>
+                    <p class="executive-quote">Agent 2 (Day 2): Franchise Market Researcher — top 10 franchise brands by community, location count, growth signal.</p>
+                    <p class="executive-quote">Agent 3 (Day 3): Database Reactivation Copywriter — 3-day SMS + email campaign for dormant leads. Variables: market, business name, offer type (select), offer specifics, target segment.</p>
+                    <p class="executive-quote">Agent 4 (Day 4): Reviews & Referral System Copywriter — 5 messages: rating request, 5-star response, 1-3 star response, referral ask, 5 auto-reply templates.</p>
+                    <p class="executive-quote">Agent 5 (Day 5): Lead Nurturing Copywriter — 5-message sequence: 5-min instant response, 24h follow-up, 48h nudge, booking confirmation series (4a/4b/4c), no-show win-back.</p>
+                    <p class="executive-quote">Agent 6 (Day 6): Advertising Strategist — analyzes pasted competitor Facebook ads (textarea variable), generates pattern breakdown and 3 ad variations. Short prompt has no variables (screenshot attach instruction).</p>
+                    <p class="executive-quote">Agent 7 (Day 7): Personal Sales Trainer — 7-step framework prompt with no main variables. Two optional append variables: TRAINING_MODE (select: drill/review) and TRAINING_CONTEXT (textarea: prospect profile or call transcript).</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/admin/index.astro — agents section updated</div>
+                    <p class="executive-quote">Replaced the 6-item planned stub with 7 active agent cards. Each links to /admin/agents/[id]. Cards show Day badge, description, and active status badge. Missing Agent 3 (Reactivation) added.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             STEP 24 — maintenanceMode FLAG WIRED TO BASELAYOUT
+        ═══════════════════════════════════════════════════════════════ -->
+        <section id="maintenance-mode">
+            <h2>Step 24 — maintenanceMode Flag Wired to BaseLayout</h2>
+            <p>The <code>maintenanceMode</code> feature flag (stored in <code>appSettings</code> since Step 8) is now enforced. <code>BaseLayout.astro</code> fetches settings on every render and conditionally shows a full-page maintenance overlay for public routes.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">src/layouts/BaseLayout.astro — settings fetch added</div>
+                    <p class="executive-quote">Imports <code>convex</code> from <code>@lib/convex</code> and <code>api</code> from <code>@convex/api</code>. Fetches <code>api.settings.get</code> in the frontmatter — adds one Convex HTTP query to every page render. Settings is a singleton document with a tiny payload, so the cost is acceptable.</p>
+                    <p class="executive-quote">Bypass check: <code>pathname.startsWith('/admin')</code>, <code>/dashboard</code>, <code>/sign-in</code>, <code>/sign-up</code>. Admin users must always be able to access the portal and disable the flag.</p>
+                    <p class="executive-quote"><code>maintenanceActive = !bypassMaintenance &amp;&amp; (settings?.maintenanceMode ?? false)</code></p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">Maintenance overlay UI</div>
+                    <p class="executive-quote">When <code>maintenanceActive</code> is true, renders a <code>fixed inset-0 z-[99999]</code> div over the entire page. This approach avoids complex conditional slot rendering — the page slots still render behind the overlay but are visually hidden.</p>
+                    <p class="executive-quote">Design: <code>bg-slate-900</code> full-screen, centered flex column. Wrench SVG icon in a rounded container, heading "We'll be right back." (Lexend), subheading "We're making some improvements. Check back soon." (Inter, slate-400), <code>appName</code> shown in small slate-600 text below.</p>
+                </div>
+                <div class="executive-card ceo">
+                    <div class="executive-title">How to activate</div>
+                    <p class="executive-quote">Go to <code>/admin/settings → Feature Flags</code>. Toggle <strong>Maintenance Mode</strong> on. All public pages immediately show the overlay. Admin portal remains fully accessible. Toggle off to restore the site.</p>
                 </div>
             </div>
         </section>

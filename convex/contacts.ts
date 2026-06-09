@@ -2,6 +2,16 @@ import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
+export const getByEmail = query({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) =>
+    ctx.db
+      .query("contacts")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .order("desc")
+      .first(),
+});
+
 export const create = mutation({
   args: {
     name: v.string(),
@@ -24,6 +34,36 @@ export const create = mutation({
     const id = await ctx.db.insert("contacts", { ...args, read: false });
 
     const settings = await ctx.db.query("appSettings").first();
+
+    // Confirmation to submitter
+    await ctx.scheduler.runAfter(0, internal.email.sendContactConfirmation, {
+      to: args.email,
+      name: args.name,
+      appName: settings?.appName ?? "c4studio",
+      supportEmail: settings?.supportEmail ?? "",
+    });
+
+    // Lead nurturing sequence — M1 fires after 5 min, M2 after 24h, M3 after 48h
+    await ctx.scheduler.runAfter(
+      5 * 60 * 1000,
+      internal.nurturingActions.sendContactNurturing,
+      { contactId: id, messageKey: "m1" }
+    );
+    const m2Id = await ctx.scheduler.runAfter(
+      24 * 60 * 60 * 1000,
+      internal.nurturingActions.sendContactNurturing,
+      { contactId: id, messageKey: "m2" }
+    );
+    const m3Id = await ctx.scheduler.runAfter(
+      48 * 60 * 60 * 1000,
+      internal.nurturingActions.sendContactNurturing,
+      { contactId: id, messageKey: "m3" }
+    );
+    await ctx.db.patch(id, {
+      m2ScheduledId: m2Id as string,
+      m3ScheduledId: m3Id as string,
+    });
+
     if (settings?.notifyOnContact && settings.adminAlertEmail) {
       await ctx.scheduler.runAfter(0, internal.email.sendAdminAlert, {
         to: settings.adminAlertEmail,

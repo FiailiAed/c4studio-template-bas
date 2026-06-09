@@ -4,7 +4,7 @@ export interface CatalogPage {
   name: string;
   route: string;
   description: string;
-  category: 'Marketing' | 'Content' | 'Utility' | 'System';
+  category: 'Marketing' | 'Content' | 'Utility' | 'Commerce' | 'System';
   defaultStatus: PageStatus;
   colorClasses: {
     card: string;
@@ -79,6 +79,30 @@ export const PAGE_CATALOG: CatalogPage[] = [
     colorClasses: { card: 'bg-cyan-50 border-cyan-600', badge: 'bg-cyan-600', text: 'text-cyan-900' },
   },
   {
+    name: 'Funnels',
+    route: '/funnels',
+    description: 'Index of all published landing/funnel pages',
+    category: 'Commerce',
+    defaultStatus: 'planned',
+    colorClasses: { card: 'bg-orange-50 border-orange-500', badge: 'bg-orange-500', text: 'text-orange-900' },
+  },
+  {
+    name: 'Shops',
+    route: '/shops',
+    description: 'Index of all published shops with Stripe checkout',
+    category: 'Commerce',
+    defaultStatus: 'planned',
+    colorClasses: { card: 'bg-teal-50 border-teal-600', badge: 'bg-teal-600', text: 'text-teal-900' },
+  },
+  {
+    name: 'Booking Links',
+    route: '/booking-links',
+    description: 'Index of all published native booking calendars',
+    category: 'Commerce',
+    defaultStatus: 'planned',
+    colorClasses: { card: 'bg-indigo-50 border-indigo-600', badge: 'bg-indigo-600', text: 'text-indigo-900' },
+  },
+  {
     name: 'Admin Portal',
     route: '/admin',
     description: 'Protected dashboard — content, users, and site management',
@@ -92,5 +116,6 @@ export const CATEGORY_COLORS: Record<string, string> = {
   Marketing: 'bg-blue-100 text-blue-700',
   Content:   'bg-emerald-100 text-emerald-700',
   Utility:   'bg-amber-100 text-amber-700',
+  Commerce:  'bg-orange-100 text-orange-700',
   System:    'bg-red-100 text-red-700',
 };

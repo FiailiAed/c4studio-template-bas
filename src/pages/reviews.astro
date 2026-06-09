@@ -5,6 +5,10 @@ import CTA from '@marketing/CTA.astro';
 import Footer from '@marketing/Footer.astro';
 import { convex } from '@lib/convex';
 import { api } from '@convex/api';
+import { enforcePageStatus } from '@lib/pageStatus';
+
+const redirect = await enforcePageStatus('/reviews', Astro);
+if (redirect) return redirect;
 
 const settings = await convex.query(api.settings.get, {});
 const appName = settings?.appName ?? 'c4studio';

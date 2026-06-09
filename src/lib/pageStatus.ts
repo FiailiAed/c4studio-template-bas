@@ -14,7 +14,11 @@ export async function getPageStatus(route: string): Promise<PageStatus> {
 }
 
 export async function getPageStatusMap(): Promise<Record<string, PageStatus>> {
-  const overrides = await convex.query(api.sitePages.listStatuses, {});
+  const [overrides, settings] = await Promise.all([
+    convex.query(api.sitePages.listStatuses, {}),
+    convex.query(api.settings.get, {}),
+  ]);
+
   const overrideMap: Record<string, PageStatus> = {};
   for (const o of overrides) overrideMap[o.route] = o.status as PageStatus;
 
@@ -26,6 +30,10 @@ export async function getPageStatusMap(): Promise<Record<string, PageStatus>> {
   for (const [route, status] of Object.entries(overrideMap)) {
     if (!(route in map)) map[route] = status;
   }
+
+  // Feature flag overrides — trump sitePages status for nav filtering
+  if (settings?.blogEnabled === false) map['/blog'] = 'planned';
+
   return map;
 }
 

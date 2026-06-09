@@ -53,6 +53,12 @@ export default defineSchema({
     subject: v.optional(v.string()),
     message: v.string(),
     read: v.boolean(),
+    // Agent 5 (Lead Nurturing) scheduled IDs
+    m2ScheduledId: v.optional(v.string()),
+    m3ScheduledId: v.optional(v.string()),
+    // Agent 3 (Reactivation) scheduled IDs
+    reacD2ScheduledId: v.optional(v.string()),
+    reacD3ScheduledId: v.optional(v.string()),
   })
     .index("by_read", ["read"])
     .index("by_email", ["email"]),
@@ -98,6 +104,11 @@ export default defineSchema({
     slug: v.string(),
     description: v.optional(v.string()),
     published: v.boolean(),
+    // Page content fields
+    headline: v.optional(v.string()),
+    subheadline: v.optional(v.string()),
+    ctaLabel: v.optional(v.string()),
+    ctaHref: v.optional(v.string()),
   })
     .index("by_slug", ["slug"])
     .index("by_published", ["published"]),
@@ -107,18 +118,62 @@ export default defineSchema({
     slug: v.string(),
     description: v.optional(v.string()),
     published: v.boolean(),
+    headline: v.optional(v.string()),
+    subheadline: v.optional(v.string()),
   })
     .index("by_slug", ["slug"])
     .index("by_published", ["published"]),
+
+  shopItems: defineTable({
+    shopId: v.id("shops"),
+    name: v.string(),
+    description: v.optional(v.string()),
+    price: v.number(),
+    currency: v.string(),
+    stripePriceId: v.string(),
+    imageUrl: v.optional(v.string()),
+    published: v.boolean(),
+    order: v.number(),
+  })
+    .index("by_shop", ["shopId"])
+    .index("by_shop_and_published", ["shopId", "published"]),
 
   bookingLinks: defineTable({
     name: v.string(),
     slug: v.string(),
     description: v.optional(v.string()),
     published: v.boolean(),
+    headline: v.optional(v.string()),
+    subheadline: v.optional(v.string()),
+    duration: v.optional(v.number()),
+    bufferTime: v.optional(v.number()),
+    availabilityStart: v.optional(v.string()),
+    availabilityEnd: v.optional(v.string()),
+    availableDays: v.optional(v.array(v.number())),
+    timezone: v.optional(v.string()),
   })
     .index("by_slug", ["slug"])
     .index("by_published", ["published"]),
+
+  bookings: defineTable({
+    bookingLinkId: v.id("bookingLinks"),
+    name: v.string(),
+    email: v.string(),
+    phone: v.optional(v.string()),
+    date: v.string(),
+    startTime: v.string(),
+    status: v.union(v.literal("confirmed"), v.literal("cancelled")),
+    notes: v.optional(v.string()),
+    // Agent 5 (Lead Nurturing) scheduled IDs
+    m4bScheduledId: v.optional(v.string()),
+    m4cScheduledId: v.optional(v.string()),
+    m5ScheduledId: v.optional(v.string()),
+    // Agent 4 (Reviews & Referrals) scheduled ID
+    r1ScheduledId: v.optional(v.string()),
+  })
+    .index("by_booking_link", ["bookingLinkId"])
+    .index("by_booking_link_and_date", ["bookingLinkId", "date"])
+    .index("by_email", ["email"]),
 
   // Per-page status overrides — keyed by route. If no record exists, status defaults to 'planned'.
   sitePages: defineTable({
@@ -169,5 +224,99 @@ export default defineSchema({
     neutralName: v.optional(v.string()),
     // External review link — e.g. Google review form URL
     googleReviewUrl: v.optional(v.string()),
+    // Lead nurturing / SMS infrastructure
+    primaryService: v.optional(v.string()),
+    defaultBookingLink: v.optional(v.string()),
+    // Reactivation campaign (Agent 3)
+    rafflePrize: v.optional(v.string()),
+    raffleLink: v.optional(v.string()),
+    // Reviews & Referrals (Agent 4)
+    feedbackFormLink: v.optional(v.string()),
+    referralShareLink: v.optional(v.string()),
+    referralIntroOffer: v.optional(v.string()),
   }),
+
+  // Lead nurturing message templates (Agent 5)
+  nurturingMessages: defineTable({
+    messageKey: v.string(),
+    label: v.string(),
+    triggerDescription: v.string(),
+    smsBody: v.string(),
+    emailSubject: v.string(),
+    emailBody: v.string(),
+    enabled: v.boolean(),
+    channel: v.union(v.literal("email"), v.literal("sms"), v.literal("both")),
+    order: v.number(),
+  }).index("by_message_key", ["messageKey"]),
+
+  // Agent 3 — Reactivation campaign templates
+  reactivationMessages: defineTable({
+    messageKey: v.string(),
+    label: v.string(),
+    triggerDescription: v.string(),
+    smsBody: v.string(),
+    emailSubject: v.string(),
+    emailBody: v.string(),
+    enabled: v.boolean(),
+    channel: v.union(v.literal("email"), v.literal("sms"), v.literal("both")),
+    order: v.number(),
+  }).index("by_message_key", ["messageKey"]),
+
+  // Agent 3 — Reactivation send attempts log
+  reactivationLogs: defineTable({
+    messageKey: v.string(),
+    contactId: v.optional(v.id("contacts")),
+    recipientName: v.string(),
+    recipientEmail: v.string(),
+    recipientPhone: v.optional(v.string()),
+    channel: v.union(v.literal("email"), v.literal("sms")),
+    status: v.union(v.literal("sent"), v.literal("failed"), v.literal("skipped")),
+    errorMessage: v.optional(v.string()),
+  })
+    .index("by_message_key", ["messageKey"])
+    .index("by_contact_id", ["contactId"]),
+
+  // Agent 4 — Reviews & Referrals message templates
+  reviewsMessages: defineTable({
+    messageKey: v.string(),
+    label: v.string(),
+    triggerDescription: v.string(),
+    smsBody: v.string(),
+    emailSubject: v.string(),
+    emailBody: v.string(),
+    enabled: v.boolean(),
+    channel: v.union(v.literal("email"), v.literal("sms"), v.literal("both")),
+    // "automated" = fires via scheduler; "template" = copy-paste only (R5 Google review replies)
+    messageType: v.union(v.literal("automated"), v.literal("template")),
+    order: v.number(),
+  }).index("by_message_key", ["messageKey"]),
+
+  // Agent 4 — Reviews & Referrals send attempts log
+  reviewsLogs: defineTable({
+    messageKey: v.string(),
+    bookingId: v.optional(v.id("bookings")),
+    recipientName: v.string(),
+    recipientEmail: v.string(),
+    recipientPhone: v.optional(v.string()),
+    channel: v.union(v.literal("email"), v.literal("sms")),
+    status: v.union(v.literal("sent"), v.literal("failed"), v.literal("skipped")),
+    errorMessage: v.optional(v.string()),
+  })
+    .index("by_message_key", ["messageKey"])
+    .index("by_booking_id", ["bookingId"]),
+
+  // Log of all nurturing message send attempts
+  nurturingLogs: defineTable({
+    messageKey: v.string(),
+    contactId: v.optional(v.id("contacts")),
+    bookingId: v.optional(v.id("bookings")),
+    recipientName: v.string(),
+    recipientEmail: v.string(),
+    recipientPhone: v.optional(v.string()),
+    channel: v.union(v.literal("email"), v.literal("sms")),
+    status: v.union(v.literal("sent"), v.literal("failed"), v.literal("skipped")),
+    errorMessage: v.optional(v.string()),
+  })
+    .index("by_message_key", ["messageKey"])
+    .index("by_contact_id", ["contactId"]),
 });

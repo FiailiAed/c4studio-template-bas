@@ -143,6 +143,47 @@ const [funnels, shops, bookingLinks, emailTemplates, emailLogs] = await Promise.
         </div>
       </section>
 
+      <!-- ── Agents ───────────────────────────────────────── -->
+      <section class="mb-10">
+        <div class="flex items-end justify-between mb-4">
+          <div>
+            <h2 class="text-lg font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Agents</h2>
+            <p class="text-sm text-slate-400 mt-0.5" style="font-family: 'Inter', sans-serif;">7-day AI agency playbook — live sequences + prompt assembly tools.</p>
+          </div>
+          <a href="/admin/agents" class="text-xs font-semibold text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">
+            View hub →
+          </a>
+        </div>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {([
+            { id: 1, label: 'Market Selection',    href: '/admin/agents/1', desc: 'Ranked top-3 market recommendation based on your background and budget',               color: 'border-sky-400',     day: 'Day 1' },
+            { id: 2, label: 'Franchise Research',  href: '/admin/agents/2', desc: 'Top 10 franchise brands ranked by community size and growth signal',                   color: 'border-rose-400',    day: 'Day 2' },
+            { id: 3, label: 'Reactivation Copy',   href: '/admin/agents/3', desc: '3-day SMS + email campaign to re-engage dormant leads with zero ad spend',             color: 'border-amber-400',   day: 'Day 3' },
+            { id: 4, label: 'Reviews & Referrals', href: '/admin/agents/4', desc: 'All 5 messages for automated review collection and a referral raffle system',          color: 'border-violet-400',  day: 'Day 4' },
+            { id: 5, label: 'Lead Nurturing',      href: '/admin/agents/5', desc: '5-message sequence from instant response through no-show win-back',                    color: 'border-emerald-400', day: 'Day 5' },
+            { id: 6, label: 'Ads Strategist',      href: '/admin/agents/6', desc: 'Analyze competitor Facebook ads and generate 3 ad variations for your offer',          color: 'border-orange-400',  day: 'Day 6' },
+            { id: 7, label: 'Sales Trainer',       href: '/admin/agents/7', desc: '7-step sales framework — drill mode roleplay or real call transcript review',          color: 'border-teal-400',    day: 'Day 7' },
+          ] as const).map(({ label, href, desc, color, day }) => (
+            <a
+              href={href}
+              class={`group bg-white rounded-2xl border-l-4 border border-slate-200 ${color} p-5 hover:shadow-md transition`}
+            >
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <p class="text-sm font-semibold text-slate-900 group-hover:underline" style="font-family: 'Inter', sans-serif;">{label}</p>
+                <span class="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full shrink-0 text-emerald-600 bg-emerald-50" style="font-family: 'Inter', sans-serif;">
+                  <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/>
+                  </svg>
+                  active
+                </span>
+              </div>
+              <p class="text-xs text-slate-500 mb-3 line-clamp-2" style="font-family: 'Inter', sans-serif;">{desc}</p>
+              <span class="text-xs font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full" style="font-family: 'Inter', sans-serif;">{day}</span>
+            </a>
+          ))}
+        </div>
+      </section>
+
       <!-- ── Funnels (dynamic) ───────────────────────────────────── -->
       {([
         { heading: 'Funnels', subheading: 'Landing pages and marketing funnels.', items: funnels, base: '/admin/funnels', accentColor: 'border-emerald-400', createLabel: '+ New funnel' },

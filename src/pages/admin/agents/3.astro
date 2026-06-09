@@ -1,0 +1,497 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { SignOutButton, UserButton } from '@clerk/astro/components';
+import { getAuthedConvex } from '@lib/convex';
+import { api } from '@convex/api';
+import { getAgent } from '@lib/agents';
+
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect('/sign-in');
+
+const token = await Astro.locals.auth().getToken({ template: 'convex' });
+const client = getAuthedConvex(token);
+
+const currentUser = await client.query(api.users.getByClerkId, { clerkId: userId });
+if (!currentUser) return Astro.redirect('/onboarding');
+if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
+
+// Auto-seed defaults
+const existingMessages = await client.query(api.reactivation.listMessages, {});
+if (existingMessages.length === 0) await client.mutation(api.reactivation.initializeDefaults, {});
+
+let successMessage: string | null = Astro.url.searchParams.get('success')
+  ? 'Changes saved.' : null;
+let errorMessage: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const action = data.get('action') as string;
+  try {
+    if (action === 'update-message') {
+      const messageKey = (data.get('messageKey') as string).trim();
+      const channel = data.get('channel') as 'email' | 'sms' | 'both';
+      if (!['email', 'sms', 'both'].includes(channel)) throw new Error('Invalid channel.');
+      await client.mutation(api.reactivation.upsertMessage, {
+        messageKey,
+        enabled: data.get('enabled') === 'on',
+        channel,
+        smsBody: (data.get('smsBody') as string).trim(),
+        emailSubject: (data.get('emailSubject') as string).trim(),
+        emailBody: (data.get('emailBody') as string).trim(),
+      });
+      return Astro.redirect('/admin/agents/3?tab=messages&success=1');
+    }
+    if (action === 'trigger-campaign') {
+      const email = (data.get('email') as string).trim().toLowerCase();
+      if (!email) throw new Error('Email is required.');
+      const contact = await client.query(api.contacts.getByEmail, { email });
+      if (!contact) throw new Error(`No contact found with email "${email}".`);
+      await client.mutation(api.reactivation.triggerCampaign, { contactId: contact._id });
+      return Astro.redirect('/admin/agents/3?tab=campaign&success=1');
+    }
+  } catch (e) {
+    errorMessage = e instanceof Error ? e.message : 'Action failed.';
+  }
+}
+
+const activeTab = Astro.url.searchParams.get('tab') ?? 'campaign';
+const [messages, stats, recentLogs] = await Promise.all([
+  client.query(api.reactivation.listMessages, {}),
+  client.query(api.reactivation.getStats, {}),
+  client.query(api.reactivation.listLogs, { limit: 100 }),
+]);
+
+const agent = getAgent(3)!;
+const agentData = {
+  longPrompt: agent.long.prompt,
+  shortPrompt: agent.short.prompt,
+  longVars: agent.long.variables,
+  shortVars: agent.short.variables,
+  longNote: agent.long.note ?? null,
+  shortNote: agent.short.note ?? null,
+};
+
+const MSG_LABELS: Record<string, string> = {
+  d1: 'D1', d2: 'D2', d3: 'D3',
+  yes_handler: 'YES', no_handler: 'NO',
+};
+
+function relativeTime(ts: number) {
+  const diff = Date.now() - ts;
+  if (diff < 60_000) return 'just now';
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  return `${Math.floor(diff / 86_400_000)}d ago`;
+}
+---
+
+<BaseLayout title="Reactivation Campaign — Agents">
+  <div class="min-h-screen bg-slate-50">
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3 min-w-0">
+        <a href="/admin" class="text-sm text-slate-500 hover:text-slate-900 transition shrink-0" style="font-family: 'Inter', sans-serif;">Admin Portal</a>
+        <span class="text-slate-300 shrink-0">/</span>
+        <a href="/admin/agents" class="text-sm text-slate-500 hover:text-slate-900 transition shrink-0" style="font-family: 'Inter', sans-serif;">Agents</a>
+        <span class="text-slate-300 shrink-0">/</span>
+        <span class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Reactivation Campaign</span>
+      </div>
+      <div class="flex items-center gap-4 shrink-0">
+        <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Home</a>
+        <UserButton />
+        <SignOutButton>
+          <button class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Sign out</button>
+        </SignOutButton>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-6 py-10">
+      <div class="flex items-start gap-4 mb-6">
+        <div class="shrink-0 w-12 h-12 rounded-2xl bg-white border-2 border-amber-400 flex items-center justify-center">
+          <span class="text-lg font-bold text-slate-700" style="font-family: 'Lexend', sans-serif;">3</span>
+        </div>
+        <div>
+          <div class="flex items-center gap-3 mb-1">
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900" style="font-family: 'Lexend', sans-serif;">Reactivation Campaign</h1>
+            <span class="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full" style="font-family: 'Inter', sans-serif;">Day 3</span>
+            <span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full" style="font-family: 'Inter', sans-serif;">Active</span>
+          </div>
+          <p class="text-sm text-slate-500" style="font-family: 'Inter', sans-serif;">{agent.description}</p>
+        </div>
+      </div>
+
+      {successMessage && (
+        <div class="mb-6 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700" style="font-family: 'Inter', sans-serif;">{successMessage}</div>
+      )}
+      {errorMessage && (
+        <div class="mb-6 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700" style="font-family: 'Inter', sans-serif;">{errorMessage}</div>
+      )}
+
+      <!-- Tabs -->
+      <div class="flex items-center gap-1 mb-8 bg-slate-100 rounded-xl p-1 w-fit">
+        {(['campaign', 'messages', 'history', 'settings'] as const).map((tab) => (
+          <button data-tab={tab}
+            class={`tab-btn text-sm font-medium px-4 py-2 rounded-lg transition capitalize ${activeTab === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            style="font-family: 'Inter', sans-serif;">
+            {tab === 'settings' ? 'Prompt' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      <!-- ── Campaign tab ────────────────────────────────────────── -->
+      <div id="tab-campaign" class={`tab-panel ${activeTab !== 'campaign' ? 'hidden' : ''}`}>
+
+        <!-- Stats strip -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+          <div class="bg-white rounded-2xl border border-slate-200 px-5 py-4">
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1" style="font-family: 'Inter', sans-serif;">Campaigns sent</p>
+            <p class="text-2xl font-bold text-slate-900" style="font-family: 'Lexend', sans-serif;">{recentLogs.filter(l => l.messageKey === 'd1').length}</p>
+            <p class="text-xs text-slate-400 mt-0.5" style="font-family: 'Inter', sans-serif;">Day 1 triggers</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 px-5 py-4">
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1" style="font-family: 'Inter', sans-serif;">Emails sent</p>
+            <p class="text-2xl font-bold text-slate-900" style="font-family: 'Lexend', sans-serif;">{recentLogs.filter(l => l.channel === 'email' && l.status === 'sent').length}</p>
+            <p class="text-xs text-slate-400 mt-0.5" style="font-family: 'Inter', sans-serif;">via Resend</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 px-5 py-4">
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1" style="font-family: 'Inter', sans-serif;">YES responses</p>
+            <p class="text-2xl font-bold text-slate-900" style="font-family: 'Lexend', sans-serif;">{recentLogs.filter(l => l.messageKey === 'yes_handler' && l.status === 'sent').length}</p>
+            <p class="text-xs text-slate-400 mt-0.5" style="font-family: 'Inter', sans-serif;">confirmed interest</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 px-5 py-4">
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1" style="font-family: 'Inter', sans-serif;">Messages active</p>
+            <p class="text-2xl font-bold text-slate-900" style="font-family: 'Lexend', sans-serif;">{messages.filter(m => m.enabled).length}<span class="text-sm text-slate-400 font-normal"> / {messages.length}</span></p>
+            <p class="text-xs text-slate-400 mt-0.5" style="font-family: 'Inter', sans-serif;">&nbsp;</p>
+          </div>
+        </div>
+
+        <!-- SMS note -->
+        <div class="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 mb-6">
+          <svg class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/>
+          </svg>
+          <div class="text-sm text-amber-800" style="font-family: 'Inter', sans-serif;">
+            <strong>YES / NO response handlers</strong> require an inbound Twilio SMS webhook (not yet configured). The D1–D3 email sequence fires normally. Configure appSettings with <code class="bg-amber-100 px-1 rounded">Raffle Prize</code> and <code class="bg-amber-100 px-1 rounded">Raffle Link</code> before running campaigns.
+          </div>
+        </div>
+
+        <!-- Trigger form -->
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div class="px-6 py-5 border-b border-slate-100">
+            <h2 class="text-base font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Trigger Campaign</h2>
+            <p class="text-xs text-slate-400 mt-0.5" style="font-family: 'Inter', sans-serif;">
+              Enter a contact's email to start the 3-day reactivation sequence (D1 now, D2 in 24h, D3 in 48h).
+            </p>
+          </div>
+          <div class="px-6 py-6">
+            <form method="POST" class="flex gap-3 max-w-lg">
+              <input type="hidden" name="action" value="trigger-campaign" />
+              <input
+                type="email"
+                name="email"
+                required
+                placeholder="contact@example.com"
+                class="flex-1 text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                style="font-family: 'Inter', sans-serif;"
+              />
+              <button type="submit"
+                class="shrink-0 text-sm font-semibold bg-slate-900 text-white px-5 py-2.5 rounded-xl hover:bg-slate-700 transition"
+                style="font-family: 'Inter', sans-serif;">
+                Send Campaign
+              </button>
+            </form>
+            <p class="text-xs text-slate-400 mt-3" style="font-family: 'Inter', sans-serif;">
+              The contact must already exist in the Contacts table. D1, D2, and D3 fire based on each message's <em>enabled</em> and <em>channel</em> settings.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Messages tab ───────────────────────────────────────── -->
+      <div id="tab-messages" class={`tab-panel ${activeTab !== 'messages' ? 'hidden' : ''}`}>
+        <div class="flex flex-col gap-3">
+          {messages.sort((a, b) => a.order - b.order).map((msg) => {
+            const s = stats[msg.messageKey] ?? { sent: 0, failed: 0, skipped: 0, lastSent: null };
+            return (
+              <details class="group bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                <summary class="flex items-center gap-4 px-6 py-4 cursor-pointer list-none hover:bg-slate-50 transition">
+                  <span class="shrink-0 w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-xs font-bold text-amber-700" style="font-family: 'Lexend', sans-serif;">
+                    {MSG_LABELS[msg.messageKey]}
+                  </span>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold text-slate-900" style="font-family: 'Inter', sans-serif;">{msg.label}</p>
+                    <p class="text-xs text-slate-400 truncate" style="font-family: 'Inter', sans-serif;">{msg.triggerDescription}</p>
+                  </div>
+                  <div class="hidden sm:flex items-center gap-4 shrink-0">
+                    <div class="text-right">
+                      <p class="text-sm font-semibold text-slate-700" style="font-family: 'Lexend', sans-serif;">{s.sent}</p>
+                      <p class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">sent</p>
+                    </div>
+                    <span class={`text-xs font-medium px-2.5 py-1 rounded-full ${msg.channel === 'email' ? 'bg-blue-50 text-blue-600 border border-blue-100' : msg.channel === 'sms' ? 'bg-violet-50 text-violet-600 border border-violet-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`} style="font-family: 'Inter', sans-serif;">{msg.channel}</span>
+                    <span class={`text-xs font-medium px-2.5 py-1 rounded-full ${msg.enabled ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-100 text-slate-400'}`} style="font-family: 'Inter', sans-serif;">{msg.enabled ? 'on' : 'off'}</span>
+                  </div>
+                  <svg class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/>
+                  </svg>
+                </summary>
+                <div class="border-t border-slate-100 px-6 py-6 bg-slate-50">
+                  <form method="POST" class="flex flex-col gap-5">
+                    <input type="hidden" name="action" value="update-message" />
+                    <input type="hidden" name="messageKey" value={msg.messageKey} />
+                    <div class="flex flex-wrap items-center gap-6">
+                      <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="enabled" value="on" checked={msg.enabled} class="w-4 h-4 rounded" />
+                        <span class="text-sm font-medium text-slate-700" style="font-family: 'Inter', sans-serif;">Enabled</span>
+                      </label>
+                      <div class="flex items-center gap-3">
+                        <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Channel</span>
+                        {(['email', 'sms', 'both'] as const).map((ch) => (
+                          <label class="flex items-center gap-1.5 cursor-pointer">
+                            <input type="radio" name="channel" value={ch} checked={msg.channel === ch} class="w-4 h-4" />
+                            <span class="text-sm text-slate-700 capitalize" style="font-family: 'Inter', sans-serif;">{ch}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                      <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">SMS Body <span class="normal-case font-normal text-slate-400">(≤160 chars)</span></label>
+                      <textarea name="smsBody" rows="2"
+                        class="text-sm bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none font-mono">{msg.smsBody}</textarea>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                      <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Email Subject</label>
+                      <input type="text" name="emailSubject" value={msg.emailSubject}
+                        class="text-sm bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                        style="font-family: 'Inter', sans-serif;" />
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                      <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Email Body</label>
+                      <textarea name="emailBody" rows="5"
+                        class="text-sm bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 resize-y"
+                        style="font-family: 'Inter', sans-serif;">{msg.emailBody}</textarea>
+                      <p class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">
+                        Variables: <code class="bg-slate-200 px-1 rounded">{'{{FIRST_NAME}}'}</code> <code class="bg-slate-200 px-1 rounded">{'{{BUSINESS_NAME}}'}</code> <code class="bg-slate-200 px-1 rounded">{'{{RAFFLE_PRIZE}}'}</code> <code class="bg-slate-200 px-1 rounded">{'{{RAFFLE_LINK}}'}</code> <code class="bg-slate-200 px-1 rounded">{'{{BOOKING_LINK}}'}</code>
+                      </p>
+                    </div>
+                    <div class="flex justify-end">
+                      <button type="submit"
+                        class="text-sm font-semibold bg-slate-900 text-white px-5 py-2.5 rounded-xl hover:bg-slate-700 transition"
+                        style="font-family: 'Inter', sans-serif;">Save message</button>
+                    </div>
+                  </form>
+                </div>
+              </details>
+            );
+          })}
+        </div>
+      </div>
+
+      <!-- ── History tab ────────────────────────────────────────── -->
+      <div id="tab-history" class={`tab-panel ${activeTab !== 'history' ? 'hidden' : ''}`}>
+        <section class="mb-8">
+          <h2 class="text-base font-semibold text-slate-900 mb-4" style="font-family: 'Lexend', sans-serif;">Per-Message Stats</h2>
+          <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-slate-100 bg-slate-50">
+                  {['Message', 'Trigger', 'Sent', 'Failed', 'Skipped', 'Last Sent'].map(h => (
+                    <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                {messages.sort((a, b) => a.order - b.order).map((msg) => {
+                  const s = stats[msg.messageKey] ?? { sent: 0, failed: 0, skipped: 0, lastSent: null };
+                  return (
+                    <tr class="hover:bg-slate-50 transition">
+                      <td class="px-5 py-3">
+                        <div class="flex items-center gap-2">
+                          <span class="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full" style="font-family: 'Lexend', sans-serif;">{MSG_LABELS[msg.messageKey]}</span>
+                          <span class="text-sm text-slate-700" style="font-family: 'Inter', sans-serif;">{msg.label}</span>
+                        </div>
+                      </td>
+                      <td class="px-5 py-3 text-xs text-slate-400 max-w-xs truncate" style="font-family: 'Inter', sans-serif;">{msg.triggerDescription}</td>
+                      <td class="px-5 py-3 text-sm font-semibold text-emerald-600" style="font-family: 'Lexend', sans-serif;">{s.sent}</td>
+                      <td class="px-5 py-3 text-sm font-semibold text-red-500" style="font-family: 'Lexend', sans-serif;">{s.failed}</td>
+                      <td class="px-5 py-3 text-sm text-slate-400" style="font-family: 'Lexend', sans-serif;">{s.skipped}</td>
+                      <td class="px-5 py-3 text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">{s.lastSent ? relativeTime(s.lastSent) : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section>
+          <h2 class="text-base font-semibold text-slate-900 mb-4" style="font-family: 'Lexend', sans-serif;">Recent Activity</h2>
+          {recentLogs.length === 0 ? (
+            <div class="bg-white rounded-2xl border border-slate-200 px-6 py-12 text-center">
+              <p class="text-sm text-slate-400" style="font-family: 'Inter', sans-serif;">No campaigns sent yet. Use the Campaign tab to trigger the sequence for a contact.</p>
+            </div>
+          ) : (
+            <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="border-b border-slate-100 bg-slate-50">
+                    {['Contact', 'Message', 'Channel', 'Status', 'Time'].map(h => (
+                      <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  {recentLogs.map((log) => (
+                    <tr class="hover:bg-slate-50 transition">
+                      <td class="px-5 py-3">
+                        <p class="font-medium text-slate-900 truncate max-w-[160px]" style="font-family: 'Inter', sans-serif;">{log.recipientName}</p>
+                        <p class="text-xs text-slate-400 truncate max-w-[160px]">{log.recipientEmail}</p>
+                      </td>
+                      <td class="px-5 py-3">
+                        <span class="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full" style="font-family: 'Lexend', sans-serif;">{MSG_LABELS[log.messageKey] ?? log.messageKey}</span>
+                      </td>
+                      <td class="px-5 py-3">
+                        <span class={`text-xs font-medium px-2 py-0.5 rounded-full ${log.channel === 'email' ? 'bg-blue-50 text-blue-600' : 'bg-violet-50 text-violet-600'}`} style="font-family: 'Inter', sans-serif;">{log.channel}</span>
+                      </td>
+                      <td class="px-5 py-3">
+                        <span class={`text-xs font-medium px-2 py-0.5 rounded-full ${log.status === 'sent' ? 'bg-emerald-50 text-emerald-600' : log.status === 'failed' ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'}`} style="font-family: 'Inter', sans-serif;">{log.status}</span>
+                        {log.errorMessage && log.status !== 'sent' && (
+                          <p class="text-xs text-slate-400 mt-0.5 max-w-[180px] truncate" title={log.errorMessage}>{log.errorMessage}</p>
+                        )}
+                      </td>
+                      <td class="px-5 py-3 text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">{relativeTime(log._creationTime)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </div>
+
+      <!-- ── Settings (Prompt) tab ──────────────────────────────── -->
+      <div id="tab-settings" class={`tab-panel ${activeTab !== 'settings' ? 'hidden' : ''}`}>
+        <div class="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 mb-6">
+          <svg class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18"/>
+          </svg>
+          <p class="text-sm text-amber-800" style="font-family: 'Inter', sans-serif;">
+            <strong>Coming soon:</strong> This will become a live chat interface with the agent. For now, fill in the variables and paste the assembled prompt into Claude to generate customised reactivation copy for your market.
+          </p>
+        </div>
+        <div class="flex items-center gap-1 mb-6 bg-slate-100 rounded-xl p-1 w-fit">
+          <button id="btn-long" class="text-sm font-medium px-4 py-2 rounded-lg transition prompt-mode-btn active-mode" data-mode="long" style="font-family: 'Inter', sans-serif;">Long prompt</button>
+          <button id="btn-short" class="text-sm font-medium px-4 py-2 rounded-lg transition prompt-mode-btn" data-mode="short" style="font-family: 'Inter', sans-serif;">Short prompt</button>
+        </div>
+        <div class="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-6 items-start">
+          <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100">
+              <h2 class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Variables</h2>
+            </div>
+            <div id="variables-form" class="px-6 py-5 flex flex-col gap-5"></div>
+            <div id="no-variables-note" class="hidden px-6 py-8 text-center">
+              <p id="no-variables-text" class="text-sm text-slate-400" style="font-family: 'Inter', sans-serif;"></p>
+            </div>
+          </div>
+          <div class="flex flex-col gap-4">
+            <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                <div>
+                  <h2 class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Prompt template</h2>
+                  <p class="text-xs text-slate-400 mt-0.5" style="font-family: 'Inter', sans-serif;"><span class="inline-block w-2.5 h-2.5 rounded bg-yellow-200 mr-1 align-middle"></span>Yellow fields replaced by your inputs.</p>
+                </div>
+                <button id="toggle-template" class="text-xs font-medium text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Hide</button>
+              </div>
+              <div id="template-wrapper" class="px-6 py-4 overflow-auto max-h-72">
+                <pre id="template-display" class="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed font-mono"></pre>
+              </div>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                <div>
+                  <h2 class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Assembled prompt</h2>
+                  <p class="text-xs text-slate-400 mt-0.5" style="font-family: 'Inter', sans-serif;">Unfilled variables appear as <code class="bg-slate-100 px-1 rounded">[KEY]</code></p>
+                </div>
+                <button id="copy-btn" class="inline-flex items-center gap-2 text-sm font-semibold bg-slate-900 text-white px-4 py-2 rounded-xl hover:bg-slate-700 transition" style="font-family: 'Inter', sans-serif;">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184"/></svg>
+                  Copy prompt
+                </button>
+              </div>
+              <div class="px-6 py-4">
+                <textarea id="assembled-output" readonly rows="18" class="w-full text-xs text-slate-700 leading-relaxed font-mono bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 resize-y focus:outline-none"></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</BaseLayout>
+
+<style>
+  .active-mode { background-color: white; color: #0f172a; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+  .prompt-mode-btn:not(.active-mode) { color: #64748b; }
+  mark { background-color: #fef9c3; color: #713f12; border-radius: 2px; padding: 0 2px; }
+</style>
+
+<script>
+  document.querySelectorAll('.tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tab = (btn as HTMLElement).dataset.tab!;
+      document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
+      document.getElementById(`tab-${tab}`)?.classList.remove('hidden');
+      document.querySelectorAll('.tab-btn').forEach((b) => {
+        const active = (b as HTMLElement).dataset.tab === tab;
+        b.classList.toggle('bg-white', active);
+        b.classList.toggle('text-slate-900', active);
+        b.classList.toggle('shadow-sm', active);
+        b.classList.toggle('text-slate-500', !active);
+      });
+    });
+  });
+</script>
+
+<script define:vars={{ agentData }}>
+  let currentMode = 'long';
+  const variablesForm = document.getElementById('variables-form');
+  const noVarsNote = document.getElementById('no-variables-note');
+  const noVarsText = document.getElementById('no-variables-text');
+  const templateDisplay = document.getElementById('template-display');
+  const assembledOutput = document.getElementById('assembled-output');
+  const copyBtn = document.getElementById('copy-btn');
+  const toggleTemplateBtn = document.getElementById('toggle-template');
+  const templateWrapper = document.getElementById('template-wrapper');
+
+  if (variablesForm && assembledOutput) {
+    function escapeHtml(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function highlightVars(t) { return escapeHtml(t).replace(/\{\{([^}]+)\}\}/g,'<mark>{{$1}}</mark>'); }
+    function getValues() { const v={}; document.querySelectorAll('[data-var-key]').forEach(el=>{v[el.dataset.varKey]=el.value.trim();}); return v; }
+    function assemble(prompt,vars,values) { return vars.reduce((t,v)=>t.split(`{{${v.key}}}`).join(values[v.key]||`[${v.key}]`),prompt); }
+    function updateOutput() { const vars=currentMode==='long'?agentData.longVars:agentData.shortVars; const prompt=currentMode==='long'?agentData.longPrompt:agentData.shortPrompt; assembledOutput.value=assemble(prompt,vars,getValues()); }
+    function renderVars() {
+      const vars=currentMode==='long'?agentData.longVars:agentData.shortVars; const note=currentMode==='long'?agentData.longNote:agentData.shortNote;
+      variablesForm.innerHTML='';
+      if(vars.length===0){variablesForm.classList.add('hidden');noVarsNote.classList.remove('hidden');noVarsText.textContent=note||'No variables.';return;}
+      variablesForm.classList.remove('hidden');noVarsNote.classList.add('hidden');
+      vars.forEach(v=>{
+        const wrap=document.createElement('div');wrap.className='flex flex-col gap-1.5';
+        const label=document.createElement('label');label.className='text-xs font-semibold text-slate-600 uppercase tracking-wide';label.style.fontFamily="'Inter',sans-serif";label.textContent=v.label+(v.required?' *':'');wrap.appendChild(label);
+        const base='text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 w-full';
+        let input;
+        if(v.type==='textarea'){input=document.createElement('textarea');input.rows=v.rows||3;input.className=base+' resize-none';}
+        else if(v.type==='select'){input=document.createElement('select');input.className=base;(v.options||[]).forEach(opt=>{const o=document.createElement('option');o.value=opt.startsWith('(')?'':opt;o.textContent=opt;input.appendChild(o);});}
+        else{input=document.createElement('input');input.type='text';input.className=base;}
+        input.dataset.varKey=v.key;input.style.fontFamily="'Inter',sans-serif";
+        if(v.placeholder&&v.type!=='select')input.placeholder=v.placeholder;
+        input.addEventListener('input',updateOutput);wrap.appendChild(input);
+        if(v.helpText){const h=document.createElement('p');h.className='text-xs text-slate-400';h.style.fontFamily="'Inter',sans-serif";h.textContent=v.helpText;wrap.appendChild(h);}
+        variablesForm.appendChild(wrap);
+      });
+    }
+    function renderTemplate(){templateDisplay.innerHTML=highlightVars(currentMode==='long'?agentData.longPrompt:agentData.shortPrompt);}
+    document.querySelectorAll('.prompt-mode-btn').forEach(btn=>{
+      btn.addEventListener('click',()=>{currentMode=btn.dataset.mode;document.querySelectorAll('.prompt-mode-btn').forEach(b=>b.classList.toggle('active-mode',b.dataset.mode===currentMode));renderTemplate();renderVars();updateOutput();});
+    });
+    let templateVisible=true;
+    toggleTemplateBtn?.addEventListener('click',()=>{templateVisible=!templateVisible;templateWrapper?.classList.toggle('hidden',!templateVisible);if(toggleTemplateBtn)toggleTemplateBtn.textContent=templateVisible?'Hide':'Show';});
+    copyBtn?.addEventListener('click',async()=>{await navigator.clipboard.writeText(assembledOutput.value);const orig=copyBtn.innerHTML;copyBtn.innerHTML=`<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg> Copied!`;setTimeout(()=>{copyBtn.innerHTML=orig;},2000);});
+    renderTemplate();renderVars();updateOutput();
+  }
+</script>

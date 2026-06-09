@@ -19,6 +19,8 @@ const id = Astro.params.id as Id<'bookingLinks'>;
 let successMessage: string | null = null;
 let errorMessage: string | null = null;
 
+const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
 if (Astro.request.method === 'POST') {
   const data = await Astro.request.formData();
   const action = data.get('action') as string;
@@ -34,8 +36,43 @@ if (Astro.request.method === 'POST') {
         slug,
         description: (data.get('description') as string).trim() || undefined,
         published: data.get('published') === 'on',
+        headline: (data.get('headline') as string).trim() || undefined,
+        subheadline: (data.get('subheadline') as string).trim() || undefined,
       });
       successMessage = 'Booking link updated.';
+    } else if (action === 'update-availability') {
+      const duration = parseInt(data.get('duration') as string) || 60;
+      const bufferTime = parseInt(data.get('bufferTime') as string) || 0;
+      const availabilityStart = (data.get('availabilityStart') as string) || '09:00';
+      const availabilityEnd = (data.get('availabilityEnd') as string) || '17:00';
+      const availableDays = data.getAll('availableDays').map(Number);
+      const timezone = (data.get('timezone') as string).trim() || 'America/New_York';
+      const link = await client.query(api.bookingLinks.get, { id });
+      if (!link) throw new Error('Booking link not found.');
+      await client.mutation(api.bookingLinks.update, {
+        id,
+        name: link.name,
+        slug: link.slug,
+        description: link.description,
+        published: link.published,
+        headline: link.headline,
+        subheadline: link.subheadline,
+        duration,
+        bufferTime,
+        availabilityStart,
+        availabilityEnd,
+        availableDays,
+        timezone,
+      });
+      successMessage = 'Availability updated.';
+    } else if (action === 'cancel-booking') {
+      const bookingId = data.get('bookingId') as Id<'bookings'>;
+      await client.mutation(api.bookings.cancel, { id: bookingId });
+      successMessage = 'Booking cancelled.';
+    } else if (action === 'delete-booking') {
+      const bookingId = data.get('bookingId') as Id<'bookings'>;
+      await client.mutation(api.bookings.remove, { id: bookingId });
+      successMessage = 'Booking deleted.';
     } else if (action === 'delete') {
       await client.mutation(api.bookingLinks.remove, { id });
       return Astro.redirect('/admin/booking-links');
@@ -45,8 +82,27 @@ if (Astro.request.method === 'POST') {
   }
 }
 
-const link = await client.query(api.bookingLinks.get, { id });
+const [link, bookings] = await Promise.all([
+  client.query(api.bookingLinks.get, { id }),
+  client.query(api.bookings.listByBookingLink, { bookingLinkId: id }),
+]);
 if (!link) return Astro.redirect('/admin/booking-links');
+
+const upcomingBookings = bookings
+  .filter((b) => b.status === 'confirmed')
+  .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
+
+function fmt12h(time: string) {
+  const [h, m] = time.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2,'0')} ${period}`;
+}
+
+function fmtDate(dateStr: string) {
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  return new Date(y, mo - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
 ---
 
 <BaseLayout title={`${link.name} — Booking Links`}>
@@ -60,7 +116,7 @@ if (!link) return Astro.redirect('/admin/booking-links');
         <span class="text-sm font-semibold text-slate-900 truncate max-w-48" style="font-family: 'Lexend', sans-serif;">{link.name}</span>
       </div>
       <div class="flex items-center gap-4">
-        <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Home</a>
+        <a href={`/booking-links/${link.slug}`} target="_blank" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">View page ↗</a>
         <UserButton />
         <SignOutButton>
           <button class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Sign out</button>
@@ -83,6 +139,7 @@ if (!link) return Astro.redirect('/admin/booking-links');
         <div class="mb-6 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700" style="font-family: 'Inter', sans-serif;">{errorMessage}</div>
       )}
 
+      <!-- Details -->
       <section class="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
         <h2 class="text-base font-semibold text-slate-900 mb-5" style="font-family: 'Lexend', sans-serif;">Details</h2>
         <form method="POST" class="flex flex-col gap-4">
@@ -102,8 +159,22 @@ if (!link) return Astro.redirect('/admin/booking-links');
             </div>
           </div>
           <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Headline</label>
+            <input type="text" name="headline" value={link.headline ?? ''}
+              placeholder="Shown as page title (defaults to Name)"
+              class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              style="font-family: 'Inter', sans-serif;" />
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Subheadline</label>
+            <textarea name="subheadline" rows="2"
+              placeholder="Brief description shown below the headline"
+              class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none"
+              style="font-family: 'Inter', sans-serif;">{link.subheadline ?? ''}</textarea>
+          </div>
+          <div class="flex flex-col gap-1.5">
             <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Description</label>
-            <input type="text" name="description" value={link.description ?? ''} placeholder="Optional short description"
+            <input type="text" name="description" value={link.description ?? ''} placeholder="Internal note"
               class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
               style="font-family: 'Inter', sans-serif;" />
           </div>
@@ -119,6 +190,110 @@ if (!link) return Astro.redirect('/admin/booking-links');
         </form>
       </section>
 
+      <!-- Availability -->
+      <section class="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
+        <div class="mb-5">
+          <h2 class="text-base font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Availability</h2>
+          <p class="text-xs text-slate-500 mt-1" style="font-family: 'Inter', sans-serif;">Controls the booking widget on the public page.</p>
+        </div>
+        <form method="POST" class="flex flex-col gap-4">
+          <input type="hidden" name="action" value="update-availability" />
+          <div class="grid grid-cols-2 gap-4">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Duration (minutes)</label>
+              <input type="number" name="duration" min="15" step="15" value={link.duration ?? 60}
+                class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                style="font-family: 'Inter', sans-serif;" />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Buffer (minutes)</label>
+              <input type="number" name="bufferTime" min="0" step="5" value={link.bufferTime ?? 0}
+                class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                style="font-family: 'Inter', sans-serif;" />
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Start time</label>
+              <input type="time" name="availabilityStart" value={link.availabilityStart ?? '09:00'}
+                class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                style="font-family: 'Inter', sans-serif;" />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">End time</label>
+              <input type="time" name="availabilityEnd" value={link.availabilityEnd ?? '17:00'}
+                class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                style="font-family: 'Inter', sans-serif;" />
+            </div>
+          </div>
+          <div class="flex flex-col gap-2">
+            <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Available days</label>
+            <div class="flex flex-wrap gap-2">
+              {DAY_NAMES.map((day, i) => (
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="availableDays"
+                    value={i}
+                    checked={link.availableDays ? link.availableDays.includes(i) : (i >= 1 && i <= 5)}
+                    class="w-4 h-4 rounded"
+                  />
+                  <span class="text-sm text-slate-700" style="font-family: 'Inter', sans-serif;">{day}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Timezone</label>
+            <input type="text" name="timezone" value={link.timezone ?? 'America/New_York'}
+              placeholder="America/New_York"
+              class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              style="font-family: 'Inter', sans-serif;" />
+          </div>
+          <div class="flex justify-end pt-1">
+            <button type="submit" class="text-sm font-semibold bg-slate-900 text-white px-5 py-2.5 rounded-xl hover:bg-slate-700 transition" style="font-family: 'Inter', sans-serif;">
+              Save availability
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Upcoming bookings -->
+      <section class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6">
+        <div class="px-6 py-5 border-b border-slate-100">
+          <h2 class="text-base font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Bookings</h2>
+          <p class="text-xs text-slate-500 mt-0.5" style="font-family: 'Inter', sans-serif;">{upcomingBookings.length} confirmed</p>
+        </div>
+        {upcomingBookings.length === 0 ? (
+          <div class="px-6 py-10 text-center">
+            <p class="text-sm text-slate-400" style="font-family: 'Inter', sans-serif;">No bookings yet.</p>
+          </div>
+        ) : (
+          <div class="divide-y divide-slate-100">
+            {upcomingBookings.map((b) => (
+              <div class="flex items-center justify-between px-6 py-4 gap-4">
+                <div class="min-w-0">
+                  <p class="text-sm font-medium text-slate-900 truncate" style="font-family: 'Inter', sans-serif;">{b.name}</p>
+                  <p class="text-xs text-slate-400 truncate" style="font-family: 'Inter', sans-serif;">{b.email}</p>
+                </div>
+                <div class="text-right shrink-0">
+                  <p class="text-xs font-semibold text-slate-700" style="font-family: 'Inter', sans-serif;">{fmtDate(b.date)}</p>
+                  <p class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">{fmt12h(b.startTime)}</p>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                  <form method="POST" onsubmit={`return confirm('Cancel this booking for ${b.name}?')`}>
+                    <input type="hidden" name="action" value="cancel-booking" />
+                    <input type="hidden" name="bookingId" value={b._id} />
+                    <button type="submit" class="text-xs font-medium text-slate-500 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 rounded-lg transition" style="font-family: 'Inter', sans-serif;">Cancel</button>
+                  </form>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <!-- Danger zone -->
       <section class="bg-white rounded-2xl border border-red-200 overflow-hidden">
         <div class="px-6 py-5 border-b border-red-100">
           <h2 class="text-base font-semibold text-red-700" style="font-family: 'Lexend', sans-serif;">Danger Zone</h2>
@@ -126,7 +301,7 @@ if (!link) return Astro.redirect('/admin/booking-links');
         <div class="px-6 py-5 flex items-center justify-between gap-6">
           <div>
             <p class="text-sm font-medium text-slate-900" style="font-family: 'Inter', sans-serif;">Delete this booking link</p>
-            <p class="text-xs text-slate-500 mt-0.5" style="font-family: 'Inter', sans-serif;">Permanently removes the booking link. This cannot be undone.</p>
+            <p class="text-xs text-slate-500 mt-0.5" style="font-family: 'Inter', sans-serif;">Permanently removes the link and all associated bookings. This cannot be undone.</p>
           </div>
           <form method="POST" onsubmit={`return confirm('Delete "${link.name}"? This cannot be undone.')`}>
             <input type="hidden" name="action" value="delete" />

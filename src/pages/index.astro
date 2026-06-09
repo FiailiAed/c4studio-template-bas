@@ -11,6 +11,10 @@ import CTA from '@marketing/CTA.astro';
 import Footer from '@marketing/Footer.astro';
 import { convex } from '@lib/convex';
 import { api } from '@convex/api';
+import { enforcePageStatus } from '@lib/pageStatus';
+
+const redirect = await enforcePageStatus('/', Astro);
+if (redirect) return redirect;
 
 const [settings, galleryItems] = await Promise.all([
   convex.query(api.settings.get, {}),

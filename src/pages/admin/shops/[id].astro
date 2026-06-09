@@ -34,8 +34,52 @@ if (Astro.request.method === 'POST') {
         slug,
         description: (data.get('description') as string).trim() || undefined,
         published: data.get('published') === 'on',
+        headline: (data.get('headline') as string).trim() || undefined,
+        subheadline: (data.get('subheadline') as string).trim() || undefined,
       });
       successMessage = 'Shop updated.';
+    } else if (action === 'create-item') {
+      const name = (data.get('item-name') as string).trim();
+      const stripePriceId = (data.get('stripePriceId') as string).trim();
+      const priceRaw = parseFloat(data.get('price') as string);
+      if (!name || !stripePriceId || isNaN(priceRaw)) throw new Error('Name, price, and Stripe Price ID are required.');
+      const existingItems = await client.query(api.shopItems.listByShop, { shopId: id });
+      await client.mutation(api.shopItems.create, {
+        shopId: id,
+        name,
+        description: (data.get('item-description') as string).trim() || undefined,
+        price: Math.round(priceRaw * 100),
+        currency: ((data.get('currency') as string) || 'usd').toLowerCase(),
+        stripePriceId,
+        imageUrl: (data.get('imageUrl') as string).trim() || undefined,
+        published: data.get('item-published') === 'on',
+        order: existingItems.length,
+      });
+      successMessage = `Product "${name}" added.`;
+    } else if (action === 'update-item') {
+      const itemId = data.get('itemId') as Id<'shopItems'>;
+      const name = (data.get('item-name') as string).trim();
+      const stripePriceId = (data.get('stripePriceId') as string).trim();
+      const priceRaw = parseFloat(data.get('price') as string);
+      if (!name || !stripePriceId || isNaN(priceRaw)) throw new Error('Name, price, and Stripe Price ID are required.');
+      const currentItem = await client.query(api.shopItems.listByShop, { shopId: id });
+      const item = currentItem.find(i => i._id === itemId);
+      await client.mutation(api.shopItems.update, {
+        id: itemId,
+        name,
+        description: (data.get('item-description') as string).trim() || undefined,
+        price: Math.round(priceRaw * 100),
+        currency: ((data.get('currency') as string) || 'usd').toLowerCase(),
+        stripePriceId,
+        imageUrl: (data.get('imageUrl') as string).trim() || undefined,
+        published: data.get('item-published') === 'on',
+        order: item?.order ?? 0,
+      });
+      successMessage = `Product "${name}" updated.`;
+    } else if (action === 'delete-item') {
+      const itemId = data.get('itemId') as Id<'shopItems'>;
+      await client.mutation(api.shopItems.remove, { id: itemId });
+      successMessage = 'Product deleted.';
     } else if (action === 'delete') {
       await client.mutation(api.shops.remove, { id });
       return Astro.redirect('/admin/shops');
@@ -45,8 +89,15 @@ if (Astro.request.method === 'POST') {
   }
 }
 
-const shop = await client.query(api.shops.get, { id });
+const [shop, items] = await Promise.all([
+  client.query(api.shops.get, { id }),
+  client.query(api.shopItems.listByShop, { shopId: id }),
+]);
 if (!shop) return Astro.redirect('/admin/shops');
+
+function fmtPrice(cents: number) {
+  return (cents / 100).toFixed(2);
+}
 ---
 
 <BaseLayout title={`${shop.name} — Shops`}>
@@ -60,7 +111,7 @@ if (!shop) return Astro.redirect('/admin/shops');
         <span class="text-sm font-semibold text-slate-900 truncate max-w-48" style="font-family: 'Lexend', sans-serif;">{shop.name}</span>
       </div>
       <div class="flex items-center gap-4">
-        <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Home</a>
+        <a href={`/shops/${shop.slug}`} target="_blank" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">View page ↗</a>
         <UserButton />
         <SignOutButton>
           <button class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Sign out</button>
@@ -68,7 +119,7 @@ if (!shop) return Astro.redirect('/admin/shops');
       </div>
     </header>
 
-    <main class="max-w-2xl mx-auto px-6 py-12">
+    <main class="max-w-3xl mx-auto px-6 py-12">
       <div class="flex items-center justify-between mb-8">
         <h1 class="text-3xl font-bold tracking-tight text-slate-900 truncate" style="font-family: 'Lexend', sans-serif;">{shop.name}</h1>
         <span class={`text-xs font-medium px-2.5 py-1 rounded-full ${shop.published ? 'text-emerald-600 bg-emerald-50 border border-emerald-100' : 'text-slate-400 bg-slate-100'}`} style="font-family: 'Inter', sans-serif;">
@@ -83,6 +134,7 @@ if (!shop) return Astro.redirect('/admin/shops');
         <div class="mb-6 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700" style="font-family: 'Inter', sans-serif;">{errorMessage}</div>
       )}
 
+      <!-- Details -->
       <section class="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
         <h2 class="text-base font-semibold text-slate-900 mb-5" style="font-family: 'Lexend', sans-serif;">Details</h2>
         <form method="POST" class="flex flex-col gap-4">
@@ -102,8 +154,22 @@ if (!shop) return Astro.redirect('/admin/shops');
             </div>
           </div>
           <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Headline</label>
+            <input type="text" name="headline" value={shop.headline ?? ''}
+              placeholder="Shown as the page title (defaults to Name)"
+              class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              style="font-family: 'Inter', sans-serif;" />
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Subheadline</label>
+            <input type="text" name="subheadline" value={shop.subheadline ?? ''}
+              placeholder="Optional supporting text below the headline"
+              class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              style="font-family: 'Inter', sans-serif;" />
+          </div>
+          <div class="flex flex-col gap-1.5">
             <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Description</label>
-            <input type="text" name="description" value={shop.description ?? ''} placeholder="Optional short description"
+            <input type="text" name="description" value={shop.description ?? ''} placeholder="Internal note or meta description"
               class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
               style="font-family: 'Inter', sans-serif;" />
           </div>
@@ -119,6 +185,179 @@ if (!shop) return Astro.redirect('/admin/shops');
         </form>
       </section>
 
+      <!-- Products -->
+      <section class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6">
+        <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h2 class="text-base font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Products</h2>
+            <p class="text-xs text-slate-500 mt-0.5" style="font-family: 'Inter', sans-serif;">
+              Create products in your <a href="https://dashboard.stripe.com/products" target="_blank" class="underline">Stripe dashboard</a>, then paste the Price ID here.
+            </p>
+          </div>
+          <button
+            onclick="document.getElementById('add-item-form').classList.toggle('hidden')"
+            class="text-xs font-semibold bg-slate-900 text-white px-3.5 py-2 rounded-xl hover:bg-slate-700 transition"
+            style="font-family: 'Inter', sans-serif;"
+          >
+            + Add product
+          </button>
+        </div>
+
+        <!-- Add product form -->
+        <div id="add-item-form" class="hidden border-b border-slate-100 px-6 py-5 bg-slate-50">
+          <h3 class="text-sm font-semibold text-slate-700 mb-4" style="font-family: 'Lexend', sans-serif;">New product</h3>
+          <form method="POST" class="flex flex-col gap-3">
+            <input type="hidden" name="action" value="create-item" />
+            <div class="grid grid-cols-2 gap-3">
+              <div class="flex flex-col gap-1">
+                <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Name <span class="text-red-500">*</span></label>
+                <input type="text" name="item-name" required placeholder="Product name"
+                  class="text-sm bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  style="font-family: 'Inter', sans-serif;" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Stripe Price ID <span class="text-red-500">*</span></label>
+                <input type="text" name="stripePriceId" required placeholder="price_..."
+                  class="text-sm bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono"
+                  style="font-family: 'Inter', sans-serif;" />
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+              <div class="col-span-2 flex flex-col gap-1">
+                <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Price (USD) <span class="text-red-500">*</span></label>
+                <input type="number" name="price" required step="0.01" min="0" placeholder="29.00"
+                  class="text-sm bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  style="font-family: 'Inter', sans-serif;" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Currency</label>
+                <input type="text" name="currency" value="usd" placeholder="usd"
+                  class="text-sm bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 uppercase font-mono"
+                  style="font-family: 'Inter', sans-serif;" />
+              </div>
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Description</label>
+              <input type="text" name="item-description" placeholder="Short product description"
+                class="text-sm bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                style="font-family: 'Inter', sans-serif;" />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Image URL</label>
+              <input type="url" name="imageUrl" placeholder="https://..."
+                class="text-sm bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                style="font-family: 'Inter', sans-serif;" />
+            </div>
+            <div class="flex items-center justify-between pt-1">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" name="item-published" value="on" class="w-4 h-4 rounded" />
+                <span class="text-sm text-slate-700" style="font-family: 'Inter', sans-serif;">Publish immediately</span>
+              </label>
+              <button type="submit" class="text-sm font-semibold bg-slate-900 text-white px-4 py-2 rounded-xl hover:bg-slate-700 transition" style="font-family: 'Inter', sans-serif;">
+                Add product
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Product list -->
+        {items.length === 0 ? (
+          <div class="px-6 py-12 text-center">
+            <p class="text-slate-400 text-sm" style="font-family: 'Inter', sans-serif;">No products yet. Add your first product above.</p>
+          </div>
+        ) : (
+          <div class="divide-y divide-slate-100">
+            {items.map((item) => (
+              <details class="group">
+                <summary class="flex items-center justify-between px-6 py-4 cursor-pointer list-none hover:bg-slate-50 transition">
+                  <div class="flex items-center gap-3 min-w-0">
+                    <div class="min-w-0">
+                      <p class="text-sm font-medium text-slate-900 truncate" style="font-family: 'Inter', sans-serif;">{item.name}</p>
+                      <p class="text-xs text-slate-400 font-mono">{item.stripePriceId}</p>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-3 shrink-0 ml-4">
+                    <span class="text-sm font-semibold text-slate-700" style="font-family: 'Inter', sans-serif;">
+                      ${fmtPrice(item.price)}
+                    </span>
+                    {item.published ? (
+                      <span class="text-xs font-medium text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full" style="font-family: 'Inter', sans-serif;">published</span>
+                    ) : (
+                      <span class="text-xs font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full" style="font-family: 'Inter', sans-serif;">draft</span>
+                    )}
+                    <svg class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/>
+                    </svg>
+                  </div>
+                </summary>
+
+                <div class="px-6 pb-5 border-t border-slate-100 pt-4 bg-slate-50">
+                  <form method="POST" class="flex flex-col gap-3">
+                    <input type="hidden" name="action" value="update-item" />
+                    <input type="hidden" name="itemId" value={item._id} />
+                    <div class="grid grid-cols-2 gap-3">
+                      <div class="flex flex-col gap-1">
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Name</label>
+                        <input type="text" name="item-name" required value={item.name}
+                          class="text-sm bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                          style="font-family: 'Inter', sans-serif;" />
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Stripe Price ID</label>
+                        <input type="text" name="stripePriceId" required value={item.stripePriceId}
+                          class="text-sm bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono"
+                          style="font-family: 'Inter', sans-serif;" />
+                      </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3">
+                      <div class="col-span-2 flex flex-col gap-1">
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Price (display only)</label>
+                        <input type="number" name="price" required step="0.01" min="0" value={fmtPrice(item.price)}
+                          class="text-sm bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                          style="font-family: 'Inter', sans-serif;" />
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Currency</label>
+                        <input type="text" name="currency" value={item.currency}
+                          class="text-sm bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 uppercase font-mono"
+                          style="font-family: 'Inter', sans-serif;" />
+                      </div>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Description</label>
+                      <input type="text" name="item-description" value={item.description ?? ''}
+                        class="text-sm bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                        style="font-family: 'Inter', sans-serif;" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Image URL</label>
+                      <input type="url" name="imageUrl" value={item.imageUrl ?? ''}
+                        class="text-sm bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                        style="font-family: 'Inter', sans-serif;" />
+                    </div>
+                    <div class="flex items-center justify-between pt-1">
+                      <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="item-published" value="on" checked={item.published} class="w-4 h-4 rounded" />
+                        <span class="text-sm text-slate-700" style="font-family: 'Inter', sans-serif;">Published</span>
+                      </label>
+                      <div class="flex items-center gap-2">
+                        <form method="POST" onsubmit={`return confirm('Delete "${item.name}"?')`} class="inline">
+                          <input type="hidden" name="action" value="delete-item" />
+                          <input type="hidden" name="itemId" value={item._id} />
+                          <button type="submit" class="text-xs font-semibold text-red-500 hover:text-red-700 px-3 py-2 transition" style="font-family: 'Inter', sans-serif;">Delete</button>
+                        </form>
+                        <button type="submit" class="text-sm font-semibold bg-slate-900 text-white px-4 py-2 rounded-xl hover:bg-slate-700 transition" style="font-family: 'Inter', sans-serif;">Save</button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </details>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <!-- Danger zone -->
       <section class="bg-white rounded-2xl border border-red-200 overflow-hidden">
         <div class="px-6 py-5 border-b border-red-100">
           <h2 class="text-base font-semibold text-red-700" style="font-family: 'Lexend', sans-serif;">Danger Zone</h2>
@@ -126,7 +365,7 @@ if (!shop) return Astro.redirect('/admin/shops');
         <div class="px-6 py-5 flex items-center justify-between gap-6">
           <div>
             <p class="text-sm font-medium text-slate-900" style="font-family: 'Inter', sans-serif;">Delete this shop</p>
-            <p class="text-xs text-slate-500 mt-0.5" style="font-family: 'Inter', sans-serif;">Permanently removes the shop. This cannot be undone.</p>
+            <p class="text-xs text-slate-500 mt-0.5" style="font-family: 'Inter', sans-serif;">Permanently removes the shop and all its products. This cannot be undone.</p>
           </div>
           <form method="POST" onsubmit={`return confirm('Delete "${shop.name}"? This cannot be undone.')`}>
             <input type="hidden" name="action" value="delete" />

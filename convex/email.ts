@@ -47,6 +47,87 @@ export const sendAdminAlert = internalAction({
   },
 });
 
+// Sent to contact form submitter immediately after submission
+export const sendContactConfirmation = internalAction({
+  args: {
+    to: v.string(),
+    name: v.string(),
+    appName: v.string(),
+    supportEmail: v.string(),
+  },
+  handler: async (_ctx, { to, name, appName, supportEmail }) => {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      console.warn("RESEND_API_KEY not set — contact confirmation not sent");
+      return null;
+    }
+    const resend = new Resend(apiKey);
+    const { error } = await resend.emails.send({
+      from: getFrom(),
+      to,
+      subject: `We received your message, ${name}`,
+      html: `
+        <h2>Thanks for reaching out, ${name}!</h2>
+        <p>We've received your message and will get back to you within one business day.</p>
+        <p>If you have urgent questions, reply to this email or contact us at
+           <a href="mailto:${supportEmail}">${supportEmail}</a>.</p>
+        <p>— The ${appName} team</p>
+      `,
+      text: `Thanks for reaching out, ${name}! We received your message and will reply within one business day. Urgent? Contact us at ${supportEmail}.`,
+    });
+    if (error) console.error("sendContactConfirmation error:", error);
+    return null;
+  },
+});
+
+// Sent to visitor immediately after a booking is confirmed
+export const sendBookingConfirmation = internalAction({
+  args: {
+    to: v.string(),
+    name: v.string(),
+    linkName: v.string(),
+    date: v.string(),
+    startTime: v.string(),
+    duration: v.number(),
+    appName: v.string(),
+    supportEmail: v.string(),
+  },
+  handler: async (_ctx, { to, name, linkName, date, startTime, duration, appName, supportEmail }) => {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      console.warn("RESEND_API_KEY not set — booking confirmation not sent");
+      return null;
+    }
+
+    const [y, mo, d] = date.split("-").map(Number);
+    const formattedDate = new Date(y, mo - 1, d).toLocaleDateString("en-US", {
+      weekday: "long", month: "long", day: "numeric", year: "numeric",
+    });
+    const [h, m] = startTime.split(":").map(Number);
+    const period = h >= 12 ? "PM" : "AM";
+    const h12 = h % 12 || 12;
+    const formattedTime = `${h12}:${String(m).padStart(2, "0")} ${period}`;
+
+    const resend = new Resend(apiKey);
+    const { error } = await resend.emails.send({
+      from: getFrom(),
+      to,
+      subject: `Booking confirmed — ${linkName}`,
+      html: `
+        <h2>You're booked, ${name}!</h2>
+        <p><strong>${linkName}</strong></p>
+        <p>📅 ${formattedDate}<br/>🕐 ${formattedTime} (${duration} min)</p>
+        <p>Need to cancel or reschedule? Reply to this email or contact us at
+           <a href="mailto:${supportEmail}">${supportEmail}</a>.</p>
+        <p>— The ${appName} team</p>
+      `,
+      text: `You're booked, ${name}! ${linkName} on ${formattedDate} at ${formattedTime} (${duration} min). To cancel/reschedule: ${supportEmail}`,
+    });
+    if (error) console.error("sendBookingConfirmation error:", error);
+    return null;
+  },
+});
+
 // Admin: send a one-off email to a single recipient
 export const sendEmail = action({
   args: {

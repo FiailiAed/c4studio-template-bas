@@ -1,0 +1,367 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { SignOutButton, UserButton } from '@clerk/astro/components';
+import { getAuthedConvex } from '@lib/convex';
+import { api } from '@convex/api';
+import { getAgent } from '@lib/agents';
+
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect('/sign-in');
+
+const token = await Astro.locals.auth().getToken({ template: 'convex' });
+const client = getAuthedConvex(token);
+
+const currentUser = await client.query(api.users.getByClerkId, { clerkId: userId });
+if (!currentUser) return Astro.redirect('/onboarding');
+if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
+
+const rawId = Astro.params.id;
+const agentId = parseInt(rawId ?? '', 10);
+const agent = getAgent(agentId);
+if (!agent) return Astro.redirect('/admin');
+
+// Serialize for client script
+const agentData = {
+  longPrompt: agent.long.prompt,
+  shortPrompt: agent.short.prompt,
+  longVars: agent.long.variables,
+  shortVars: agent.short.variables,
+  longNote: agent.long.note ?? null,
+  shortNote: agent.short.note ?? null,
+};
+---
+
+<BaseLayout title={`${agent.name} — Agents`}>
+  <div class="min-h-screen bg-slate-50">
+
+    <!-- Nav -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3 min-w-0">
+        <a href="/admin" class="text-sm text-slate-500 hover:text-slate-900 transition shrink-0" style="font-family: 'Inter', sans-serif;">Admin Portal</a>
+        <span class="text-slate-300 shrink-0">/</span>
+        <a href="/admin/agents" class="text-sm text-slate-500 hover:text-slate-900 transition shrink-0" style="font-family: 'Inter', sans-serif;">Agents</a>
+        <span class="text-slate-300 shrink-0">/</span>
+        <span class="text-sm font-semibold text-slate-900 truncate" style="font-family: 'Lexend', sans-serif;">{agent.name}</span>
+      </div>
+      <div class="flex items-center gap-4 shrink-0">
+        <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Home</a>
+        <UserButton />
+        <SignOutButton>
+          <button class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Sign out</button>
+        </SignOutButton>
+      </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-6 py-10">
+
+      <!-- Agent header -->
+      <div class="flex items-start gap-4 mb-6">
+        <div class={`shrink-0 w-12 h-12 rounded-2xl bg-white border-2 ${agent.accentColor} flex items-center justify-center`}>
+          <span class="text-lg font-bold text-slate-700" style="font-family: 'Lexend', sans-serif;">{agent.id}</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-3 mb-1 flex-wrap">
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900" style="font-family: 'Lexend', sans-serif;">{agent.name}</h1>
+            <span class="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full" style="font-family: 'Inter', sans-serif;">{agent.day}</span>
+          </div>
+          <p class="text-sm text-slate-500 leading-relaxed" style="font-family: 'Inter', sans-serif;">{agent.description}</p>
+        </div>
+      </div>
+
+      <!-- Roadmap banner -->
+      <div class="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 mb-8">
+        <svg class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18"/>
+        </svg>
+        <p class="text-sm text-amber-800" style="font-family: 'Inter', sans-serif;">
+          <strong>Coming soon:</strong> This will become an interactive chat interface with the agent. For now, fill in the variables below, copy the assembled prompt, and paste it directly into Claude.
+        </p>
+      </div>
+
+      <!-- Prompt mode toggle -->
+      <div class="flex items-center gap-1 mb-6 bg-slate-100 rounded-xl p-1 w-fit">
+        <button
+          id="btn-long"
+          class="text-sm font-medium px-4 py-2 rounded-lg transition prompt-mode-btn active-mode"
+          style="font-family: 'Inter', sans-serif;"
+          data-mode="long"
+        >
+          Long prompt
+        </button>
+        <button
+          id="btn-short"
+          class="text-sm font-medium px-4 py-2 rounded-lg transition prompt-mode-btn"
+          style="font-family: 'Inter', sans-serif;"
+          data-mode="short"
+        >
+          Short prompt
+        </button>
+      </div>
+
+      <!-- Two-column layout -->
+      <div class="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-6 items-start">
+
+        <!-- LEFT: Variables form -->
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div class="px-6 py-4 border-b border-slate-100">
+            <h2 class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Variables</h2>
+            <p class="text-xs text-slate-400 mt-0.5" style="font-family: 'Inter', sans-serif;">Fill in values to assemble your prompt.</p>
+          </div>
+
+          <div id="variables-form" class="px-6 py-5 flex flex-col gap-5">
+            <!-- Rendered by JS -->
+          </div>
+
+          <div id="no-variables-note" class="hidden px-6 py-8 text-center">
+            <p id="no-variables-text" class="text-sm text-slate-400" style="font-family: 'Inter', sans-serif;"></p>
+          </div>
+        </div>
+
+        <!-- RIGHT: Assembled prompt -->
+        <div class="flex flex-col gap-4">
+
+          <!-- Template preview -->
+          <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div>
+                <h2 class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Prompt template</h2>
+                <p class="text-xs text-slate-400 mt-0.5" style="font-family: 'Inter', sans-serif;">
+                  <span class="inline-block w-2.5 h-2.5 rounded bg-yellow-200 mr-1 align-middle"></span>Highlighted fields are replaced by your inputs below.
+                </p>
+              </div>
+              <button
+                id="toggle-template"
+                class="text-xs font-medium text-slate-500 hover:text-slate-900 transition"
+                style="font-family: 'Inter', sans-serif;"
+              >
+                Hide
+              </button>
+            </div>
+            <div id="template-wrapper" class="px-6 py-4 overflow-auto max-h-72">
+              <pre id="template-display" class="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed font-mono"></pre>
+            </div>
+          </div>
+
+          <!-- Assembled output -->
+          <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div>
+                <h2 class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Assembled prompt</h2>
+                <p class="text-xs text-slate-400 mt-0.5" style="font-family: 'Inter', sans-serif;">Unfilled variables appear as <code class="bg-slate-100 px-1 rounded">[KEY]</code> — fill in all fields before copying.</p>
+              </div>
+              <button
+                id="copy-btn"
+                class="inline-flex items-center gap-2 text-sm font-semibold bg-slate-900 text-white px-4 py-2 rounded-xl hover:bg-slate-700 transition"
+                style="font-family: 'Inter', sans-serif;"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184"/>
+                </svg>
+                Copy prompt
+              </button>
+            </div>
+            <div class="px-6 py-4">
+              <textarea
+                id="assembled-output"
+                readonly
+                rows="20"
+                class="w-full text-xs text-slate-700 leading-relaxed font-mono bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 resize-y focus:outline-none focus:ring-2 focus:ring-slate-900"
+              ></textarea>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </main>
+  </div>
+</BaseLayout>
+
+<style>
+  .active-mode {
+    background-color: white;
+    color: #0f172a;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .prompt-mode-btn:not(.active-mode) {
+    color: #64748b;
+  }
+  mark {
+    background-color: #fef9c3;
+    color: #713f12;
+    border-radius: 2px;
+    padding: 0 2px;
+  }
+</style>
+
+<script define:vars={{ agentData }}>
+  // ─── State ──────────────────────────────────────────────────────────────────
+  let currentMode = 'long';
+
+  // ─── Elements ───────────────────────────────────────────────────────────────
+  const variablesForm = document.getElementById('variables-form');
+  const noVarsNote = document.getElementById('no-variables-note');
+  const noVarsText = document.getElementById('no-variables-text');
+  const templateDisplay = document.getElementById('template-display');
+  const assembledOutput = document.getElementById('assembled-output');
+  const copyBtn = document.getElementById('copy-btn');
+  const toggleTemplateBtn = document.getElementById('toggle-template');
+  const templateWrapper = document.getElementById('template-wrapper');
+
+  // ─── Helpers ────────────────────────────────────────────────────────────────
+  function escapeHtml(text) {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function highlightVariables(text) {
+    return escapeHtml(text).replace(
+      /\{\{([^}]+)\}\}/g,
+      '<mark>{{$1}}</mark>'
+    );
+  }
+
+  function getValues() {
+    const values = {};
+    document.querySelectorAll('[data-var-key]').forEach((el) => {
+      values[el.dataset.varKey] = el.value.trim();
+    });
+    return values;
+  }
+
+  function assemblePrompt(prompt, variables, values) {
+    let result = prompt;
+    for (const v of variables) {
+      const val = values[v.key] || `[${v.key}]`;
+      result = result.split(`{{${v.key}}}`).join(val);
+    }
+    return result;
+  }
+
+  function updateOutput() {
+    const mode = agentData[currentMode === 'long' ? 'longVars' : 'shortVars'];
+    const prompt = currentMode === 'long' ? agentData.longPrompt : agentData.shortPrompt;
+    const values = getValues();
+    assembledOutput.value = assemblePrompt(prompt, mode, values);
+  }
+
+  // ─── Render variable form ────────────────────────────────────────────────────
+  function renderVariables() {
+    const vars = currentMode === 'long' ? agentData.longVars : agentData.shortVars;
+    const note = currentMode === 'long' ? agentData.longNote : agentData.shortNote;
+
+    variablesForm.innerHTML = '';
+
+    if (vars.length === 0) {
+      variablesForm.classList.add('hidden');
+      noVarsNote.classList.remove('hidden');
+      noVarsText.textContent = note || 'No variables for this prompt mode.';
+      return;
+    }
+
+    variablesForm.classList.remove('hidden');
+    noVarsNote.classList.add('hidden');
+
+    vars.forEach((v) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'flex flex-col gap-1.5';
+
+      const labelRow = document.createElement('div');
+      labelRow.className = 'flex items-center gap-1.5';
+
+      const label = document.createElement('label');
+      label.className = 'text-xs font-semibold text-slate-600 uppercase tracking-wide';
+      label.style.fontFamily = "'Inter', sans-serif";
+      label.textContent = v.label;
+      if (v.required) {
+        const req = document.createElement('span');
+        req.className = 'text-red-500';
+        req.textContent = ' *';
+        label.appendChild(req);
+      }
+      labelRow.appendChild(label);
+      wrap.appendChild(labelRow);
+
+      let input;
+      const baseClass = 'text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 w-full';
+
+      if (v.type === 'textarea') {
+        input = document.createElement('textarea');
+        input.rows = v.rows || 3;
+        input.className = baseClass + ' resize-none';
+      } else if (v.type === 'select') {
+        input = document.createElement('select');
+        input.className = baseClass;
+        (v.options || []).forEach((opt) => {
+          const option = document.createElement('option');
+          option.value = opt.startsWith('(') ? '' : opt;
+          option.textContent = opt;
+          input.appendChild(option);
+        });
+      } else {
+        input = document.createElement('input');
+        input.type = 'text';
+        input.className = baseClass;
+      }
+
+      input.dataset.varKey = v.key;
+      input.style.fontFamily = "'Inter', sans-serif";
+      if (v.placeholder && v.type !== 'select') input.placeholder = v.placeholder;
+
+      input.addEventListener('input', updateOutput);
+      wrap.appendChild(input);
+
+      if (v.helpText) {
+        const help = document.createElement('p');
+        help.className = 'text-xs text-slate-400';
+        help.style.fontFamily = "'Inter', sans-serif";
+        help.textContent = v.helpText;
+        wrap.appendChild(help);
+      }
+
+      variablesForm.appendChild(wrap);
+    });
+  }
+
+  // ─── Render template preview ─────────────────────────────────────────────────
+  function renderTemplate() {
+    const prompt = currentMode === 'long' ? agentData.longPrompt : agentData.shortPrompt;
+    templateDisplay.innerHTML = highlightVariables(prompt);
+  }
+
+  // ─── Mode toggle ────────────────────────────────────────────────────────────
+  document.querySelectorAll('.prompt-mode-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      currentMode = btn.dataset.mode;
+      document.querySelectorAll('.prompt-mode-btn').forEach((b) => {
+        b.classList.toggle('active-mode', b.dataset.mode === currentMode);
+      });
+      renderTemplate();
+      renderVariables();
+      updateOutput();
+    });
+  });
+
+  // ─── Template toggle ─────────────────────────────────────────────────────────
+  let templateVisible = true;
+  toggleTemplateBtn.addEventListener('click', () => {
+    templateVisible = !templateVisible;
+    templateWrapper.classList.toggle('hidden', !templateVisible);
+    toggleTemplateBtn.textContent = templateVisible ? 'Hide' : 'Show';
+  });
+
+  // ─── Copy ────────────────────────────────────────────────────────────────────
+  copyBtn.addEventListener('click', async () => {
+    await navigator.clipboard.writeText(assembledOutput.value);
+    const original = copyBtn.innerHTML;
+    copyBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg> Copied!`;
+    setTimeout(() => { copyBtn.innerHTML = original; }, 2000);
+  });
+
+  // ─── Init ────────────────────────────────────────────────────────────────────
+  renderTemplate();
+  renderVariables();
+  updateOutput();
+</script>

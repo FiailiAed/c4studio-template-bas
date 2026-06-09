@@ -29,6 +29,13 @@ export const upsert = mutation({
     neutralColor: v.optional(v.string()),
     neutralName: v.optional(v.string()),
     googleReviewUrl: v.optional(v.string()),
+    primaryService: v.optional(v.string()),
+    defaultBookingLink: v.optional(v.string()),
+    rafflePrize: v.optional(v.string()),
+    raffleLink: v.optional(v.string()),
+    feedbackFormLink: v.optional(v.string()),
+    referralShareLink: v.optional(v.string()),
+    referralIntroOffer: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db.query("appSettings").first();

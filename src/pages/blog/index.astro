@@ -5,8 +5,14 @@ import CTA from '@marketing/CTA.astro';
 import Footer from '@marketing/Footer.astro';
 import { convex } from '@lib/convex';
 import { api } from '@convex/api';
+import { enforcePageStatus } from '@lib/pageStatus';
+
+const redirect = await enforcePageStatus('/blog', Astro);
+if (redirect) return redirect;
 
 const settings = await convex.query(api.settings.get, {});
+if (settings?.blogEnabled === false) return Astro.redirect('/404');
+
 const appName = settings?.appName ?? 'c4studio';
 const description = settings?.description ?? 'We help ambitious businesses design, build, and grow digital products that stand out.';
 

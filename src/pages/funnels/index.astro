@@ -1,0 +1,89 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import Header from '@marketing/Header.astro';
+import CTA from '@marketing/CTA.astro';
+import Footer from '@marketing/Footer.astro';
+import { convex } from '@lib/convex';
+import { api } from '@convex/api';
+import { enforcePageStatus } from '@lib/pageStatus';
+
+const redirect = await enforcePageStatus('/funnels', Astro);
+if (redirect) return redirect;
+
+const settings = await convex.query(api.settings.get, {});
+const appName = settings?.appName ?? 'c4studio';
+const description = settings?.description ?? 'We help ambitious businesses design, build, and grow digital products that stand out.';
+
+const allFunnels = await convex.query(api.funnels.list, {});
+const funnels = allFunnels.filter((f) => f.published);
+---
+
+<BaseLayout
+  title={`Funnels — ${appName}`}
+  description={`Explore all campaigns and offers from ${appName}.`}
+>
+  <Header slot="header" appName={appName} />
+
+  <section class="bg-slate-900 text-white py-20 md:py-28 relative overflow-hidden">
+    <div class="absolute inset-0 opacity-[0.04]" style="background-image: linear-gradient(#fff 1px, transparent 1px), linear-gradient(to right, #fff 1px, transparent 1px); background-size: 64px 64px;"></div>
+    <div class="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-orange-600/10 blur-3xl pointer-events-none"></div>
+    <div class="relative max-w-3xl mx-auto px-6 text-center">
+      <h1 class="text-4xl md:text-5xl font-bold tracking-tight leading-[1.1] mb-4" style="font-family: 'Lexend', sans-serif;">
+        Campaigns &amp; Offers
+      </h1>
+      <p class="text-lg text-slate-400" style="font-family: 'Inter', sans-serif;">
+        Explore everything {appName} has on offer.
+      </p>
+    </div>
+  </section>
+
+  <section class="bg-white py-16 md:py-24">
+    <div class="max-w-5xl mx-auto px-6">
+      {funnels.length === 0 ? (
+        <div class="text-center py-20">
+          <p class="text-slate-400 text-sm" style="font-family: 'Inter', sans-serif;">No campaigns available right now. Check back soon.</p>
+        </div>
+      ) : (
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {funnels.map((f) => (
+            <a
+              href={`/funnels/${f.slug}`}
+              class="group bg-white rounded-2xl border border-slate-200 p-6 hover:border-slate-300 hover:shadow-lg transition-all duration-200 flex flex-col gap-3"
+            >
+              <div class="w-10 h-10 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center shrink-0">
+                <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/>
+                </svg>
+              </div>
+              <div class="flex-1">
+                <h2 class="font-semibold text-slate-900 mb-1 group-hover:text-orange-600 transition-colors" style="font-family: 'Lexend', sans-serif;">
+                  {f.headline ?? f.name}
+                </h2>
+                {(f.subheadline ?? f.description) && (
+                  <p class="text-sm text-slate-500 leading-relaxed line-clamp-2" style="font-family: 'Inter', sans-serif;">
+                    {f.subheadline ?? f.description}
+                  </p>
+                )}
+              </div>
+              <span class="inline-flex items-center gap-1 text-xs font-semibold text-orange-600" style="font-family: 'Inter', sans-serif;">
+                Learn more
+                <svg class="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/>
+                </svg>
+              </span>
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  </section>
+
+  <CTA
+    heading={"Ready to work\ntogether?"}
+    subheading="Tell us about your project. We'll get back to you within one business day."
+    primaryCta={{ label: 'Get in touch', href: '/contact' }}
+    secondaryCta={{ label: 'See our services', href: '/services' }}
+  />
+
+  <Footer slot="footer" appName={appName} tagline={description} />
+</BaseLayout>
