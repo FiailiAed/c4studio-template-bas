@@ -1,0 +1,186 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { getAuthedConvex } from '@lib/convex';
+import { api } from '@convex/api';
+import { TASKS } from '@lib/devTasks';
+import DevTaskTable from '@components/admin/DevTaskTable.astro';
+
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect('/sign-in');
+const token = await Astro.locals.auth().getToken({ template: 'convex' });
+const client = getAuthedConvex(token);
+const currentUser = await client.query(api.users.getByClerkId, { clerkId: userId });
+if (!currentUser) return Astro.redirect('/onboarding');
+if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
+
+// ── Stats ──────────────────────────────────────────────────────────────────
+const total      = TASKS.length;
+const complete   = TASKS.filter(t => t.status === 'complete').length;
+const blockers   = TASKS.filter(t => t.priority === 'P0' && t.status !== 'complete').length;
+const active     = TASKS.filter(t => ['in-progress', 'planned'].includes(t.status)).length;
+const overlooked = TASKS.filter(t => t.status === 'overlooked').length;
+const tabled     = TASKS.filter(t => t.status === 'tabled').length;
+const future     = TASKS.filter(t => t.status === 'future').length;
+
+// ── Active tasks grouped by target version ─────────────────────────────────
+const VERSION_ORDER = ['v0.0.4', 'v0.0.5', 'v1.0', 'v1.1', 'v1.2', 'v2.0', 'Unversioned'];
+const byVersion: Record<string, typeof TASKS> = {};
+for (const t of TASKS.filter(t => ['in-progress', 'planned'].includes(t.status))) {
+  const key = t.version ?? 'Unversioned';
+  (byVersion[key] ??= []).push(t);
+}
+const activeVersions = VERSION_ORDER.filter(v => (byVersion[v]?.length ?? 0) > 0);
+---
+
+<BaseLayout title="Developer Task Board — Admin">
+  <div class="min-h-screen bg-slate-50">
+
+    <!-- Nav -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-2 text-sm" style="font-family: 'Inter', sans-serif;">
+        <a href="/admin" class="text-slate-500 hover:text-slate-900 transition">Admin</a>
+        <span class="text-slate-300">/</span>
+        <span class="font-semibold text-slate-900">Developer Task Board</span>
+      </div>
+      <a href="/admin" class="text-xs font-medium text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">
+        ← Back to portal
+      </a>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-6 py-10">
+
+      <!-- Page header -->
+      <div class="mb-8">
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900 mb-1" style="font-family: 'Lexend', sans-serif;">
+          Developer Task Board
+        </h1>
+        <p class="text-sm text-slate-500" style="font-family: 'Inter', sans-serif;">
+          All {total} tracked tasks — complete, planned, in progress, tabled, future, and overlooked gaps. Read-only.
+        </p>
+      </div>
+
+      <!-- Stats bar -->
+      <div class="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
+        {([
+          { label: 'Total',      value: total,      textColor: 'text-slate-900',   bg: 'bg-white' },
+          { label: 'Complete',   value: complete,   textColor: 'text-emerald-700', bg: 'bg-emerald-50' },
+          { label: 'Blockers',   value: blockers,   textColor: 'text-red-700',     bg: 'bg-red-50' },
+          { label: 'Active',     value: active,     textColor: 'text-violet-700',  bg: 'bg-violet-50' },
+          { label: 'Overlooked', value: overlooked, textColor: 'text-rose-700',    bg: 'bg-rose-50' },
+          { label: 'Tabled',     value: tabled,     textColor: 'text-blue-700',    bg: 'bg-blue-50' },
+        ] as const).map(({ label, value, textColor, bg }) => (
+          <div class={`${bg} rounded-xl border border-slate-200 px-4 py-3`}>
+            <p class={`text-2xl font-bold ${textColor}`} style="font-family: 'Lexend', sans-serif;">{value}</p>
+            <p class="text-xs text-slate-500 mt-0.5" style="font-family: 'Inter', sans-serif;">{label}</p>
+          </div>
+        ))}
+      </div>
+
+      <!-- Tabs -->
+      <div class="border-b border-slate-200 mb-8">
+        <nav class="flex gap-0 overflow-x-auto -mb-px" id="tab-nav">
+          {([
+            { id: 'active',     label: 'Active',          count: active },
+            { id: 'blockers',   label: 'Blockers',         count: blockers },
+            { id: 'overlooked', label: 'Overlooked',       count: overlooked },
+            { id: 'complete',   label: 'Complete',         count: complete },
+            { id: 'tabled',     label: 'Tabled & Future',  count: tabled + future },
+            { id: 'all',        label: 'All',              count: total },
+          ] as const).map(({ id, label, count }, i) => (
+            <button
+              data-tab={id}
+              class={`tab-btn shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 transition ${i === 0 ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}
+              style="font-family: 'Inter', sans-serif;"
+            >
+              {label}
+              <span class="ml-1.5 text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">{count}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      <!-- ── TAB: Active (grouped by version) ──────────────────────────── -->
+      <div id="tab-active" class="tab-panel">
+        {activeVersions.length === 0 ? (
+          <p class="text-sm text-slate-400 text-center py-12" style="font-family: 'Inter', sans-serif;">No active tasks.</p>
+        ) : (
+          activeVersions.map(ver => (
+            <div class="mb-10">
+              <div class="flex items-center gap-3 mb-3">
+                <span class="text-xs font-mono font-bold text-slate-500 bg-white border border-slate-200 rounded-md px-2.5 py-1">{ver}</span>
+                <span class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">{byVersion[ver].length} task{byVersion[ver].length !== 1 ? 's' : ''}</span>
+              </div>
+              <DevTaskTable tasks={byVersion[ver]} />
+            </div>
+          ))
+        )}
+      </div>
+
+      <!-- ── TAB: Blockers ─────────────────────────────────────────────── -->
+      <div id="tab-blockers" class="tab-panel hidden">
+        <div class="mb-5 p-4 bg-red-50 border border-red-200 rounded-xl" style="font-family: 'Inter', sans-serif;">
+          <p class="text-sm text-red-700">
+            <strong>P0 tasks block production deployment.</strong> These must be resolved before any client handoff.
+          </p>
+        </div>
+        <DevTaskTable tasks={TASKS.filter(t => t.priority === 'P0' && t.status !== 'complete')} />
+      </div>
+
+      <!-- ── TAB: Overlooked ───────────────────────────────────────────── -->
+      <div id="tab-overlooked" class="tab-panel hidden">
+        <div class="mb-5 p-4 bg-rose-50 border border-rose-200 rounded-xl" style="font-family: 'Inter', sans-serif;">
+          <p class="text-sm text-rose-700">
+            <strong>Not formally captured in the roadmap or README.</strong> These gaps were identified by reviewing the codebase and architecture. Each should be triaged — promoted to Planned, Tabled, or dismissed.
+          </p>
+        </div>
+        <DevTaskTable tasks={TASKS.filter(t => t.status === 'overlooked')} />
+      </div>
+
+      <!-- ── TAB: Complete ─────────────────────────────────────────────── -->
+      <div id="tab-complete" class="tab-panel hidden">
+        <DevTaskTable tasks={TASKS.filter(t => t.status === 'complete')} />
+      </div>
+
+      <!-- ── TAB: Tabled & Future ──────────────────────────────────────── -->
+      <div id="tab-tabled" class="tab-panel hidden">
+        <div class="mb-3">
+          <h3 class="text-sm font-semibold text-slate-700 mb-3" style="font-family: 'Inter', sans-serif;">Tabled — Decision Pending</h3>
+          <DevTaskTable tasks={TASKS.filter(t => t.status === 'tabled')} />
+        </div>
+        <div class="mt-8">
+          <h3 class="text-sm font-semibold text-slate-700 mb-3" style="font-family: 'Inter', sans-serif;">Future — v2.0+</h3>
+          <DevTaskTable tasks={TASKS.filter(t => t.status === 'future')} />
+        </div>
+      </div>
+
+      <!-- ── TAB: All ──────────────────────────────────────────────────── -->
+      <div id="tab-all" class="tab-panel hidden">
+        <DevTaskTable tasks={TASKS} />
+      </div>
+
+    </main>
+  </div>
+</BaseLayout>
+
+<script is:inline>
+  const tabs = document.querySelectorAll('.tab-btn');
+  const panels = document.querySelectorAll('.tab-panel');
+
+  tabs.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.tab;
+
+      tabs.forEach(t => {
+        const active = t.dataset.tab === target;
+        t.classList.toggle('border-slate-900', active);
+        t.classList.toggle('text-slate-900', active);
+        t.classList.toggle('border-transparent', !active);
+        t.classList.toggle('text-slate-500', !active);
+      });
+
+      panels.forEach(p => {
+        p.classList.toggle('hidden', p.id !== `tab-${target}`);
+      });
+    });
+  });
+</script>

@@ -59,8 +59,9 @@ const [funnels, shops, bookingLinks, emailTemplates, emailLogs] = await Promise.
           heading: 'Management',
           subheading: 'Core tools for running the application.',
           modules: [
-            { label: 'Users',    href: '/admin/users',    desc: 'View and manage user accounts and roles',                    color: 'border-violet-400', status: 'active' },
-            { label: 'Pages',    href: '/admin/pages',    desc: 'Control public page visibility and status',        color: 'border-sky-400',    status: 'active' },
+            { label: 'Users',    href: '/admin/users',    desc: 'View and manage user accounts and roles',          color: 'border-violet-400', status: 'active' },
+            { label: 'Pages',    href: '/admin/pages',    desc: 'Control public page visibility and status',        color: 'border-pink-400',    status: 'active' },
+            { label: 'Bookings', href: '/admin/bookings', desc: 'All bookings across every booking link',           color: 'border-teal-400',   status: 'active' },
             { label: 'Billing',  href: '/admin/billing',  desc: 'Stripe payments, subscriptions, and invoices',     color: 'border-indigo-400', status: 'active' },
             { label: 'Settings', href: '/admin/settings', desc: 'Site configuration and preferences',               color: 'border-slate-400',  status: 'active' },
           ],
@@ -177,8 +178,43 @@ const [funnels, shops, bookingLinks, emailTemplates, emailLogs] = await Promise.
                   active
                 </span>
               </div>
-              <p class="text-xs text-slate-500 mb-3 line-clamp-2" style="font-family: 'Inter', sans-serif;">{desc}</p>
+              <p class="text-xs text-slate-500 mb-1 line-clamp-2" style="font-family: 'Inter', sans-serif;">{desc}</p>
               <span class="text-xs font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full" style="font-family: 'Inter', sans-serif;">{day}</span>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <!-- ── Development ───────────────────────────────────────── -->
+      <section class="mb-10">
+        <div class="flex items-end justify-between mb-4">
+          <div>
+            <h2 class="text-lg font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Development</h2>
+            <p class="text-sm text-slate-400 mt-0.5" style="font-family: 'Inter', sans-serif;">Project roadmap, release history, and developer task tracking.</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {([
+            { label: 'Task Board', href: '/admin/dev',  desc: 'All 80 tracked tasks — complete, planned, tabled, and overlooked gaps', color: 'border-amber-400' },
+            { label: 'Roadmap',    href: '/roadmap',    desc: 'Upcoming versions and planned features', color: 'border-sky-400',   external: true },
+            { label: 'Changelog',  href: '/changelog',  desc: 'Release history and shipped features',   color: 'border-rose-400',  external: true },
+          ] as const).map(({ label, href, desc, color, external }) => (
+            <a
+              href={href}
+              target={external ? '_blank' : undefined}
+              rel={external ? 'noopener noreferrer' : undefined}
+              class={`group bg-white rounded-2xl border-l-4 border border-slate-200 ${color} p-5 hover:shadow-md transition`}
+            >
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <p class="text-sm font-semibold text-slate-900 group-hover:underline" style="font-family: 'Inter', sans-serif;">{label}</p>
+                <span class="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full shrink-0 text-emerald-600 bg-emerald-50" style="font-family: 'Inter', sans-serif;">
+                  <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/>
+                  </svg>
+                  active
+                </span>
+              </div>
+              <p class="text-xs text-slate-500 mb-1 line-clamp-2" style="font-family: 'Inter', sans-serif;">{desc}</p>
             </a>
           ))}
         </div>

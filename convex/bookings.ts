@@ -2,6 +2,17 @@ import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
+export const get = query({
+  args: { id: v.id("bookings") },
+  handler: async (ctx, { id }) => ctx.db.get(id),
+});
+
+export const listAll = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit }) =>
+    ctx.db.query("bookings").order("desc").take(limit ?? 500),
+});
+
 export const getLatestByEmail = query({
   args: { email: v.string() },
   handler: async (ctx, { email }) =>
@@ -63,6 +74,8 @@ export const create = mutation({
       duration: link?.duration ?? 60,
       appName: settings?.appName ?? "c4studio",
       supportEmail: settings?.supportEmail ?? "",
+      bookingId: id,
+      siteUrl: settings?.siteUrl ?? "",
     });
 
     // Lead nurturing sequence — M4a immediate, M4b/4c/5 scheduled around appointment time

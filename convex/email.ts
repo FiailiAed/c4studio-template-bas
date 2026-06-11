@@ -91,8 +91,10 @@ export const sendBookingConfirmation = internalAction({
     duration: v.number(),
     appName: v.string(),
     supportEmail: v.string(),
+    bookingId: v.optional(v.string()),
+    siteUrl: v.optional(v.string()),
   },
-  handler: async (_ctx, { to, name, linkName, date, startTime, duration, appName, supportEmail }) => {
+  handler: async (_ctx, { to, name, linkName, date, startTime, duration, appName, supportEmail, bookingId, siteUrl }) => {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
       console.warn("RESEND_API_KEY not set — booking confirmation not sent");
@@ -108,6 +110,15 @@ export const sendBookingConfirmation = internalAction({
     const h12 = h % 12 || 12;
     const formattedTime = `${h12}:${String(m).padStart(2, "0")} ${period}`;
 
+    // Generate cancellation link if bookingId and siteUrl are available
+    let cancelLink = "";
+    if (bookingId && siteUrl) {
+      const { createHmac } = await import("crypto");
+      const secret = process.env.CANCEL_SECRET ?? "dev-secret";
+      const cancelToken = createHmac("sha256", secret).update(`cancel:${bookingId}`).digest("hex");
+      cancelLink = `<p style="margin-top:20px;padding-top:20px;border-top:1px solid #e5e7eb;"><a href="${siteUrl}/bookings/cancel?bookingId=${bookingId}&token=${cancelToken}" style="color:#94a3b8;font-size:13px;">Cancel this booking</a></p>`;
+    }
+
     const resend = new Resend(apiKey);
     const { error } = await resend.emails.send({
       from: getFrom(),
@@ -117,11 +128,12 @@ export const sendBookingConfirmation = internalAction({
         <h2>You're booked, ${name}!</h2>
         <p><strong>${linkName}</strong></p>
         <p>📅 ${formattedDate}<br/>🕐 ${formattedTime} (${duration} min)</p>
-        <p>Need to cancel or reschedule? Reply to this email or contact us at
+        <p>Need to reschedule? Reply to this email or contact us at
            <a href="mailto:${supportEmail}">${supportEmail}</a>.</p>
         <p>— The ${appName} team</p>
+        ${cancelLink}
       `,
-      text: `You're booked, ${name}! ${linkName} on ${formattedDate} at ${formattedTime} (${duration} min). To cancel/reschedule: ${supportEmail}`,
+      text: `You're booked, ${name}! ${linkName} on ${formattedDate} at ${formattedTime} (${duration} min). To reschedule: ${supportEmail}`,
     });
     if (error) console.error("sendBookingConfirmation error:", error);
     return null;

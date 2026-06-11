@@ -58,10 +58,11 @@ if (Astro.request.method === 'POST') {
 }
 
 const activeTab = Astro.url.searchParams.get('tab') ?? 'messages';
-const [messages, stats, recentLogs] = await Promise.all([
+const [messages, stats, recentLogs, settings] = await Promise.all([
   client.query(api.reviews.listMessages, {}),
   client.query(api.reviews.getStats, {}),
   client.query(api.reviews.listLogs, { limit: 100 }),
+  client.query(api.settings.get, {}),
 ]);
 
 const automatedMessages = messages.filter(m => m.messageType === 'automated').sort((a, b) => a.order - b.order);
@@ -80,6 +81,31 @@ const agentData = {
 const MSG_LABELS: Record<string, string> = {
   r1: 'R1', r2: 'R2', r3: 'R3', r4: 'R4',
   r5a: 'R5a', r5b: 'R5b', r5c: 'R5c', r5d: 'R5d', r5e: 'R5e',
+};
+
+const [rawBookings, rawBookingLinks] = await Promise.all([
+  client.query(api.bookings.listAll, {}),
+  client.query(api.bookingLinks.list, {}),
+]);
+const linkNameMap: Record<string, string> = {};
+rawBookingLinks.forEach((l: { _id: string; name: string }) => { linkNameMap[l._id] = l.name; });
+const testBookings = rawBookings.slice(0, 50).map((b: { _id: string; name: string; email: string; phone?: string; date: string; startTime: string; bookingLinkId: string }) => ({
+  id: b._id as string,
+  name: b.name,
+  email: b.email,
+  date: b.date,
+  startTime: b.startTime,
+  linkName: linkNameMap[b.bookingLinkId] ?? 'your session',
+}));
+const testMessages = messages.filter(m => m.messageType === 'automated').sort((a, b) => a.order - b.order);
+const testMsgLabels: Record<string, string> = { r1: 'R1', r2: 'R2', r3: 'R3', r4: 'R4' };
+const testSettings = {
+  appName: settings?.appName ?? '',
+  rafflePrize: settings?.rafflePrize ?? '',
+  googleReviewUrl: settings?.googleReviewUrl ?? '',
+  feedbackFormLink: settings?.feedbackFormLink ?? '',
+  referralShareLink: settings?.referralShareLink ?? '',
+  referralIntroOffer: settings?.referralIntroOffer ?? '',
 };
 
 function relativeTime(ts: number) {
@@ -134,11 +160,11 @@ function relativeTime(ts: number) {
 
       <!-- Tabs -->
       <div class="flex items-center gap-1 mb-8 bg-slate-100 rounded-xl p-1 w-fit">
-        {(['messages', 'history', 'settings'] as const).map((tab) => (
+        {(['messages', 'history', 'test', 'settings'] as const).map((tab) => (
           <button data-tab={tab}
             class={`tab-btn text-sm font-medium px-4 py-2 rounded-lg transition capitalize ${activeTab === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
             style="font-family: 'Inter', sans-serif;">
-            {tab === 'settings' ? 'Prompt' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {tab === 'settings' ? 'Prompt' : tab === 'test' ? 'Test' : tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
         ))}
       </div>
@@ -415,6 +441,95 @@ function relativeTime(ts: number) {
         </section>
       </div>
 
+      <!-- ── Test tab ─────────────────────────────────────────────── -->
+      <div id="tab-test" class={`tab-panel ${activeTab !== 'test' ? 'hidden' : ''}`}>
+
+        <!-- Setup card -->
+        <div id="test-setup-4" class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6">
+          <div class="px-6 py-4 border-b border-slate-100">
+            <h2 class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Test Setup</h2>
+            <p class="text-xs text-slate-400 mt-0.5" style="font-family: 'Inter', sans-serif;">Real emails will be sent via Resend and logged with <code class="bg-slate-100 px-1 rounded">isTest: true</code> in History. R5 templates are copy-paste only — not testable here.</p>
+          </div>
+          <div class="px-6 py-6 flex flex-col gap-5">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Booking <span class="normal-case font-normal text-slate-400">(drives variable substitution)</span></label>
+              <select id="test-booking-4" class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900" style="font-family: 'Inter', sans-serif;">
+                <option value="">— Select a booking —</option>
+                {testBookings.map(b => (
+                  <option value={b.id}>{b.name} · {b.linkName} · {b.date}</option>
+                ))}
+              </select>
+              {testBookings.length === 0 && (
+                <p class="text-xs text-amber-600" style="font-family: 'Inter', sans-serif;">No bookings yet. Create one via a booking link.</p>
+              )}
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Test Email <span class="normal-case font-normal text-slate-400">(all steps delivered here)</span></label>
+              <input id="test-email-4" type="email" placeholder="you@example.com"
+                class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                style="font-family: 'Inter', sans-serif;" />
+            </div>
+            <div class="flex justify-end">
+              <button id="test-start-4" class="text-sm font-semibold bg-slate-900 text-white px-5 py-2.5 rounded-xl hover:bg-slate-700 transition" style="font-family: 'Inter', sans-serif;">
+                Start test →
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stepper -->
+        <div id="test-stepper-4" class="hidden">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-6 bg-white rounded-2xl border border-slate-200 px-5 py-4">
+            <div>
+              <p class="text-sm font-medium text-slate-900" style="font-family: 'Inter', sans-serif;">
+                Sending to <strong id="test-email-display-4"></strong> · Booking: <strong id="test-booking-display-4"></strong>
+              </p>
+              <p class="text-xs text-slate-400 mt-0.5" style="font-family: 'Inter', sans-serif;">Each step fires a real Resend email and is logged as a test in History.</p>
+            </div>
+            <button id="test-reset-4" class="text-xs font-medium text-slate-500 hover:text-slate-900 transition shrink-0" style="font-family: 'Inter', sans-serif;">← Change setup</button>
+          </div>
+
+          <div class="flex flex-col">
+            {testMessages.map((msg, i) => (
+              <div class="relative flex gap-4" data-step={msg.messageKey}>
+                {i < testMessages.length - 1 && (
+                  <div class="absolute left-[19px] top-10 bottom-0 w-0.5 bg-slate-200 z-0" />
+                )}
+                <div class="step-ind-4 shrink-0 w-10 h-10 rounded-full border-2 border-slate-200 text-slate-400 bg-white flex items-center justify-center text-xs font-bold z-10" data-key={msg.messageKey} style="font-family: 'Lexend', sans-serif;">
+                  {testMsgLabels[msg.messageKey] ?? msg.messageKey.toUpperCase()}
+                </div>
+                <div class="flex-1 pb-6 min-w-0">
+                  <div class="flex flex-wrap items-center gap-2 mb-0.5">
+                    <p class="text-sm font-semibold text-slate-900" style="font-family: 'Inter', sans-serif;">{msg.label}</p>
+                    <span class="result-badge-4 hidden text-xs font-medium px-2 py-0.5 rounded-full border" data-key={msg.messageKey}></span>
+                  </div>
+                  <p class="text-xs text-slate-400 mb-3" style="font-family: 'Inter', sans-serif;">{msg.triggerDescription}</p>
+                  <div class="step-panel-4 hidden bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden" data-key={msg.messageKey}>
+                    <div class="px-5 py-3 border-b border-slate-100">
+                      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1" style="font-family: 'Inter', sans-serif;">Email Subject</p>
+                      <p class="step-subj-4 text-sm text-slate-900" data-key={msg.messageKey} style="font-family: 'Inter', sans-serif;"></p>
+                    </div>
+                    <div class="px-5 py-3 border-b border-slate-100">
+                      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1" style="font-family: 'Inter', sans-serif;">Email Body</p>
+                      <pre class="step-body-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed" data-key={msg.messageKey} style="font-family: 'Inter', sans-serif;"></pre>
+                    </div>
+                    <div class="px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
+                      <span class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">
+                        Channel: <strong class="text-slate-600">{msg.channel}</strong>
+                        {!msg.enabled && <span class="ml-2 text-amber-600 font-semibold"> · disabled in config</span>}
+                      </span>
+                      <button class="send-btn-4 text-sm font-semibold bg-slate-900 text-white px-4 py-2 rounded-xl hover:bg-slate-700 transition disabled:opacity-50 disabled:cursor-not-allowed" data-key={msg.messageKey} style="font-family: 'Inter', sans-serif;">
+                        Send {testMsgLabels[msg.messageKey] ?? msg.messageKey} →
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <!-- ── Settings (Prompt) tab ──────────────────────────────── -->
       <div id="tab-settings" class={`tab-panel ${activeTab !== 'settings' ? 'hidden' : ''}`}>
         <div class="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 mb-6">
@@ -506,6 +621,134 @@ function relativeTime(ts: number) {
       setTimeout(() => { btn.textContent = orig; }, 2000);
     });
   });
+</script>
+
+<script define:vars={{ testMessages, testMsgLabels, testBookings, testSettings }} is:inline>
+(function () {
+  var setupDiv = document.getElementById('test-setup-4');
+  var stepperDiv = document.getElementById('test-stepper-4');
+  var startBtn = document.getElementById('test-start-4');
+  var resetBtn = document.getElementById('test-reset-4');
+  var emailInput = document.getElementById('test-email-4');
+  var bookingSel = document.getElementById('test-booking-4');
+  if (!setupDiv || !stepperDiv || !startBtn || !emailInput || !bookingSel) return;
+
+  var STATES = {};
+  testMessages.forEach(function(m) { STATES[m.messageKey] = 'pending'; });
+
+  function sub(text, vars) {
+    return Object.entries(vars).reduce(function(t, kv) { return t.split('{{' + kv[0] + '}}').join(kv[1]); }, text);
+  }
+
+  function fmt12h(ts) {
+    var parts = ts.split(':').map(Number);
+    var h = parts[0], m = parts[1];
+    var p = h >= 12 ? 'PM' : 'AM';
+    return (h % 12 || 12) + ':' + String(m).padStart(2, '0') + ' ' + p;
+  }
+
+  function getVars(booking) {
+    var first = booking.name.split(' ')[0] || booking.name;
+    return {
+      FIRST_NAME: first,
+      CUSTOMER_FIRST_NAME: first,
+      SERVICE: booking.linkName || 'your session',
+      BUSINESS_NAME: testSettings.appName || 'your business',
+      APPOINTMENT_TIME: fmt12h(booking.startTime),
+      RAFFLE_PRIZE: testSettings.rafflePrize || '[RAFFLE_PRIZE]',
+      GOOGLE_REVIEW_LINK: testSettings.googleReviewUrl || '[GOOGLE_REVIEW_LINK]',
+      FEEDBACK_FORM_LINK: testSettings.feedbackFormLink || '[FEEDBACK_FORM_LINK]',
+      REFERRAL_SHARE_LINK: testSettings.referralShareLink || '[REFERRAL_SHARE_LINK]',
+      REFERRAL_INTRO_OFFER: testSettings.referralIntroOffer || '[REFERRAL_INTRO_OFFER]',
+    };
+  }
+
+  function setInd(key, state) {
+    var el = document.querySelector('.step-ind-4[data-key="' + key + '"]');
+    if (!el) return;
+    el.className = 'step-ind-4 shrink-0 w-10 h-10 rounded-full border-2 flex items-center justify-center text-xs font-bold z-10 ';
+    if (state === 'pending') el.className += 'border-slate-200 text-slate-400 bg-white';
+    else if (state === 'active') el.className += 'border-slate-900 bg-slate-900 text-white';
+    else if (state === 'sent') el.className += 'border-emerald-400 bg-emerald-50 text-emerald-700';
+    else if (state === 'failed') el.className += 'border-red-400 bg-red-50 text-red-600';
+  }
+
+  function setBadge(key, state, error) {
+    var el = document.querySelector('.result-badge-4[data-key="' + key + '"]');
+    if (!el) return;
+    el.className = 'result-badge-4 text-xs font-medium px-2 py-0.5 rounded-full border';
+    if (state === 'sent') { el.textContent = '✓ sent'; el.className += ' bg-emerald-50 text-emerald-600 border-emerald-200'; }
+    else if (state === 'failed') { el.textContent = '✗ ' + (error || 'failed'); el.className += ' bg-red-50 text-red-600 border-red-200'; }
+  }
+
+  function activateStep(key) {
+    document.querySelectorAll('.step-panel-4').forEach(function(p) { p.classList.add('hidden'); });
+    var panel = document.querySelector('.step-panel-4[data-key="' + key + '"]');
+    if (!panel) return;
+    panel.classList.remove('hidden');
+    var msg = testMessages.find(function(m) { return m.messageKey === key; });
+    var booking = testBookings.find(function(b) { return b.id === bookingSel.value; });
+    if (!msg || !booking) return;
+    var vars = getVars(booking);
+    var subj = document.querySelector('.step-subj-4[data-key="' + key + '"]');
+    var body = document.querySelector('.step-body-4[data-key="' + key + '"]');
+    if (subj) subj.textContent = sub(msg.emailSubject, vars);
+    if (body) body.textContent = sub(msg.emailBody, vars);
+  }
+
+  startBtn.addEventListener('click', function() {
+    var email = emailInput.value.trim();
+    var bid = bookingSel.value;
+    if (!email) { alert('Enter a test email address.'); return; }
+    if (!bid) { alert('Select a booking.'); return; }
+    var booking = testBookings.find(function(b) { return b.id === bid; });
+    document.getElementById('test-email-display-4').textContent = email;
+    document.getElementById('test-booking-display-4').textContent = booking ? booking.name + ' · ' + booking.date : bid;
+    setupDiv.classList.add('hidden');
+    stepperDiv.classList.remove('hidden');
+    var first = testMessages[0];
+    if (first) { STATES[first.messageKey] = 'active'; setInd(first.messageKey, 'active'); activateStep(first.messageKey); }
+  });
+
+  resetBtn && resetBtn.addEventListener('click', function() {
+    testMessages.forEach(function(m) { STATES[m.messageKey] = 'pending'; setInd(m.messageKey, 'pending'); });
+    document.querySelectorAll('.step-panel-4').forEach(function(p) { p.classList.add('hidden'); });
+    document.querySelectorAll('.result-badge-4').forEach(function(b) { b.className = 'result-badge-4 hidden'; b.textContent = ''; });
+    setupDiv.classList.remove('hidden');
+    stepperDiv.classList.add('hidden');
+  });
+
+  document.querySelectorAll('.send-btn-4').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var key = btn.dataset.key;
+      var email = emailInput.value.trim();
+      var bid = bookingSel.value;
+      if (!key || !email || !bid) return;
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+      try {
+        var res = await fetch('/api/agents/test-send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agent: 4, messageKey: key, bookingId: bid, testEmail: email }),
+        });
+        var result = await res.json();
+        if (result.ok) {
+          STATES[key] = 'sent'; setInd(key, 'sent'); setBadge(key, 'sent', null);
+          document.querySelector('.step-panel-4[data-key="' + key + '"]').classList.add('hidden');
+          var next = testMessages.find(function(m) { return STATES[m.messageKey] === 'pending'; });
+          if (next) { STATES[next.messageKey] = 'active'; setInd(next.messageKey, 'active'); activateStep(next.messageKey); }
+        } else {
+          STATES[key] = 'failed'; setInd(key, 'failed'); setBadge(key, 'failed', result.error);
+          btn.disabled = false; btn.textContent = 'Retry →';
+        }
+      } catch (e) {
+        STATES[key] = 'failed'; setInd(key, 'failed'); setBadge(key, 'failed', 'Network error');
+        btn.disabled = false; btn.textContent = 'Retry →';
+      }
+    });
+  });
+})();
 </script>
 
 <script define:vars={{ agentData }}>

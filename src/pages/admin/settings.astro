@@ -56,11 +56,23 @@ if (Astro.request.method === 'POST') {
         neutralColor: (data.get('neutralColor') as string) || undefined,
       });
       successSection = 'design';
-    } else if (section === 'google') {
+    } else if (section === 'agents') {
       await client.mutation(api.settings.upsert, {
+        primaryService: (data.get('primaryService') as string) || undefined,
+        defaultBookingLink: (data.get('defaultBookingLink') as string) || undefined,
+        rafflePrize: (data.get('rafflePrize') as string) || undefined,
+        raffleLink: (data.get('raffleLink') as string) || undefined,
+        feedbackFormLink: (data.get('feedbackFormLink') as string) || undefined,
+        referralShareLink: (data.get('referralShareLink') as string) || undefined,
+        referralIntroOffer: (data.get('referralIntroOffer') as string) || undefined,
         googleReviewUrl: (data.get('googleReviewUrl') as string) || undefined,
       });
-      successSection = 'google';
+      successSection = 'agents';
+    } else if (section === 'integrations') {
+      await client.mutation(api.settings.upsert, {
+        outscraperApiKey: (data.get('outscraperApiKey') as string) || undefined,
+      });
+      successSection = 'integrations';
     } else if (section === 'danger') {
       await client.mutation(api.settings.reset, {});
       successSection = 'danger';
@@ -170,6 +182,123 @@ const brandColors = [
           <div class="flex justify-end">
             <button type="submit" class="text-sm font-semibold bg-slate-900 text-white px-5 py-2.5 rounded-xl hover:bg-slate-700 transition" style="font-family: 'Inter', sans-serif;">
               Save general
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ── Agent Variables ────────────────────────────────────────── -->
+      <section class="bg-white rounded-2xl border border-slate-200 mb-6 overflow-hidden">
+        <div class="px-6 py-5 border-b border-slate-100">
+          <h2 class="text-base font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Agent Variables</h2>
+          <p class="text-sm text-slate-500 mt-0.5" style="font-family: 'Inter', sans-serif;">These values are injected into agent email templates at send time. Required for agent sequences to resolve variables correctly.</p>
+        </div>
+        {successSection === 'agents' && (
+          <div class="mx-6 mt-4 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700" style="font-family: 'Inter', sans-serif;">Agent variables saved.</div>
+        )}
+        <form method="POST" class="px-6 py-5 flex flex-col gap-5">
+          <input type="hidden" name="section" value="agents" />
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Primary Service</label>
+              <input
+                type="text"
+                name="primaryService"
+                value={settings?.primaryService ?? ''}
+                placeholder="e.g. free HVAC estimate"
+                class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                style="font-family: 'Inter', sans-serif;"
+              />
+              <p class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">Injected as <code class="bg-slate-100 px-1 rounded">&#123;&#123;SERVICE&#125;&#125;</code> — fallback for Agent 5 when contact has no subject.</p>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Default Booking Link URL</label>
+              <input
+                type="text"
+                name="defaultBookingLink"
+                value={settings?.defaultBookingLink ?? ''}
+                placeholder="https://..."
+                class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                style="font-family: 'Inter', sans-serif;"
+              />
+              <p class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">Injected as <code class="bg-slate-100 px-1 rounded">&#123;&#123;BOOKING_LINK&#125;&#125;</code> in Agents 3 and 5.</p>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Raffle Prize Description</label>
+              <input
+                type="text"
+                name="rafflePrize"
+                value={settings?.rafflePrize ?? ''}
+                placeholder="e.g. a $200 gift card"
+                class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                style="font-family: 'Inter', sans-serif;"
+              />
+              <p class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">Injected as <code class="bg-slate-100 px-1 rounded">&#123;&#123;RAFFLE_PRIZE&#125;&#125;</code> in Agents 3 and 4.</p>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Raffle Entry URL</label>
+              <input
+                type="text"
+                name="raffleLink"
+                value={settings?.raffleLink ?? ''}
+                placeholder="https://..."
+                class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                style="font-family: 'Inter', sans-serif;"
+              />
+              <p class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">Injected as <code class="bg-slate-100 px-1 rounded">&#123;&#123;RAFFLE_LINK&#125;&#125;</code> in Agent 3 D1/D2/D3 emails.</p>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Feedback Form URL</label>
+              <input
+                type="text"
+                name="feedbackFormLink"
+                value={settings?.feedbackFormLink ?? ''}
+                placeholder="https://..."
+                class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                style="font-family: 'Inter', sans-serif;"
+              />
+              <p class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">Injected as <code class="bg-slate-100 px-1 rounded">&#123;&#123;FEEDBACK_FORM_LINK&#125;&#125;</code> in Agent 4 R3 (low-rating response).</p>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Referral Share URL</label>
+              <input
+                type="text"
+                name="referralShareLink"
+                value={settings?.referralShareLink ?? ''}
+                placeholder="https://..."
+                class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                style="font-family: 'Inter', sans-serif;"
+              />
+              <p class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">Injected as <code class="bg-slate-100 px-1 rounded">&#123;&#123;REFERRAL_SHARE_LINK&#125;&#125;</code> in Agent 4 R4 (referral ask).</p>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Referral Intro Offer</label>
+              <input
+                type="text"
+                name="referralIntroOffer"
+                value={settings?.referralIntroOffer ?? ''}
+                placeholder="e.g. a free intro session"
+                class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                style="font-family: 'Inter', sans-serif;"
+              />
+              <p class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">Injected as <code class="bg-slate-100 px-1 rounded">&#123;&#123;REFERRAL_INTRO_OFFER&#125;&#125;</code> in Agent 4 R4 — what new referrals receive.</p>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Google Review URL</label>
+              <input
+                type="text"
+                name="googleReviewUrl"
+                value={settings?.googleReviewUrl ?? ''}
+                placeholder="https://search.google.com/local/writereview?placeid=..."
+                class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                style="font-family: 'Inter', sans-serif;"
+              />
+              <p class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">Injected as <code class="bg-slate-100 px-1 rounded">&#123;&#123;GOOGLE_REVIEW_LINK&#125;&#125;</code> in Agent 4 R2. Get this URL from your Google Business Profile dashboard under "Ask for reviews".</p>
+            </div>
+          </div>
+          <div class="flex justify-end">
+            <button type="submit" class="text-sm font-semibold bg-slate-900 text-white px-5 py-2.5 rounded-xl hover:bg-slate-700 transition" style="font-family: 'Inter', sans-serif;">
+              Save agent variables
             </button>
           </div>
         </form>
@@ -335,58 +464,33 @@ const brandColors = [
         </form>
       </section>
 
-      <!-- ── Google ──────────────────────────────────────────────────── -->
+      <!-- ── Integrations ─────────────────────────────────────────────── -->
       <section class="bg-white rounded-2xl border border-slate-200 mb-6 overflow-hidden">
         <div class="px-6 py-5 border-b border-slate-100">
-          <h2 class="text-base font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Google</h2>
-          <p class="text-sm text-slate-500 mt-0.5" style="font-family: 'Inter', sans-serif;">Google Business Profile integration links.</p>
+          <h2 class="text-base font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Integrations</h2>
+          <p class="text-sm text-slate-400 mt-0.5" style="font-family: 'Inter', sans-serif;">Third-party API keys for optional features.</p>
         </div>
-        {successSection === 'google' && (
-          <div class="mx-6 mt-4 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700" style="font-family: 'Inter', sans-serif;">
-            Google settings saved.
-          </div>
+        {successSection === 'integrations' && (
+          <div class="mx-6 mt-4 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700" style="font-family: 'Inter', sans-serif;">Integration settings saved.</div>
         )}
         <form method="POST" class="px-6 py-5 flex flex-col gap-5">
-          <input type="hidden" name="section" value="google" />
-          <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Google review link</label>
+          <input type="hidden" name="section" value="integrations" />
+          <div class="flex flex-col gap-1.5 max-w-md">
+            <label class="text-xs font-semibold text-slate-600 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Outscraper API Key</label>
             <input
-              type="url"
-              name="googleReviewUrl"
-              value={settings?.googleReviewUrl ?? ''}
-              placeholder="https://search.google.com/local/writereview?placeid=..."
-              class="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+              type="password"
+              name="outscraperApiKey"
+              value={settings?.outscraperApiKey ?? ''}
+              placeholder="Enter your Outscraper API key"
+              autocomplete="off"
+              class="text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono"
               style="font-family: 'Inter', sans-serif;"
             />
-            <details class="group">
-              <summary class="text-xs text-slate-400 cursor-pointer hover:text-slate-600 transition select-none list-none flex items-center gap-1" style="font-family: 'Inter', sans-serif;">
-                <svg class="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/>
-                </svg>
-                How to find your Google review link
-              </summary>
-              <div class="mt-3 p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-2.5">
-                <p class="text-xs font-semibold text-slate-700" style="font-family: 'Inter', sans-serif;">Easiest method — Google Business Profile dashboard:</p>
-                <ol class="flex flex-col gap-1.5 text-xs text-slate-600 list-decimal list-inside" style="font-family: 'Inter', sans-serif;">
-                  <li>Go to <strong>business.google.com</strong> and sign in</li>
-                  <li>Select your business location</li>
-                  <li>Click <strong>"Ask for reviews"</strong> in the overview panel</li>
-                  <li>Copy the link — paste it in the field above</li>
-                </ol>
-                <p class="text-xs font-semibold text-slate-700 mt-1" style="font-family: 'Inter', sans-serif;">Alternative — Google Maps:</p>
-                <ol class="flex flex-col gap-1.5 text-xs text-slate-600 list-decimal list-inside" style="font-family: 'Inter', sans-serif;">
-                  <li>Open <strong>maps.google.com</strong> and search for your business</li>
-                  <li>Click your business listing in the results</li>
-                  <li>Click <strong>Share</strong> → <strong>Copy link</strong></li>
-                  <li>Paste and add <code class="bg-slate-200 px-1 rounded">/review</code> to the end of the URL, or use the Place ID format: <code class="bg-slate-200 px-1 rounded">search.google.com/local/writereview?placeid=YOUR_ID</code></li>
-                </ol>
-                <p class="text-xs text-slate-400 mt-1" style="font-family: 'Inter', sans-serif;">The "Ask for reviews" link from your Business Profile dashboard is the most reliable — it opens directly to the review form.</p>
-              </div>
-            </details>
+            <p class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">Required for Google review import on the Testimonials page. Get your key at <strong>app.outscraper.com</strong>.</p>
           </div>
           <div class="flex justify-end">
             <button type="submit" class="text-sm font-semibold bg-slate-900 text-white px-5 py-2.5 rounded-xl hover:bg-slate-700 transition" style="font-family: 'Inter', sans-serif;">
-              Save Google settings
+              Save integration settings
             </button>
           </div>
         </form>

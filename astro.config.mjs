@@ -14,5 +14,10 @@ export default defineConfig({
   integrations: [clerk(), svelte(), sitemap()],
   vite: {
     plugins: [tailwindcss()],
+    server: {
+      watch: {
+        ignored: ['**/convex/_generated/**'],
+      },
+    },
   },
 });

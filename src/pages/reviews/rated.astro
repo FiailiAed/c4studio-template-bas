@@ -1,0 +1,27 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+
+const ratingRaw = Astro.url.searchParams.get('rating');
+const error = Astro.url.searchParams.get('error');
+const rating = parseInt(ratingRaw ?? '', 10);
+
+const stars = !isNaN(rating) ? '★'.repeat(rating) + '☆'.repeat(5 - rating) : '';
+
+const content = error
+  ? { title: 'Something went wrong', body: 'This link may have expired or already been used.', high: false }
+  : rating >= 4
+  ? { title: 'Thank you!', body: "We appreciate the kind words. Check your email — we've sent a follow-up with a way to help others find us.", high: true }
+  : { title: 'Thanks for the honest feedback', body: "We appreciate you taking a moment. Check your email — a member of our team will follow up to make it right.", high: false };
+---
+
+<BaseLayout title={content.title}>
+  <div class="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-16">
+    <div class="max-w-sm w-full bg-white rounded-2xl border border-slate-200 px-8 py-12 text-center">
+      {stars && (
+        <p class={`text-3xl mb-4 tracking-wide ${content.high ? 'text-amber-400' : 'text-slate-300'}`}>{stars}</p>
+      )}
+      <h1 class="text-xl font-bold text-slate-900 mb-3" style="font-family: 'Lexend', sans-serif;">{content.title}</h1>
+      <p class="text-sm text-slate-500 leading-relaxed" style="font-family: 'Inter', sans-serif;">{content.body}</p>
+    </div>
+  </div>
+</BaseLayout>

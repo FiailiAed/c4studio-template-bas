@@ -1,6 +1,6 @@
 "use node";
 
-import { internalAction } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Resend } from "resend";
@@ -64,6 +64,101 @@ async function doSendEmail(
   if (error) return { ok: false, error: (error as { message?: string }).message ?? "Unknown" };
   return { ok: true };
 }
+
+// ─── Test sends (admin debugger) ────────────────────────────────────────────
+
+export const testSendNurturing = action({
+  args: {
+    messageKey: v.string(),
+    testEmail: v.string(),
+    contactId: v.optional(v.id("contacts")),
+    bookingId: v.optional(v.id("bookings")),
+  },
+  handler: async (ctx, { messageKey, testEmail, contactId, bookingId }): Promise<{ ok: boolean; subject: string; error?: string }> => {
+    const contactMessages = ["m1", "m2", "m3"];
+    const isContactMsg = contactMessages.includes(messageKey);
+
+    const [msg, settings] = await Promise.all([
+      ctx.runQuery(internal.nurturing.getMessageByKey, { messageKey }),
+      ctx.runQuery(internal.nurturing.getSettingsInternal, {}),
+    ]);
+
+    if (!msg) return { ok: false, subject: "", error: "Message not configured" };
+
+    let recipientName = "Test Contact";
+    let recipientPhone: string | undefined;
+    let vars: Record<string, string>;
+
+    if (isContactMsg && contactId) {
+      const contact = await ctx.runQuery(internal.nurturing.getContactById, { contactId });
+      if (!contact) return { ok: false, subject: "", error: "Contact not found" };
+      const firstName = contact.name.split(" ")[0] || contact.name;
+      recipientName = contact.name;
+      recipientPhone = contact.phone;
+      vars = {
+        FIRST_NAME: firstName,
+        SERVICE: contact.subject || settings?.primaryService || "your inquiry",
+        BOOKING_LINK: settings?.defaultBookingLink || "[BOOKING_LINK]",
+        REBOOKING_LINK: settings?.defaultBookingLink || "[REBOOKING_LINK]",
+        BUSINESS_NAME: settings?.appName || "c4studio",
+      };
+    } else if (!isContactMsg && bookingId) {
+      const booking = await ctx.runQuery(internal.nurturing.getBookingById, { bookingId });
+      if (!booking) return { ok: false, subject: "", error: "Booking not found" };
+      const link = await ctx.runQuery(internal.nurturing.getBookingLinkById, { bookingLinkId: booking.bookingLinkId });
+      const firstName = booking.name.split(" ")[0] || booking.name;
+      recipientName = booking.name;
+      recipientPhone = booking.phone;
+      const bookingUrl = settings?.defaultBookingLink || "[BOOKING_LINK]";
+      vars = {
+        FIRST_NAME: firstName,
+        SERVICE: link?.name || "your appointment",
+        BUSINESS_NAME: settings?.appName || "c4studio",
+        APPOINTMENT_DATE: fmtDate(booking.date),
+        APPOINTMENT_TIME: fmt12h(booking.startTime),
+        BOOKING_LINK: bookingUrl,
+        REBOOKING_LINK: bookingUrl,
+      };
+    } else {
+      return { ok: false, subject: "", error: isContactMsg ? "Contact ID required for this message" : "Booking ID required for this message" };
+    }
+
+    const subject = substitute(msg.emailSubject, vars);
+    const logBase = {
+      messageKey,
+      contactId: isContactMsg ? contactId : undefined,
+      bookingId: !isContactMsg ? bookingId : undefined,
+      recipientName,
+      recipientEmail: testEmail,
+      recipientPhone,
+      isTest: true as const,
+    };
+
+    if (msg.channel === "email" || msg.channel === "both") {
+      const result = await doSendEmail(
+        testEmail,
+        subject,
+        emailHtml(substitute(msg.emailBody, vars), vars.BUSINESS_NAME),
+        substitute(msg.emailBody, vars)
+      );
+      await ctx.runMutation(internal.nurturing.createLog, {
+        ...logBase,
+        channel: "email" as const,
+        status: (result.ok ? "sent" : "failed") as "sent" | "failed",
+        errorMessage: result.error,
+      });
+      return { ok: result.ok, subject, error: result.error };
+    }
+
+    await ctx.runMutation(internal.nurturing.createLog, {
+      ...logBase,
+      channel: "sms" as const,
+      status: "skipped" as const,
+      errorMessage: "SMS not configured — Twilio integration pending",
+    });
+    return { ok: false, subject, error: "SMS not configured — Twilio integration pending" };
+  },
+});
 
 // ─── Contact nurturing (M1, M2, M3) ─────────────────────────────────────────
 

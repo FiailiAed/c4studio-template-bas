@@ -2,6 +2,11 @@ import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
+export const getById = query({
+  args: { id: v.id("contacts") },
+  handler: async (ctx, { id }) => ctx.db.get(id),
+});
+
 export const getByEmail = query({
   args: { email: v.string() },
   handler: async (ctx, { email }) =>

@@ -47,11 +47,16 @@ bunx convex dev  # Start Convex dev server (run alongside bun dev)
 [x] /shops/[slug]         — Shop product grid (Stripe checkout, sign-in required to purchase)
 [x] /booking-links        — Index of all published booking link types
 [x] /booking-links/[slug] — Native booking widget (Svelte island; availability, bookings in Convex)
+[x] /bookings/cancel      — Token-authenticated cancellation page (linked from confirmation email)
+[x] /reactivation/responded — Confirmation landing after Agent 3 YES/NO email response
+[x] /reviews/rated        — Confirmation landing after Agent 4 star rating email link
 [x] /sign-in              — Clerk-managed
 [x] /sign-up              — Clerk-managed
 [x] /onboarding           — Syncs Clerk user to Convex users table; sets role
 [x] /privacy              — Pulls appName, siteUrl, supportEmail from appSettings
 [x] /terms                — Pulls appName, siteUrl, supportEmail from appSettings
+[x] /changelog            — Static release history; timeline layout; Footer nav (Product section)
+[x] /roadmap              — Static upcoming versions; card layout; Footer nav (Product section)
 [x] /404                  — Custom not-found page
 ```
 
@@ -74,7 +79,9 @@ bunx convex dev  # Start Convex dev server (run alongside bun dev)
 [x] /admin/shops/[id]     — Edit shop: details + product management (Stripe Price ID per item)
 [x] /admin/booking-links  — CRUD with slug auto-gen
 [x] /admin/booking-links/[id] — Edit booking link: details + availability config + bookings list
+[x] /admin/bookings       — Global bookings view across all booking links; cancel/status management
 [x] /admin/communications — Compose, Broadcast, Templates, History (Resend)
+[x] /admin/agents         — Agents hub: live stats for sequences 3/4/5; links to all 7 agent pages
 ```
 
 ### AI Agents (Admin Portal)
@@ -134,9 +141,11 @@ live assembled output, copy to clipboard). Agents 3, 4, and 5 are also wired to 
 ### API Routes
 
 ```sh
-[x] GET  /api/booking-slots  — Returns available time slots for a date (filters booked conflicts)
-[x] POST /api/bookings       — Creates booking; double-booking conflict check
-[x] POST /api/shop-checkout  — Calls Convex payments.createPaymentCheckout → Stripe redirect
+[x] GET  /api/booking-slots         — Returns available time slots for a date (filters booked conflicts)
+[x] POST /api/bookings              — Creates booking; double-booking conflict check
+[x] POST /api/shop-checkout         — Calls Convex payments.createPaymentCheckout → Stripe redirect
+[x] GET  /api/reactivation/respond  — Agent 3 YES/NO email response handler (HMAC-tokenized)
+[x] GET  /api/reviews/rate          — Agent 4 star-rating email handler; routes to R2 or R3 (HMAC-tokenized)
 ```
 
 ---
@@ -204,7 +213,7 @@ referralShareLink    — URL injected as {{REFERRAL_SHARE_LINK}} in Agent 4 R4
 referralIntroOffer   — offer description injected as {{REFERRAL_INTRO_OFFER}} in Agent 4 R4
 ```
 
-Configure all agent infrastructure fields at `/admin/settings → General`.
+Agent infrastructure fields are defined in schema and `convex/settings.ts` but **not yet exposed in the admin settings UI**. Set them directly in the Convex dashboard until `/admin/settings` is updated with these input fields.
 
 ---
 

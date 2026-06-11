@@ -234,6 +234,8 @@ export default defineSchema({
     feedbackFormLink: v.optional(v.string()),
     referralShareLink: v.optional(v.string()),
     referralIntroOffer: v.optional(v.string()),
+    // Integrations
+    outscraperApiKey: v.optional(v.string()),
   }),
 
   // Lead nurturing message templates (Agent 5)
@@ -272,6 +274,7 @@ export default defineSchema({
     channel: v.union(v.literal("email"), v.literal("sms")),
     status: v.union(v.literal("sent"), v.literal("failed"), v.literal("skipped")),
     errorMessage: v.optional(v.string()),
+    isTest: v.optional(v.boolean()),
   })
     .index("by_message_key", ["messageKey"])
     .index("by_contact_id", ["contactId"]),
@@ -301,6 +304,7 @@ export default defineSchema({
     channel: v.union(v.literal("email"), v.literal("sms")),
     status: v.union(v.literal("sent"), v.literal("failed"), v.literal("skipped")),
     errorMessage: v.optional(v.string()),
+    isTest: v.optional(v.boolean()),
   })
     .index("by_message_key", ["messageKey"])
     .index("by_booking_id", ["bookingId"]),
@@ -316,6 +320,7 @@ export default defineSchema({
     channel: v.union(v.literal("email"), v.literal("sms")),
     status: v.union(v.literal("sent"), v.literal("failed"), v.literal("skipped")),
     errorMessage: v.optional(v.string()),
+    isTest: v.optional(v.boolean()),
   })
     .index("by_message_key", ["messageKey"])
     .index("by_contact_id", ["contactId"]),

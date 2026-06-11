@@ -1,0 +1,169 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { getAuthedConvex } from '@lib/convex';
+import { api } from '@convex/api';
+import {
+  getTaskById,
+  STATUS_META,
+  PRIORITY_META,
+  CATEGORY_LABELS,
+  TASKS,
+} from '@lib/devTasks';
+
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect('/sign-in');
+const token = await Astro.locals.auth().getToken({ template: 'convex' });
+const client = getAuthedConvex(token);
+const currentUser = await client.query(api.users.getByClerkId, { clerkId: userId });
+if (!currentUser) return Astro.redirect('/onboarding');
+if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
+
+const rawId = Astro.params.id;
+const numId = rawId ? parseInt(rawId, 10) : NaN;
+const task = !isNaN(numId) ? getTaskById(numId) : undefined;
+if (!task) return Astro.redirect('/admin/dev');
+
+const status = STATUS_META[task.status];
+const priority = PRIORITY_META[task.priority];
+
+// Adjacent tasks for prev/next navigation
+const idx = TASKS.findIndex(t => t.id === task.id);
+const prev = idx > 0 ? TASKS[idx - 1] : null;
+const next = idx < TASKS.length - 1 ? TASKS[idx + 1] : null;
+---
+
+<BaseLayout title={`Task #${task.id} — Developer Task Board`}>
+  <div class="min-h-screen bg-slate-50">
+
+    <!-- Nav -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-2 text-sm" style="font-family: 'Inter', sans-serif;">
+        <a href="/admin" class="text-slate-500 hover:text-slate-900 transition">Admin</a>
+        <span class="text-slate-300">/</span>
+        <a href="/admin/dev" class="text-slate-500 hover:text-slate-900 transition">Task Board</a>
+        <span class="text-slate-300">/</span>
+        <span class="font-semibold text-slate-900">Task #{task.id}</span>
+      </div>
+      <a href="/admin/dev" class="text-xs font-medium text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">
+        ← Back to board
+      </a>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-6 py-10">
+
+      <!-- Task card -->
+      <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6">
+
+        <!-- Card header -->
+        <div class="px-6 py-5 border-b border-slate-100">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-xs font-mono font-bold text-slate-400 bg-slate-100 border border-slate-200 rounded px-2 py-0.5">
+              #{task.id}
+            </span>
+            {task.version && (
+              <span class="text-xs font-mono text-slate-400 bg-slate-50 border border-slate-200 rounded px-2 py-0.5">
+                {task.version}
+              </span>
+            )}
+          </div>
+          <h1 class="text-xl font-bold text-slate-900 leading-snug" style="font-family: 'Lexend', sans-serif;">
+            {task.title}
+          </h1>
+        </div>
+
+        <!-- Badges row -->
+        <div class="px-6 py-4 bg-slate-50 border-b border-slate-100 flex flex-wrap gap-2">
+          <!-- Status -->
+          <span class={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${status.color}`} style="font-family: 'Inter', sans-serif;">
+            <span class={`w-1.5 h-1.5 rounded-full ${status.dot}`}></span>
+            {status.label}
+          </span>
+          <!-- Priority -->
+          {task.priority !== 'none' && (
+            <span class={`text-xs font-semibold px-2.5 py-1 rounded-full ${priority.color}`} style="font-family: 'Inter', sans-serif;">
+              {priority.label}
+            </span>
+          )}
+          <!-- Category -->
+          <span class="text-xs font-medium text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full" style="font-family: 'Inter', sans-serif;">
+            {CATEGORY_LABELS[task.category]}
+          </span>
+        </div>
+
+        <!-- Notes -->
+        <div class="px-6 py-6">
+          <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3" style="font-family: 'Inter', sans-serif;">Notes</h2>
+          <p class="text-sm text-slate-700 leading-relaxed" style="font-family: 'Inter', sans-serif;">
+            {task.notes}
+          </p>
+        </div>
+
+        <!-- Metadata table -->
+        <div class="px-6 pb-6">
+          <div class="rounded-xl border border-slate-100 overflow-hidden">
+            <table class="w-full text-sm">
+              <tbody class="divide-y divide-slate-50">
+                <tr>
+                  <td class="px-4 py-3 text-xs font-medium text-slate-400 w-28" style="font-family: 'Inter', sans-serif;">Task ID</td>
+                  <td class="px-4 py-3 text-sm font-mono text-slate-700">#{task.id}</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3 text-xs font-medium text-slate-400" style="font-family: 'Inter', sans-serif;">Status</td>
+                  <td class="px-4 py-3">
+                    <span class={`text-xs font-semibold px-2 py-0.5 rounded-full ${status.color}`} style="font-family: 'Inter', sans-serif;">{status.label}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3 text-xs font-medium text-slate-400" style="font-family: 'Inter', sans-serif;">Priority</td>
+                  <td class="px-4 py-3">
+                    {task.priority !== 'none' ? (
+                      <span class={`text-xs font-semibold px-2 py-0.5 rounded-full ${priority.color}`} style="font-family: 'Inter', sans-serif;">{priority.label}</span>
+                    ) : (
+                      <span class="text-xs text-slate-300" style="font-family: 'Inter', sans-serif;">—</span>
+                    )}
+                  </td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3 text-xs font-medium text-slate-400" style="font-family: 'Inter', sans-serif;">Category</td>
+                  <td class="px-4 py-3 text-sm text-slate-700" style="font-family: 'Inter', sans-serif;">{CATEGORY_LABELS[task.category]}</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3 text-xs font-medium text-slate-400" style="font-family: 'Inter', sans-serif;">Target</td>
+                  <td class="px-4 py-3 text-sm font-mono text-slate-700">{task.version ?? '—'}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Prev / Next navigation -->
+      <div class="flex items-center justify-between gap-4">
+        {prev ? (
+          <a
+            href={`/admin/dev/${prev.id}`}
+            class="flex-1 group bg-white rounded-xl border border-slate-200 px-4 py-3 hover:shadow-sm transition text-left"
+          >
+            <p class="text-xs text-slate-400 mb-1" style="font-family: 'Inter', sans-serif;">← Previous</p>
+            <p class="text-sm font-medium text-slate-700 group-hover:text-slate-900 line-clamp-1" style="font-family: 'Inter', sans-serif;">
+              #{prev.id} — {prev.title}
+            </p>
+          </a>
+        ) : <div class="flex-1" />}
+
+        {next ? (
+          <a
+            href={`/admin/dev/${next.id}`}
+            class="flex-1 group bg-white rounded-xl border border-slate-200 px-4 py-3 hover:shadow-sm transition text-right"
+          >
+            <p class="text-xs text-slate-400 mb-1" style="font-family: 'Inter', sans-serif;">Next →</p>
+            <p class="text-sm font-medium text-slate-700 group-hover:text-slate-900 line-clamp-1" style="font-family: 'Inter', sans-serif;">
+              #{next.id} — {next.title}
+            </p>
+          </a>
+        ) : <div class="flex-1" />}
+      </div>
+
+    </main>
+  </div>
+</BaseLayout>

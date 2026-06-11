@@ -103,6 +103,22 @@ export const PAGE_CATALOG: CatalogPage[] = [
     colorClasses: { card: 'bg-indigo-50 border-indigo-600', badge: 'bg-indigo-600', text: 'text-indigo-900' },
   },
   {
+    name: 'Changelog',
+    route: '/changelog',
+    description: 'Release history and version notes for the template',
+    category: 'Utility',
+    defaultStatus: 'planned',
+    colorClasses: { card: 'bg-slate-50 border-slate-400', badge: 'bg-slate-600', text: 'text-slate-700' },
+  },
+  {
+    name: 'Roadmap',
+    route: '/roadmap',
+    description: 'Upcoming versions and planned features',
+    category: 'Utility',
+    defaultStatus: 'planned',
+    colorClasses: { card: 'bg-violet-50 border-violet-400', badge: 'bg-violet-600', text: 'text-violet-900' },
+  },
+  {
     name: 'Admin Portal',
     route: '/admin',
     description: 'Protected dashboard — content, users, and site management',

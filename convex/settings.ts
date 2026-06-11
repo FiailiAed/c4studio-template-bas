@@ -36,6 +36,7 @@ export const upsert = mutation({
     feedbackFormLink: v.optional(v.string()),
     referralShareLink: v.optional(v.string()),
     referralIntroOffer: v.optional(v.string()),
+    outscraperApiKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db.query("appSettings").first();

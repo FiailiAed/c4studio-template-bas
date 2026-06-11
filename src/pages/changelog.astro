@@ -1,0 +1,463 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import Header from '@marketing/Header.astro';
+import Footer from '@marketing/Footer.astro';
+import { convex } from '@lib/convex';
+import { api } from '@convex/api';
+import { enforcePageStatus } from '@lib/pageStatus';
+
+const redirect = await enforcePageStatus('/changelog', Astro);
+if (redirect) return redirect;
+
+const settings = await convex.query(api.settings.get, {});
+const appName = settings?.appName ?? 'c4studio';
+const description = settings?.description ?? 'We help ambitious businesses design, build, and grow digital products that stand out.';
+
+const releases = [
+  {
+    version: 'v0.0.6',
+    date: '2026',
+    label: 'Polish & Infrastructure',
+    labelColor: 'bg-slate-100 text-slate-700',
+    dotColor: 'bg-slate-500',
+    sections: [
+      {
+        title: 'sitePages Enforcement',
+        items: [
+          'enforcePageStatus() helper applied to every public catalog page — planned routes redirect to /404',
+          'getPageStatusMap() enables single-query bulk filtering for Header and Footer nav',
+          'Header and Footer now only show active pages; empty nav columns are suppressed entirely',
+          'Slug pages (e.g. /blog/[slug]) enforce their parent catalog route',
+        ],
+      },
+      {
+        title: 'Feature Flags',
+        items: [
+          'maintenanceMode wired to BaseLayout — full-page overlay for all non-admin/non-auth routes',
+          'registrationEnabled flag redirects /sign-up to / when false',
+          'blogEnabled flag redirects /blog and /blog/[slug] to /404; drops /blog from nav automatically',
+          'All three flags toggled from /admin/settings → Feature Flags',
+        ],
+      },
+      {
+        title: 'Infrastructure & SEO',
+        items: [
+          'robots.txt added to public/ — disallows /admin, /dashboard, /onboarding, /sign-in, /sign-up, /api/',
+          'Sitemap line pre-wired for @astrojs/sitemap once SITE_URL env var is set',
+          'Vite watch ignore for convex/_generated/ to prevent false HMR restarts during dev',
+          'Vercel Speed Insights and Web Analytics wired in BaseLayout',
+          'BaseLayout transition:animate="fade" added to <main> for Astro View Transitions',
+        ],
+      },
+      {
+        title: 'Communications Module',
+        items: [
+          'Email management hub at /admin/communications with live stats (templates, emails sent, recipients)',
+          'Compose: send one-off emails with user datalist autocomplete and template pre-fill',
+          'Broadcast: batch send to all users via resend.batch.send(); confirm dialog + user count warning',
+          'Templates CRUD at /admin/communications/templates and /templates/[id]',
+          'History log: read-only table of all sends (type, subject, recipients, count, timestamp)',
+          'emailTemplates and emailLogs tables added to Convex schema',
+        ],
+      },
+      {
+        title: 'Admin Bookings & Content',
+        items: [
+          '/admin/bookings — global view of all bookings across all booking links with cancel/status management',
+          '/admin/posts — blog post CRUD with slug auto-gen, publish toggle, and tag support',
+          'Changelog and Roadmap pages added under the Footer Product nav column',
+          '/changelog and /roadmap added to PAGE_CATALOG (Utility category, defaultStatus: planned)',
+          'CLAUDE.md and README.md expanded with full architecture docs and canonical task checklist',
+        ],
+      },
+    ],
+  },
+  {
+    version: 'v0.0.5',
+    date: '2026',
+    label: 'AI Agents',
+    labelColor: 'bg-amber-100 text-amber-700',
+    dotColor: 'bg-amber-500',
+    sections: [
+      {
+        title: 'Agent Hub & Prompt Assembly',
+        items: [
+          '7-agent prompt library at /admin/agents — the 7-day AI agency playbook',
+          'Generic /admin/agents/[id] prompt assembly tool: variable form + live assembled output + copy button',
+          'Long/short prompt toggle per agent; {{VAR_KEY}} double-curly substitution syntax',
+          'Agents 1, 2, 6, 7 — prompt-only tools with variable forms (no live pipeline)',
+          'Amber "Coming soon" banner on each page notes future live Claude chat integration',
+        ],
+      },
+      {
+        title: 'Agent 5 — Lead Nurturing (Live Pipeline)',
+        items: [
+          '7 messages (M1–M5 with M4a/4b/4c) auto-triggered from contact form and booking events',
+          'M1 (+5 min), M2 (+24h), M3 (+48h) scheduled on contacts.create',
+          'M4a (immediate), M4b (−24h), M4c (−2h), M5 (+60 min) scheduled on bookings.create',
+          'nurturingMessages and nurturingLogs tables; per-message enabled toggle and channel selector',
+          'Dedicated /admin/agents/5 page with Messages, History, and Prompt tabs',
+          'Auto-initializes default message templates on first page visit',
+          'Email fully wired via Resend; SMS stubs log as skipped (Twilio pending)',
+        ],
+      },
+      {
+        title: 'Agent 3 — Reactivation Campaign (Live Pipeline)',
+        items: [
+          'D1/D2/D3 sequence manually triggered by admin entering a contact email',
+          'D1 fires immediately; D2 scheduled +24h; D3 scheduled +48h via Convex scheduler',
+          'YES/NO handler messages for inbound responses (admin-triggerable; Twilio inbound webhook pending)',
+          'reactivationMessages and reactivationLogs tables; scheduled IDs stored on contact record',
+          '/admin/agents/3 dedicated page with Campaign, Messages, History, and Prompt tabs',
+        ],
+      },
+      {
+        title: 'Agent 4 — Reviews & Referrals (Live Pipeline)',
+        items: [
+          'R1 auto-fires 2 hours after booking appointment via reviews.scheduleRatingRequest',
+          'R2/R3/R4 triggerable by admin entering customer email; looks up most recent booking',
+          'R5a–R5e Google review reply templates — copy-paste only, never sent by system',
+          'reviewsMessages and reviewsLogs tables; messageType: automated | template distinction',
+          '/admin/agents/4 dedicated page with Automated Messages, Copy Templates, History, and Prompt tabs',
+        ],
+      },
+      {
+        title: 'Tokenized Email Action Links',
+        items: [
+          'src/lib/tokens.ts — HMAC-SHA256 signToken() and verifyToken() for one-click email links',
+          'CANCEL_SECRET shared between Vercel and Convex env vars',
+          'GET /api/reactivation/respond — processes Agent 3 YES/NO email response',
+          'GET /api/reviews/rate — processes Agent 4 R2/R3 star rating routing (1–5)',
+          '/bookings/cancel — public page for customer booking cancellation confirmation',
+          '/reactivation/responded and /reviews/rated — confirmation landing pages',
+        ],
+      },
+      {
+        title: 'Variable Substitution & appSettings Fields',
+        items: [
+          'substitute(template, vars) resolves {{VAR_KEY}} at send time from appSettings + contact/booking record',
+          'Agent infrastructure fields added to appSettings schema: primaryService, defaultBookingLink, rafflePrize, raffleLink, feedbackFormLink, referralShareLink, referralIntroOffer, googleReviewUrl',
+          'Contact confirmation and booking confirmation emails wired via Resend internalAction',
+        ],
+      },
+    ],
+  },
+  {
+    version: 'v0.0.4',
+    date: '2026',
+    label: 'Commerce',
+    labelColor: 'bg-orange-100 text-orange-700',
+    dotColor: 'bg-orange-500',
+    sections: [
+      {
+        title: 'Funnels',
+        items: [
+          'funnels Convex table with slug, headline, subheadline, ctaLabel, ctaHref fields',
+          '/admin/funnels — list page with collapsible create form and slug auto-generation',
+          '/admin/funnels/[id] — edit page with Page Content section; danger zone with confirm dialog',
+          '/funnels/[slug] — public landing page with dark hero and CTA; 404-guarded on unpublished',
+          '/funnels index — card grid of published funnels with orange accent',
+        ],
+      },
+      {
+        title: 'Shops & Stripe Checkout',
+        items: [
+          'shops and shopItems Convex tables; shopItems FK to shop with stripePriceId, price (cents), imageUrl',
+          '/admin/shops/[id] — product CRUD with expand-to-edit items; Stripe Price ID input',
+          '/shops/[slug] — public product grid with Intl.NumberFormat price display',
+          'POST /api/shop-checkout — Stripe checkout redirect via payments.createPaymentCheckout; requires Clerk auth',
+          'Unauthenticated visitors see "Sign in to purchase" instead of Buy button',
+          'Stripe webhook registered in convex/http.ts at /stripe/webhook via @convex-dev/stripe',
+        ],
+      },
+      {
+        title: 'Booking Links & Svelte Widget',
+        items: [
+          'bookingLinks Convex table with duration, bufferTime, availabilityStart/End, availableDays, timezone',
+          'bookings child table with FK, name, email, phone, date, startTime, status, notes',
+          '@astrojs/svelte + svelte installed; Svelte used exclusively for interactive islands',
+          'BookingWidget.svelte — 4-step island: calendar → time slots → contact form → confirmation',
+          'Hand-built month calendar grid; no external date library; 12-hour time formatting',
+          'GET /api/booking-slots — returns available slots after filtering confirmed bookings',
+          'POST /api/bookings — conflict check before insert; returns 409 if slot taken',
+          '/booking-links/[slug] — SSR hero + BookingWidget client:load island',
+        ],
+      },
+      {
+        title: 'Commerce Admin Pages',
+        items: [
+          '/admin/booking-links/[id] — Availability section (day checkboxes, time inputs, timezone) and Bookings list with Cancel action',
+          'All three entity list pages: collapsible create forms, slug auto-gen from name, table of existing records',
+          'Admin portal index fetches all three lists in parallel; renders per-record cards + "+ New" dashed card',
+          'PostHog events: funnel_created, shop_created, booking_link_created',
+        ],
+      },
+    ],
+  },
+  {
+    version: 'v0.0.3',
+    date: '2026',
+    label: 'Content & Public Pages',
+    labelColor: 'bg-violet-100 text-violet-700',
+    dotColor: 'bg-violet-500',
+    sections: [
+      {
+        title: 'Marketing Components',
+        items: [
+          'Nine prop-driven marketing components in src/components/marketing/: Header, Hero, TrustBar, Services, About, Reviews, Gallery, CTA, Footer',
+          '@marketing/* path alias added to tsconfig.json',
+          'Header: sticky nav with mobile hamburger toggle, active route highlighting, CTA button',
+          'Hero: dark slate-900 with grid background, blue gradient orbs, dual CTA buttons',
+          'Footer: 4-column grid (brand + socials, Company, Services anchors, Legal); copyright computed at render',
+          'Home page rebuilt using all nine components; appName and description from Convex settings',
+        ],
+      },
+      {
+        title: 'Public Pages',
+        items: [
+          '/about — dark hero + About component + Values grid (4 cards) + Process timeline (4 steps) + CTA',
+          '/services — dark hero + Services component + 4 alternating deep-dive sections with #anchor IDs',
+          '/reviews — masonry column grid of approved testimonials; featured testimonials get amber styling',
+          '/gallery — masonry media grid (image/video/PDF); lazy-loaded from Convex file storage',
+          '/pricing — responsive tier grid with highlighted "Most popular" card; price display hierarchy',
+          '/blog and /blog/[slug] — posts from Convex with published guard; blogEnabled feature flag support',
+          '/contact — SSR POST form with rate limiting; admin notification via Resend on submission',
+          '/privacy and /terms — dynamic legal pages pulling appName, siteUrl, supportEmail from appSettings',
+        ],
+      },
+      {
+        title: 'Gallery Module',
+        items: [
+          'Gallery Convex table updated: added width, height for layout shift prevention; pdf added to mediaType union',
+          'convex/gallery.ts — generateUploadUrl, listWithUrls, listPublishedWithUrls, create, update, remove',
+          'Fully server-side upload flow: SSR POST → generateUploadUrl → fetch(uploadUrl) → create record',
+          '/admin/gallery — drag-and-drop upload zone, aspect-video thumbnails, publish/edit/delete per item',
+          'Home page Gallery component updated to show first 6 published images from Convex',
+        ],
+      },
+      {
+        title: 'Testimonials & Pricing',
+        items: [
+          'convex/testimonials.ts — list, listApproved, create, setApproved, setFeatured, remove',
+          '/admin/testimonials — inline create form; approve/feature/delete actions; amber=featured, emerald=approved card borders',
+          'pricingTiers Convex table: billingPeriod, priceLabel, features (string[]), highlighted, ctaLabel, ctaHref, order',
+          '/admin/pricing — publish/highlight/edit/delete actions; features textarea split on newline',
+          'Phone field added to contacts table and /contact form for SMS lead nurturing prep',
+        ],
+      },
+      {
+        title: 'Blog',
+        items: [
+          'convex/posts.ts — list, listPublished, getBySlug, create, update, remove; by_slug and by_published indexes',
+          '/admin/posts — collapsible create form with slug auto-gen; publish/unpublish/delete actions',
+          '/blog — paginated list of published posts; empty state; blogEnabled flag support',
+          '/blog/[slug] — full post view with author, date, tags; 404 guard on unpublished or missing',
+        ],
+      },
+    ],
+  },
+  {
+    version: 'v0.0.2',
+    date: '2026',
+    label: 'Admin Core',
+    labelColor: 'bg-blue-100 text-blue-700',
+    dotColor: 'bg-blue-500',
+    sections: [
+      {
+        title: 'Settings & Feature Flags',
+        items: [
+          'appSettings singleton table in Convex schema — all fields optional, upserted per section',
+          'convex/settings.ts — get (public query), upsert (mutation), reset (mutation)',
+          '/admin/settings — 5 sections: General, Feature Flags (3 toggles), Notifications, Design System, Danger Zone',
+          'Design System section: 4 brand color pickers with live swatch preview; synced via inline script',
+          'Toggle switches use CSS-only peer pattern (sr-only checkbox + peer-checked: Tailwind classes)',
+        ],
+      },
+      {
+        title: 'Page Visibility Control',
+        items: [
+          'src/lib/pages.ts — PAGE_CATALOG as single source of truth for all public pages (name, route, category, defaultStatus)',
+          'sitePages Convex table: route + status (active | planned | hidden); by_route index',
+          'convex/sitePages.ts — listStatuses (query), setStatus (mutation — upserts by route)',
+          '/admin/pages — status badge per route; contextual action buttons (only shows changes from current state)',
+          'SitePages.astro component updated to fetch overrides and merge with PAGE_CATALOG defaults',
+        ],
+      },
+      {
+        title: 'User & Billing Management',
+        items: [
+          '/admin/users — list all Convex users, role badge, role change form, remove action',
+          '/admin/billing — Stripe billing data via users.adminGetBillingData; subscriptions, payments, invoices',
+          'PostHog user_role_changed and user_removed events from /admin/users',
+        ],
+      },
+      {
+        title: 'Contacts Module',
+        items: [
+          'convex/contacts.ts — create (with admin email notification), list, listUnread, markRead, remove',
+          '/admin/contacts — card per submission; cyan border + dot for unread; Reply mailto link',
+          'Admin notification email scheduled on new contact if notifyOnContact + adminAlertEmail are set',
+          'New user registration notification wired in users.createOrUpdate (notifyOnNewUser flag)',
+        ],
+      },
+    ],
+  },
+  {
+    version: 'v0.0.1',
+    date: '2026',
+    label: 'Foundation',
+    labelColor: 'bg-emerald-100 text-emerald-700',
+    dotColor: 'bg-emerald-500',
+    sections: [
+      {
+        title: 'Project Setup',
+        items: [
+          'bun create astro@latest --template minimal — Bun as runtime and package manager throughout',
+          'GitHub repo created; development branch set as active branch; Vercel deployment with preview environments',
+          '.devnotes/ directory created for project strategy and handoff documentation',
+          'rm -rf .vscode — no editor config committed to the repository',
+        ],
+      },
+      {
+        title: 'TailwindCSS v4 & BaseLayout',
+        items: [
+          'TailwindCSS v4 installed via @tailwindcss/vite plugin — no config file required',
+          'src/styles/global.css with @import "tailwindcss"',
+          'src/layouts/BaseLayout.astro — title, description, OG tags, Twitter Card, JSON-LD schema slot, skip-to-content link',
+          'Named slots: head, header, footer; default slot inside <main id="main">',
+          'tsconfig.json path aliases: @pages/*, @layouts/*, @styles/* (new alias added for every new src/ subfolder)',
+          'Vite watch ignore for convex/_generated/ added to prevent HMR race condition during dev',
+        ],
+      },
+      {
+        title: 'Vercel & Analytics',
+        items: [
+          '@vercel/analytics installed; Analytics component added to BaseLayout just before </body>',
+          'Default import pattern required — named import resolves to undefined and throws at runtime',
+          'Vercel adapter configured in astro.config.mjs with output: server',
+        ],
+      },
+      {
+        title: 'Convex Database',
+        items: [
+          'Convex v1.39.1 installed and initialized; generates convex/_generated/ and .env.local',
+          'Initial schema: users, posts, testimonials, contacts, gallery tables with strict v validators',
+          'src/lib/convex.ts — singleton ConvexHttpClient (convex) for public reads; getAuthedConvex(token) for authed mutations',
+          '@lib/* and @convex/* path aliases added to tsconfig.json',
+          'convex/_generated/api.d.ts manually maintained when new modules are added',
+        ],
+      },
+      {
+        title: 'Clerk Authentication',
+        items: [
+          '@clerk/astro installed; SSR enabled; src/middleware.ts protects /admin/* and /dashboard/*',
+          'convex/auth.config.ts — Clerk JWT validation via CLERK_JWT_ISSUER_DOMAIN env var',
+          'getAuthedConvex(token) helper added to src/lib/convex.ts for per-request authenticated client',
+          '/sign-in, /sign-up pages using Clerk components; redirect to /dashboard if already signed in',
+          '/onboarding — POST handler upserts Convex user record from Clerk session data',
+          '/dashboard — requires auth + Convex user record; /admin requires role === "admin"',
+          'convex/users.ts — createOrUpdate (upsert by clerkId), getByClerkId (gate for admin/dashboard)',
+          'Role field stored in Convex (not Clerk); admin auth guard pattern established for all admin pages',
+        ],
+      },
+      {
+        title: 'Stripe & Resend',
+        items: [
+          '@convex-dev/stripe installed; convex/convex.config.ts registers the stripe component',
+          'convex/http.ts registers /stripe/webhook via registerRoutes()',
+          'convex/payments.ts — createSubscriptionCheckout, createPaymentCheckout, createPortalSession actions',
+          'Resend installed; convex/email.ts internalAction sendAdminAlert ("use node"); reads RESEND_API_KEY from env',
+          'Email fires silently (null return) if API key is missing — safe in all environments',
+        ],
+      },
+      {
+        title: 'PostHog Analytics',
+        items: [
+          'posthog-js and posthog-node installed',
+          'src/components/posthog.astro — client snippet using is:inline + define:vars (required to avoid TS errors)',
+          'PostHog component added to BaseLayout <head> — loads on every page automatically',
+          'src/lib/posthog-server.ts — singleton for server-side capture; flushAt: 1 for immediate SSR flush',
+          'onboarding_completed server event with posthog.identify(); 9 events instrumented across 7 files',
+        ],
+      },
+    ],
+  },
+];
+---
+
+<BaseLayout
+  title={`Changelog — ${appName}`}
+  description={`Release history and version notes for ${appName}.`}
+>
+  <Header slot="header" appName={appName} />
+
+  <!-- Hero -->
+  <section class="bg-slate-900 text-white py-16 md:py-20 relative overflow-hidden">
+    <div class="absolute inset-0 opacity-[0.04]" style="background-image: linear-gradient(#fff 1px, transparent 1px), linear-gradient(to right, #fff 1px, transparent 1px); background-size: 64px 64px;"></div>
+    <div class="relative max-w-3xl mx-auto px-6">
+      <p class="inline-flex items-center gap-2 text-xs font-semibold text-sky-400 uppercase tracking-widest mb-4" style="font-family: 'Inter', sans-serif;">
+        <span class="w-6 h-px bg-sky-400"></span>
+        Product
+      </p>
+      <h1 class="text-4xl md:text-5xl font-bold tracking-tight leading-tight mb-4" style="font-family: 'Lexend', sans-serif;">
+        Changelog
+      </h1>
+      <p class="text-slate-400 text-base leading-relaxed" style="font-family: 'Inter', sans-serif;">
+        A complete record of what's shipped in every release of the c4studio B.A.S. template.
+      </p>
+    </div>
+  </section>
+
+  <!-- Timeline -->
+  <section class="bg-white py-16 md:py-24">
+    <div class="max-w-3xl mx-auto px-6">
+      <div class="relative">
+        <!-- Vertical line -->
+        <div class="absolute left-3 top-2 bottom-0 w-px bg-slate-100"></div>
+
+        <div class="flex flex-col gap-16">
+          {releases.map((release) => (
+            <div class="relative pl-12">
+              <!-- Dot -->
+              <span class={`absolute left-0 top-1.5 w-7 h-7 rounded-full flex items-center justify-center ring-4 ring-white ${release.dotColor}`}>
+                <svg class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              </span>
+
+              <!-- Header -->
+              <div class="flex flex-wrap items-center gap-3 mb-6">
+                <h2 class="text-2xl font-bold text-slate-900" style="font-family: 'Lexend', sans-serif;">{release.version}</h2>
+                <span class={`text-xs font-semibold px-2.5 py-1 rounded-full ${release.labelColor}`} style="font-family: 'Inter', sans-serif;">
+                  {release.label}
+                </span>
+                <span class="text-sm text-slate-400 ml-auto" style="font-family: 'Inter', sans-serif;">{release.date}</span>
+              </div>
+
+              <!-- Sections -->
+              <div class="flex flex-col gap-8">
+                {release.sections.map((section) => (
+                  <div>
+                    <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3" style="font-family: 'Inter', sans-serif;">
+                      {section.title}
+                    </h3>
+                    <ul class="flex flex-col gap-2">
+                      {section.items.map((item) => (
+                        <li class="flex items-start gap-2.5 text-sm text-slate-600 leading-relaxed" style="font-family: 'Inter', sans-serif;">
+                          <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0"></span>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <Footer slot="footer" appName={appName} tagline={description} />
+</BaseLayout>

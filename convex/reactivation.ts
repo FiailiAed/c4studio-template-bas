@@ -200,6 +200,7 @@ export const createLog = internalMutation({
     channel: v.union(v.literal("email"), v.literal("sms")),
     status: v.union(v.literal("sent"), v.literal("failed"), v.literal("skipped")),
     errorMessage: v.optional(v.string()),
+    isTest: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     await ctx.db.insert("reactivationLogs", args);

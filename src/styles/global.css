@@ -4,3 +4,7 @@
   --font-display: 'Lexend', sans-serif;
   --font-body: 'Inter', sans-serif;
 }
+
+a, button {
+  cursor: pointer;
+}

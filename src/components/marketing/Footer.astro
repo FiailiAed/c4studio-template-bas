@@ -24,6 +24,11 @@ const allCompany = [
   { label: 'Contact', href: '/contact' },
 ];
 
+const allProduct = [
+  { label: 'Changelog', href: '/changelog' },
+  { label: 'Roadmap',   href: '/roadmap' },
+];
+
 const nav = {
   Company: allCompany.filter(({ href }) => isActive(href)),
   Services: servicesActive ? [
@@ -32,6 +37,7 @@ const nav = {
     { label: 'Development', href: '/services#development' },
     { label: 'Growth',      href: '/services#growth' },
   ] : [],
+  Product: allProduct.filter(({ href }) => isActive(href)),
   Legal: [
     { label: 'Privacy Policy', href: '/privacy' },
     { label: 'Terms of Use',   href: '/terms' },

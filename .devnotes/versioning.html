@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>c4studio B.A.S. — Versioning Policy</title>
+  <style>
+    :root {
+      --slate-900: #0f172a;
+      --slate-800: #1e293b;
+      --slate-700: #334155;
+      --slate-500: #64748b;
+      --slate-100: #f1f5f9;
+      --blue-600: #2563eb;
+      --blue-50: #eff6ff;
+      --emerald-600: #059669;
+      --emerald-50: #ecfdf5;
+      --amber-600: #d97706;
+      --amber-50: #fffbeb;
+      --red-600: #dc2626;
+      --red-50: #fef2f2;
+      --violet-600: #7c3aed;
+      --violet-50: #f5f3ff;
+      --border: #e2e8f0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.7;
+      color: var(--slate-800);
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 40px 24px;
+      background: #f8fafc;
+    }
+    header {
+      background: linear-gradient(135deg, var(--slate-900) 0%, #020617 100%);
+      color: #fff;
+      padding: 40px;
+      border-radius: 12px;
+      margin-bottom: 32px;
+    }
+    header h1 { margin: 0 0 8px; font-size: 2rem; font-weight: 800; letter-spacing: -0.04em; }
+    header p  { margin: 0; color: #94a3b8; font-size: 1rem; }
+    h2 {
+      font-size: 1.4rem;
+      color: var(--slate-900);
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 8px;
+      margin-top: 48px;
+      letter-spacing: -0.02em;
+    }
+    h3 { font-size: 1.1rem; color: var(--slate-800); margin-top: 28px; margin-bottom: 6px; }
+    p, li { font-size: 0.95rem; }
+    code {
+      background: var(--slate-100);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.875rem;
+      font-family: "SF Mono", "Fira Code", monospace;
+      color: var(--slate-900);
+    }
+    .rule-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      margin-top: 20px;
+    }
+    .rule {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: grid;
+      grid-template-columns: 40px 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+    .rule-num {
+      width: 32px; height: 32px;
+      background: var(--slate-900);
+      color: #fff;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .rule-body p { margin: 0 0 4px; font-weight: 600; color: var(--slate-900); }
+    .rule-body span { font-size: 0.875rem; color: var(--slate-500); }
+    .callout {
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin: 20px 0;
+      font-size: 0.9rem;
+    }
+    .callout.info    { background: var(--blue-50);    border-left: 4px solid var(--blue-600); }
+    .callout.success { background: var(--emerald-50); border-left: 4px solid var(--emerald-600); }
+    .callout.warn    { background: var(--amber-50);   border-left: 4px solid var(--amber-600); }
+    .callout.danger  { background: var(--red-50);     border-left: 4px solid var(--red-600); }
+    .callout.note    { background: var(--violet-50);  border-left: 4px solid var(--violet-600); }
+    .callout strong  { display: block; margin-bottom: 4px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      background: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      margin-top: 16px;
+    }
+    th {
+      background: var(--slate-100);
+      text-align: left;
+      padding: 10px 16px;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--slate-700);
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge-major   { background: #fee2e2; color: #991b1b; }
+    .badge-minor   { background: #dbeafe; color: #1e40af; }
+    .badge-patch   { background: #dcfce7; color: #166534; }
+    .badge-pre     { background: #fef3c7; color: #92400e; }
+    .example-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 8px 0;
+    }
+    .arrow { color: var(--slate-500); font-size: 1.1rem; }
+    .version-pill {
+      background: var(--slate-900);
+      color: #fff;
+      padding: 4px 14px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-weight: 600;
+    }
+    .section-note {
+      font-size: 0.8rem;
+      color: var(--slate-500);
+      margin-top: 8px;
+    }
+    ul { padding-left: 20px; }
+    li { margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Versioning Policy</h1>
+  <p>c4studio B.A.S. template — how we number releases and what each increment means</p>
+</header>
+
+<!-- ── 1. What is Semantic Versioning ─────────────────────────────────────── -->
+<h2>1. What is Semantic Versioning?</h2>
+
+<p>
+  This project follows <strong>Semantic Versioning 2.0.0</strong>
+  (<a href="https://semver.org/spec/v2.0.0.html">semver.org/spec/v2.0.0.html</a>).
+  Every release gets a three-part version number in the exact form <code>X.Y.Z</code>:
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Part</th>
+      <th>Name</th>
+      <th>Increment when…</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>X</code></td>
+      <td><strong>MAJOR</strong></td>
+      <td>You make a <strong>breaking, backwards-incompatible change</strong> to the public API or template contract. Client projects forked from a previous major version may need manual migration work.</td>
+    </tr>
+    <tr>
+      <td><code>Y</code></td>
+      <td><strong>MINOR</strong></td>
+      <td>You add <strong>new functionality in a backwards-compatible way</strong>. A client on v1.2.0 can safely upgrade to v1.5.0 without breaking anything.</td>
+    </tr>
+    <tr>
+      <td><code>Z</code></td>
+      <td><strong>PATCH</strong></td>
+      <td>You ship <strong>backwards-compatible bug fixes only</strong>. No new features, no breaking changes — purely corrective.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout info">
+  <strong>Format rules (non-negotiable)</strong>
+  <ul style="margin:0;padding-left:20px;">
+    <li>All three parts are required: <code>1.0</code> is invalid — <code>1.0.0</code> is correct.</li>
+    <li>No leading zeroes: <code>01.2.3</code>, <code>1.02.3</code>, <code>1.2.03</code> are all invalid.</li>
+    <li>No spaces: <code>v 1.2.3</code> is invalid — <code>v1.2.3</code> is correct.</li>
+    <li>The <code>v</code> prefix is a convention (not part of the spec) — use it consistently.</li>
+  </ul>
+</div>
+
+<!-- ── 2. The 11 Core Rules ───────────────────────────────────────────────── -->
+<h2>2. The 11 Core Rules (semver 2.0.0)</h2>
+
+<div class="rule-grid">
+
+  <div class="rule">
+    <div class="rule-num">1</div>
+    <div class="rule-body">
+      <p>Declare a public API.</p>
+      <span>Software using semver MUST declare a public API — in code, documentation, or both. This project's "API" is the template contract: file structure, path aliases, Convex schema conventions, admin auth guard pattern, and agent module pattern.</span>
+    </div>
+  </div>
+
+  <div class="rule">
+    <div class="rule-num">2</div>
+    <div class="rule-body">
+      <p>Version format is X.Y.Z with non-negative integers and no leading zeroes.</p>
+      <span>Each element MUST increase numerically. Example: <code>1.9.0 → 1.10.0 → 1.11.0</code> (not <code>1.9.0 → 1.9.1</code> if you added a feature).</span>
+    </div>
+  </div>
+
+  <div class="rule">
+    <div class="rule-num">3</div>
+    <div class="rule-body">
+      <p>Once released, a version is immutable.</p>
+      <span>You MUST NOT modify the contents of a released version. If something is wrong, release a new version. Retroactively editing what <code>v0.0.6</code> means breaks every project that pinned to it.</span>
+    </div>
+  </div>
+
+  <div class="rule">
+    <div class="rule-num">4</div>
+    <div class="rule-body">
+      <p>Major version zero (0.y.z) is for initial development.</p>
+      <span>Anything may change at any time during 0.x. The public API should not be considered stable. This is where B.A.S. lives until <code>v1.0.0</code>.</span>
+    </div>
+  </div>
+
+  <div class="rule">
+    <div class="rule-num">5</div>
+    <div class="rule-body">
+      <p>Version 1.0.0 defines the first stable public API.</p>
+      <span>For B.A.S., this is the <em>Production Ready</em> milestone — all blockers resolved, env var verification done, build signs off cleanly.</span>
+    </div>
+  </div>
+
+  <div class="rule">
+    <div class="rule-num">6</div>
+    <div class="rule-body">
+      <p>Patch version Z MUST be incremented for backwards-compatible bug fixes only.</p>
+      <span>A bug fix is an internal correction of incorrect behaviour. Example: fixing the design system color picker sync is a patch — it corrects broken behaviour without adding anything new.</span>
+    </div>
+  </div>
+
+  <div class="rule">
+    <div class="rule-num">7</div>
+    <div class="rule-body">
+      <p>Minor version Y MUST be incremented when new, backwards-compatible functionality is added.</p>
+      <span>When Y increments, Z resets to 0. Example: adding SMS delivery (<code>v1.1.0</code>) is additive — existing client projects are unaffected but gain the capability if they pull in the update.</span>
+    </div>
+  </div>
+
+  <div class="rule">
+    <div class="rule-num">8</div>
+    <div class="rule-body">
+      <p>Major version X MUST be incremented for any backwards-incompatible changes.</p>
+      <span>When X increments, both Y and Z reset to 0. Example: the multi-tenant architecture rewrite (<code>v2.0.0</code>) will require client projects to migrate.</span>
+    </div>
+  </div>
+
+  <div class="rule">
+    <div class="rule-num">9</div>
+    <div class="rule-body">
+      <p>Pre-release versions use a hyphen suffix.</p>
+      <span>Examples: <code>1.0.0-alpha</code>, <code>1.0.0-alpha.1</code>, <code>1.0.0-rc.1</code>. A pre-release version has lower precedence than the normal version: <code>1.0.0-rc.1 &lt; 1.0.0</code>.</span>
+    </div>
+  </div>
+
+  <div class="rule">
+    <div class="rule-num">10</div>
+    <div class="rule-body">
+      <p>Build metadata uses a plus-sign suffix.</p>
+      <span>Examples: <code>1.0.0+20240610</code>, <code>1.0.0-beta+exp.sha.5114f85</code>. Build metadata does NOT affect version precedence and is generally not used in this project.</span>
+    </div>
+  </div>
+
+  <div class="rule">
+    <div class="rule-num">11</div>
+    <div class="rule-body">
+      <p>Precedence is determined by comparing major, minor, patch numerically.</p>
+      <span>Pre-release identifiers are compared field by field left to right. Full chain: <code>1.0.0-alpha &lt; 1.0.0-alpha.1 &lt; 1.0.0-beta &lt; 1.0.0-rc.1 &lt; 1.0.0</code>.</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── 3. What counts as MAJOR / MINOR / PATCH for this project ───────────── -->
+<h2>3. What counts as MAJOR / MINOR / PATCH for B.A.S.</h2>
+
+<table>
+  <thead>
+    <tr><th>Change type</th><th>Increment</th><th>Examples</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Breaking changes to the template contract</td>
+      <td><span class="badge badge-major">MAJOR</span></td>
+      <td>Renaming path aliases, restructuring <code>convex/schema.ts</code> in a way that requires migration, changing the admin auth guard pattern, switching core stack technologies</td>
+    </tr>
+    <tr>
+      <td>New modules / new admin pages / new Convex tables</td>
+      <td><span class="badge badge-minor">MINOR</span></td>
+      <td>Adding SMS delivery, adding live agent chat, adding a new commerce module, adding new feature flags, new public pages</td>
+    </tr>
+    <tr>
+      <td>Bug fixes to existing functionality</td>
+      <td><span class="badge badge-patch">PATCH</span></td>
+      <td>Fixing the color picker sync bug, fixing a booking conflict check edge case, correcting a type error, fixing a broken redirect</td>
+    </tr>
+    <tr>
+      <td>Pre-release work in progress</td>
+      <td><span class="badge badge-pre">PRE-RELEASE</span></td>
+      <td><code>v1.0.0-rc.1</code> — a release candidate for production readiness; <code>v0.0.8-alpha</code> — early access to a planned patch</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ── 4. Version history ─────────────────────────────────────────────────── -->
+<h2>4. Version History</h2>
+
+<p>The canonical shipped version record is <code>/changelog</code> in the running app and <code>src/pages/changelog.astro</code> in the repo.</p>
+
+<table>
+  <thead>
+    <tr><th>Version</th><th>Title</th><th>Status</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>v0.0.1</code></td><td>Foundation</td><td>Shipped</td></tr>
+    <tr><td><code>v0.0.2</code></td><td>Admin Core</td><td>Shipped</td></tr>
+    <tr><td><code>v0.0.3</code></td><td>Content &amp; Public Pages</td><td>Shipped</td></tr>
+    <tr><td><code>v0.0.4</code></td><td>Commerce</td><td>Shipped</td></tr>
+    <tr><td><code>v0.0.5</code></td><td>AI Agents</td><td>Shipped</td></tr>
+    <tr><td><code>v0.0.6</code></td><td>Polish &amp; Infrastructure</td><td>Shipped — current</td></tr>
+    <tr><td><code>v0.0.7</code></td><td>Agent Settings UI</td><td>In Progress</td></tr>
+    <tr><td><code>v0.0.8</code></td><td>Admin Polish &amp; Feature Flags</td><td>Planned</td></tr>
+    <tr><td><code>v1.0.0</code></td><td>Production Ready</td><td>Planned</td></tr>
+    <tr><td><code>v1.1.0</code></td><td>SMS Delivery</td><td>Planned</td></tr>
+    <tr><td><code>v1.2.0</code></td><td>Live Agent Chat</td><td>Planned</td></tr>
+    <tr><td><code>v2.0.0</code></td><td>Platform Evolution</td><td>Future</td></tr>
+  </tbody>
+</table>
+
+<div class="callout note">
+  <strong>Rule 4 in practice</strong>
+  We are in 0.0.z — the public API is not yet stable. Anything may change between patch versions during this phase. Once <code>v1.0.0</code> ships, the stable API contract applies: breaking changes require a major bump, new features require a minor bump, and fixes are patches only.
+</div>
+
+<!-- ── 5. Reset rules ─────────────────────────────────────────────────────── -->
+<h2>5. Reset Rules</h2>
+
+<p>When you bump a higher-order version, lower-order versions reset to zero:</p>
+
+<div class="example-row">
+  <span class="version-pill">1.4.3</span>
+  <span class="arrow">+patch →</span>
+  <span class="version-pill">1.4.4</span>
+</div>
+<div class="example-row">
+  <span class="version-pill">1.4.3</span>
+  <span class="arrow">+minor →</span>
+  <span class="version-pill">1.5.0</span>
+  <em style="font-size:0.85rem;color:var(--slate-500)">(patch resets to 0)</em>
+</div>
+<div class="example-row">
+  <span class="version-pill">1.4.3</span>
+  <span class="arrow">+major →</span>
+  <span class="version-pill">2.0.0</span>
+  <em style="font-size:0.85rem;color:var(--slate-500)">(minor and patch reset to 0)</em>
+</div>
+
+<!-- ── 6. Pre-release identifiers ────────────────────────────────────────────── -->
+<h2>6. Pre-release Identifiers</h2>
+
+<p>Append a hyphen and dot-separated identifiers after the patch number:</p>
+
+<table>
+  <thead><tr><th>Identifier</th><th>Meaning</th><th>Example</th></tr></thead>
+  <tbody>
+    <tr><td><code>alpha</code></td><td>Early, unstable. Internal only. Breaking changes expected.</td><td><code>v1.0.0-alpha</code></td></tr>
+    <tr><td><code>beta</code></td><td>Feature-complete but not yet hardened. Limited external testing.</td><td><code>v1.0.0-beta.1</code></td></tr>
+    <tr><td><code>rc.N</code></td><td>Release candidate. Considered stable unless a showstopper is found.</td><td><code>v1.0.0-rc.1</code></td></tr>
+  </tbody>
+</table>
+
+<p>Precedence (lower → higher):</p>
+<div class="example-row">
+  <span class="version-pill">1.0.0-alpha</span>
+  <span class="arrow">&lt;</span>
+  <span class="version-pill">1.0.0-alpha.1</span>
+  <span class="arrow">&lt;</span>
+  <span class="version-pill">1.0.0-beta</span>
+  <span class="arrow">&lt;</span>
+  <span class="version-pill">1.0.0-rc.1</span>
+  <span class="arrow">&lt;</span>
+  <span class="version-pill">1.0.0</span>
+</div>
+
+<!-- ── 7. Common mistakes ─────────────────────────────────────────────────── -->
+<h2>7. Common Mistakes to Avoid</h2>
+
+<table>
+  <thead><tr><th>Wrong</th><th>Right</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td><code>v 1.2.3</code></td><td><code>v1.2.3</code></td><td>No space between <code>v</code> and the number</td></tr>
+    <tr><td><code>v1.0</code></td><td><code>v1.0.0</code></td><td>All three parts are required</td></tr>
+    <tr><td><code>v1.02.3</code></td><td><code>v1.2.3</code></td><td>No leading zeroes in any part</td></tr>
+    <tr><td><code>v01.2.3</code></td><td><code>v1.2.3</code></td><td>No leading zeroes in any part</td></tr>
+    <tr><td>Editing a released version</td><td>Release a new version</td><td>Released versions are immutable (Rule 3)</td></tr>
+    <tr><td>Bumping minor for a bug fix</td><td>Bump patch only</td><td>Communicates false information to clients</td></tr>
+    <tr><td>Bumping patch for a new feature</td><td>Bump minor</td><td>Same — misleads clients about what changed</td></tr>
+    <tr><td>Resetting to <code>x.0.1</code> after a major bump</td><td>Start at <code>x.0.0</code></td><td>The first release after a major bump is <code>.0.0</code></td></tr>
+  </tbody>
+</table>
+
+<!-- ── 8. Where versions appear in this repo ────────────────────────────────── -->
+<h2>8. Where Versions Appear in This Repo</h2>
+
+<ul>
+  <li><code>src/pages/changelog.astro</code> — authoritative shipped history; add a new entry for every release</li>
+  <li><code>src/pages/roadmap.astro</code> — planned and in-progress milestones; version strings must be valid semver</li>
+  <li><code>README.md</code> — canonical <code>[x]/[ ]</code> task checklist; update when tasks complete</li>
+  <li><code>CLAUDE.md</code> — architecture docs; update <em>Outstanding Work</em> section when milestones ship</li>
+  <li><code>.devnotes/project-setup.html</code> — human/agent handoff doc; must be updated on every change</li>
+</ul>
+
+<div class="callout warn">
+  <strong>Keep changelog and roadmap in sync</strong>
+  When a roadmap milestone ships, move it from the roadmap to the changelog with the same version number. Do not reuse or renumber versions — the changelog entry becomes the immutable record of what that version delivered.
+</div>
+
+<!-- ── 9. Reference ───────────────────────────────────────────────────────── -->
+<h2>9. Specification Reference</h2>
+
+<ul>
+  <li><a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning 2.0.0 (final)</a></li>
+  <li><a href="https://semver.org/spec/v2.0.0-rc.2.html">Semantic Versioning 2.0.0-rc.2</a></li>
+  <li><a href="https://semver.org/spec/v2.0.0-rc.1.html">Semantic Versioning 2.0.0-rc.1</a></li>
+</ul>
+
+</body>
+</html>

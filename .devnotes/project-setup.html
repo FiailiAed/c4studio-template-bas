@@ -310,6 +310,11 @@ Do not deviate from these technologies. Do not suggest alternatives.
                     <p class="executive-quote">export default defineConfig({ vite: { plugins: [tailwindcss()] } });</p>
                 </div>
                 <div class="executive-card cto">
+                    <div class="executive-title">astro.config.mjs — Vite watch ignore (required)</div>
+                    <p class="executive-quote">Add to vite config: server: { watch: { ignored: ['**/convex/_generated/**'] } }</p>
+                    <p class="executive-quote">WHY: bunx convex dev regenerates convex/_generated/ on every schema/function change. Without this, Vite detects those writes as source changes and triggers a full program reload — causing a race condition where astro:server-app.js virtual module is not yet registered, producing "Failed to load url astro:server-app.js" errors in the dev console.</p>
+                </div>
+                <div class="executive-card cto">
                     <div class="executive-title">src/styles/global.css</div>
                     <p class="executive-quote">@import "tailwindcss";</p>
                 </div>
@@ -881,6 +886,31 @@ Do not deviate from these technologies. Do not suggest alternatives.
             </div>
         </section>
 
+        <section id="changelog-roadmap">
+            <h2>Step 15b — Changelog &amp; Roadmap Pages</h2>
+            <p>Two static public utility pages documenting the template's release history and planned versions. Added to the Footer's <strong>Product</strong> nav column (not Header). Both are in <code>PAGE_CATALOG</code> with <code>defaultStatus: 'planned'</code> and call <code>enforcePageStatus</code>.</p>
+            <div class="executive-section">
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/changelog.astro</div>
+                    <p class="executive-quote">Timeline layout with a vertical left-side line and dot markers. Content is a hardcoded <code>releases</code> array at the top of frontmatter — add new entries there when shipping versions.</p>
+                    <p class="executive-quote">Each release has version, date, label, dot/label colors, and an array of sections (title + string[] items). Shipped versions run v0.0.1–v0.0.6; the first stable release will be v1.0.0.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/roadmap.astro</div>
+                    <p class="executive-quote">Card-per-version layout. Each card has a version tag, title, status badge, and a list of items with label + detail fields. Status options used: In Progress (amber), Planned (violet), Under Review (sky), Future (slate).</p>
+                    <p class="executive-quote">v1.1.0 — Twilio SMS delivery. v1.2.0 — Claude live agent chat. v2.0.0 — Multi-tenant platform, dynamic tokens UI, sitemap for dynamic routes, white-label design tokens.</p>
+                </div>
+                <div class="executive-card ceo">
+                    <div class="executive-title">Footer Product section</div>
+                    <p class="executive-quote">Footer.astro updated: added <code>allProduct</code> array with Changelog and Roadmap links. Added <code>Product</code> key to <code>nav</code> object, filtered by <code>isActive</code>. The Product column only renders when at least one link is active — consistent with the existing Company/Services pattern.</p>
+                </div>
+                <div class="executive-card ceo">
+                    <div class="executive-title">PAGE_CATALOG additions</div>
+                    <p class="executive-quote">Both /changelog and /roadmap added to <code>src/lib/pages.ts</code> under the Utility category with <code>defaultStatus: 'planned'</code>. Activate at /admin/pages to show them in the Footer.</p>
+                </div>
+            </div>
+        </section>
+
         <!-- ═══════════════════════════════════════════════════════════════
              STEP 16 — /about AND /services PUBLIC PAGES
         ═══════════════════════════════════════════════════════════════ -->
@@ -1386,6 +1416,101 @@ Do not deviate from these technologies. Do not suggest alternatives.
                 <div class="executive-card ceo">
                     <div class="executive-title">How to activate</div>
                     <p class="executive-quote">Go to <code>/admin/settings → Feature Flags</code>. Toggle <strong>Maintenance Mode</strong> on. All public pages immediately show the overlay. Admin portal remains fully accessible. Toggle off to restore the site.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             STEP 29 — CURRENT TEMPLATE STATE & HANDOFF SNAPSHOT
+        ═══════════════════════════════════════════════════════════════ -->
+        <section id="current-state">
+            <h2>Step 29 — Current Template State &amp; Handoff Snapshot</h2>
+            <p>Complete inventory of what exists in the template as of this commit. Use this section when starting a new context window to quickly orient without reading every prior step.</p>
+
+            <div class="executive-section">
+                <div class="executive-card ceo">
+                    <div class="executive-title">Stack summary</div>
+                    <p class="executive-quote">Bun + Astro (SSR) + Vercel adapter. Convex v1.39.1 backend. Clerk v3.3.2 auth. TailwindCSS v4 via Vite. Resend email. Stripe via @convex-dev/stripe. PostHog analytics. @astrojs/svelte for interactive islands. @astrojs/sitemap (activate via SITE_URL env var).</p>
+                    <p class="executive-quote">Frontend rule: TypeScript only. State lives in the DOM. Svelte only for complex multi-step islands (BookingWidget). No React.</p>
+                </div>
+
+                <div class="executive-card ceo">
+                    <div class="executive-title">All public pages (complete)</div>
+                    <p class="executive-quote">Marketing: /, /about, /services, /pricing, /reviews, /gallery, /contact</p>
+                    <p class="executive-quote">Content: /blog, /blog/[slug]</p>
+                    <p class="executive-quote">Commerce: /funnels, /funnels/[slug], /shops, /shops/[slug], /booking-links, /booking-links/[slug]</p>
+                    <p class="executive-quote">Auth/System: /sign-in, /sign-up, /onboarding, /privacy, /terms, /404</p>
+                    <p class="executive-quote">All catalog pages call enforcePageStatus(route, Astro) — planned → /404, hidden → renders but excluded from nav/sitemap, active → renders normally.</p>
+                </div>
+
+                <div class="executive-card ceo">
+                    <div class="executive-title">All admin pages (complete)</div>
+                    <p class="executive-quote">Management: /admin, /admin/settings, /admin/pages, /admin/users, /admin/billing</p>
+                    <p class="executive-quote">Content: /admin/contacts, /admin/testimonials, /admin/posts, /admin/gallery, /admin/pricing</p>
+                    <p class="executive-quote">Commerce: /admin/funnels, /admin/funnels/[id], /admin/shops, /admin/shops/[id], /admin/booking-links, /admin/booking-links/[id]</p>
+                    <p class="executive-quote">Communications: /admin/communications (index, compose, broadcast, history, templates/, templates/[id])</p>
+                    <p class="executive-quote">Agents: /admin/agents (hub), /admin/agents/[id] (generic prompt tool for 1/2/6/7), /admin/agents/3 (Reactivation), /admin/agents/4 (Reviews & Referrals), /admin/agents/5 (Lead Nurturing)</p>
+                </div>
+
+                <div class="executive-card cto">
+                    <div class="executive-title">Complete Convex schema (all tables)</div>
+                    <p class="executive-quote"><strong>Core:</strong> users (by_clerk_id, by_email, by_token_identifier), posts (by_slug, by_author, by_published), testimonials (by_featured, by_approved), contacts (by_read, by_email — with m2/m3/reacD2/reacD3 scheduled IDs), gallery (by_order, by_published), pricingTiers (by_published, by_order), sitePages (by_route), emailTemplates (by_name), emailLogs, appSettings</p>
+                    <p class="executive-quote"><strong>Commerce:</strong> funnels (by_slug, by_published), shops (by_slug, by_published), shopItems (by_shop, by_shop_and_published), bookingLinks (by_slug, by_published), bookings (by_booking_link, by_booking_link_and_date, by_email — with m4b/m4c/m5/r1 scheduled IDs)</p>
+                    <p class="executive-quote"><strong>AI Agents:</strong> nurturingMessages (by_message_key), nurturingLogs (by_message_key, by_contact_id), reactivationMessages (by_message_key), reactivationLogs (by_message_key, by_contact_id), reviewsMessages (by_message_key — has messageType: automated|template), reviewsLogs (by_message_key, by_booking_id)</p>
+                </div>
+
+                <div class="executive-card cto">
+                    <div class="executive-title">Convex modules inventory</div>
+                    <p class="executive-quote"><strong>Public queries/mutations:</strong> bookingLinks, bookings, contacts (getByEmail added), email, emailLogs, emailTemplates, funnels, gallery, http, nurturing, payments, posts, pricing, reactivation, reviews, settings, shopItems, shops, sitePages, testimonials, users</p>
+                    <p class="executive-quote"><strong>"use node" action-only files:</strong> nurturingActions, reactivationActions, reviewActions</p>
+                    <p class="executive-quote"><strong>Static data (src/lib/):</strong> agents.ts (AGENTS array — 7 agents with prompts + variables), convex.ts (convex + getAuthedConvex), pageStatus.ts (getPageStatus, getPageStatusMap, enforcePageStatus), pages.ts (PAGE_CATALOG)</p>
+                </div>
+
+                <div class="executive-card cto">
+                    <div class="executive-title">AI Agent sequences — current state</div>
+                    <p class="executive-quote"><strong>Agent 3 (Reactivation):</strong> D1/D2/D3/YES/NO. Manual trigger from /admin/agents/3. D1 fires immediately; D2 +24h; D3 +48h. Email fully wired. SMS stubbed. YES/NO handlers need Twilio inbound webhook.</p>
+                    <p class="executive-quote"><strong>Agent 4 (Reviews & Referrals):</strong> R1 auto-fires 2h after booking appointment via reviews.scheduleRatingRequest (internalMutation, called from bookings.create). R2/R3/R4 manual trigger by admin entering customer email. R5a–R5e are copy-paste Google review reply templates. Email wired. SMS stubbed.</p>
+                    <p class="executive-quote"><strong>Agent 5 (Lead Nurturing):</strong> M1 (+5min), M2 (+24h), M3 (+48h) scheduled from contacts.create. M4a (immediate), M4b (−24h from appointment), M4c (−2h), M5 (+60min) scheduled from bookings.create. Email wired. SMS stubbed.</p>
+                    <p class="executive-quote"><strong>Agents 1/2/6/7:</strong> Prompt assembly tools only. No live pipeline. Future v2: live Claude chat interface.</p>
+                    <p class="executive-quote"><strong>Variable resolution:</strong> All agent actions resolve variables from appSettings (appName, primaryService, defaultBookingLink, rafflePrize, raffleLink, feedbackFormLink, referralShareLink, referralIntroOffer, googleReviewUrl) and the contact/booking record at send time.</p>
+                </div>
+
+                <div class="executive-card cto">
+                    <div class="executive-title">Email wiring (Resend)</div>
+                    <p class="executive-quote">Contact confirmation: sendContactConfirmation (internalAction in email.ts) fires from contacts.create.</p>
+                    <p class="executive-quote">Booking confirmation: sendBookingConfirmation (internalAction in email.ts) fires from bookings.create.</p>
+                    <p class="executive-quote">Agent sequences: each *Actions.ts file handles its own Resend calls. All three share the same emailHtml() wrapper and substitute() helper pattern.</p>
+                </div>
+
+                <div class="executive-card cto">
+                    <div class="executive-title">Developer Task Board — /admin/dev</div>
+                    <p class="executive-quote">New admin section "Development" added to /admin/index.astro with links to Task Board, Roadmap, and Changelog.</p>
+                    <p class="executive-quote"><strong>src/lib/devTasks.ts</strong> — Canonical task registry. Exports TASKS array (80 tasks), getTaskById(), STATUS_META, PRIORITY_META, CATEGORY_LABELS. Types: TaskStatus, TaskPriority, TaskCategory, DevTask.</p>
+                    <p class="executive-quote"><strong>src/components/admin/DevTaskTable.astro</strong> — Reusable read-only table component. Props: tasks: DevTask[]. Renders id, title+notes preview, category badge, priority badge, target version, status badge. Each row links to /admin/dev/[id].</p>
+                    <p class="executive-quote"><strong>src/pages/admin/dev/index.astro</strong> — Task board with stats bar (Total, Complete, Blockers, Active, Overlooked, Tabled) and 6 filter tabs: Active (grouped by version), Blockers, Overlooked, Complete, Tabled & Future, All. Vanilla JS tab switching.</p>
+                    <p class="executive-quote"><strong>src/pages/admin/dev/[id].astro</strong> — Individual task detail. Shows title, status/priority/category badges, full notes, metadata table, and prev/next navigation. Redirects to /admin/dev if id is invalid.</p>
+                    <p class="executive-quote">All pages follow the standard admin auth guard pattern. Read-only — no Convex mutations, no forms. Task data lives entirely in src/lib/devTasks.ts.</p>
+                </div>
+
+                <div class="executive-card ceo">
+                    <div class="executive-title">Remaining work — v1.0.0 Production Ready checklist</div>
+                    <p class="executive-quote"><strong>1. Agent infrastructure settings UI (blocker):</strong> The 8 agent appSettings fields (primaryService, defaultBookingLink, rafflePrize, raffleLink, feedbackFormLink, referralShareLink, referralIntroOffer, googleReviewUrl) are defined in schema and settings.ts but have no form inputs in /admin/settings. Admin must set them via Convex dashboard until this is added. New "Agent Variables" section needed in settings page.</p>
+                    <p class="executive-quote"><strong>2. Design system color picker fix:</strong> Brand color pickers in /admin/settings → Design System do not persist correctly. Hex input → hidden field sync is broken. Fix so saved values round-trip and live swatch stays in sync.</p>
+                    <p class="executive-quote"><strong>3. Commerce feature flags:</strong> Add Funnels, Shops, Booking Links on/off flags matching the existing Blog flag pattern. When disabled: redirect public index + slug pages to /404; remove nav entries from Header + Footer. Wire toggles in /admin/settings → Feature Flags.</p>
+                    <p class="executive-quote"><strong>4. Registration-gated sign-in button:</strong> registrationEnabled flag exists but has no effect on the public Header. When enabled, surface a Sign In / Sign Up button so unauthenticated visitors can discover and reach the auth flow.</p>
+                    <p class="executive-quote"><strong>5. Agent email test mode:</strong> ✅ COMPLETE. Vertical stepper on the Test tab of each agent page (3, 4, 5). Admin picks a real contact or booking (for variable resolution), enters a test email address, then steps through each message in the sequence. Each step shows the resolved subject + body preview before sending, then fires a real Resend email to the test address. Results are logged with <code>isTest: true</code> in the existing log tables (reactivationLogs, reviewsLogs, nurturingLogs). On success the indicator turns green and the stepper auto-advances; on failure it shows retry. Agent 3: contact-based (D1–D3 + handlers). Agent 4: booking-based (R1–R4; R5 templates excluded). Agent 5: both selectors — contact for M1–M3, booking for M4a–M5. Schema change: isTest field added to all 3 log tables. New public Convex actions: testSendReactivation, testSendReview, testSendNurturing. API route: /api/agents/test-send (POST). Note: run bunx convex dev to regenerate api.d.ts after these schema + action changes.</p>
+                    <p class="executive-quote"><strong>6. OG image PNG:</strong> Replace /public/og-image.svg with a 1200×630 PNG. SVG is unsupported by Twitter/X, LinkedIn, iMessage — link previews will be blank without this.</p>
+                    <p class="executive-quote"><strong>7. Sitemap for static routes:</strong> @astrojs/sitemap is installed but not generating. Wire it to cover all static catalog routes. Dynamic slug routes (/blog/[slug] etc.) are excluded in SSR mode — deferred to v2.0.0.</p>
+                    <p class="executive-quote"><strong>8. Pre-launch env verification:</strong> CANCEL_SECRET must match in both Vercel + Convex. RESEND_FROM_EMAIL must be a verified Resend sender domain. Stripe webhook secret must be set for production endpoint. CLERK_JWT_ISSUER_DOMAIN must match live Clerk app.</p>
+                    <p class="executive-quote"><strong>9. Production build sign-off:</strong> bun build + bun preview with zero errors; bun astro check with no type errors; confirm enforcePageStatus() is present in every catalog page frontmatter; verify all admin auth guards follow the exact 5-line pattern from CLAUDE.md.</p>
+                    <p class="executive-quote"><strong>10. Native Raffle System (task #82 — P1):</strong> Own the full raffle funnel natively so entry data lives in Convex — enables agent sequencing, referral attribution, and winner audit trails (impossible with external links). Schema: <code>raffles</code> table (title, prize, drawDate, status: active|closed|drawn, description, campaignType: reactivation|referral|manual) and <code>raffleEntries</code> table (raffleId, contactId, entryMethod: email_click|sms_yes|referral|manual, entryWeight, createdAt). Tokenized entry endpoint <code>GET /api/raffle/enter?raffleId=X&contactId=Y&token=Z</code> reuses the HMAC pattern already in use for booking cancel + reactivation YES/NO. Clicking the link in an agent email creates an entry and redirects to <code>/raffle/entered</code> confirmation page. Referral path: prospect hits a shared link → if no contactId, create a new contact first (capturing first-party data), then log the entry. Admin CRUD at <code>/admin/raffles</code>: create/manage raffles, view entrant list with contact names + entry methods, close entries, pick winner (weighted random draw using entryWeight). <code>{{RAFFLE_LINK}}</code> in agent messages resolves to a tokenized per-contact URL generated at send time (not a static external string). Referral entries carry higher entryWeight (e.g. 5) for bonus chances. Winner selection mutation draws from active entries, records winnerId on the raffle, and prevents re-draw.</p>
+                </div>
+
+                <div class="executive-card ceo">
+                    <div class="executive-title">Post-v1.0.0 planned work</div>
+                    <p class="executive-quote"><strong>v1.1.0 — SMS delivery (Twilio):</strong> Email is wired. SMS stubs log as "skipped". Replace no-ops in nurturingActions.ts, reactivationActions.ts, reviewActions.ts with Twilio SDK calls once TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER are added to Convex env vars. Also needs inbound Twilio webhook in convex/http.ts for Agent 3 YES/NO and Agent 4 R2/R3 routing.</p>
+                    <p class="executive-quote"><strong>v1.2.0 — LLM connection for agents:</strong> Replace prompt assembly tool on each agent page with a live Claude API chat interface. Conversation persistence via new Convex table. Streaming responses. System context injection from assembled prompt + appSettings + contact/booking record.</p>
+                    <p class="executive-quote"><strong>v2.0.0 — Platform evolution:</strong> Multi-tenant architecture, anonymous shop checkout, white-label design tokens, sitemap for dynamic routes, Google reviews import (decision pending: Outscraper vs Google Business Profile API via Clerk OAuth).</p>
                 </div>
             </div>
         </section>

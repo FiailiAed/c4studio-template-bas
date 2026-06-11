@@ -1,0 +1,233 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import Header from '@marketing/Header.astro';
+import Footer from '@marketing/Footer.astro';
+import { convex } from '@lib/convex';
+import { api } from '@convex/api';
+import { enforcePageStatus } from '@lib/pageStatus';
+
+const redirect = await enforcePageStatus('/roadmap', Astro);
+if (redirect) return redirect;
+
+const settings = await convex.query(api.settings.get, {});
+const appName = settings?.appName ?? 'c4studio';
+const description = settings?.description ?? 'We help ambitious businesses design, build, and grow digital products that stand out.';
+
+const versions = [
+  {
+    version: 'v0.0.1',
+    title: 'Foundation',
+    status: 'Shipped',
+    statusColor: 'bg-emerald-100 text-emerald-700',
+    borderColor: 'border-emerald-200',
+    headerBg: 'bg-emerald-50',
+    items: [
+      { label: 'Core framework', detail: 'Astro 6 SSR + Vercel adapter, Bun runtime, TailwindCSS v4 — the non-negotiable stack locked in.' },
+      { label: 'Auth & database', detail: 'Clerk middleware protecting /admin/* and /dashboard/*; Convex backend with users table and role field; onboarding flow.' },
+      { label: 'Admin portal skeleton', detail: '14+ admin pages bootstrapped: settings, pages, users, billing, contacts, testimonials, posts, gallery, pricing, funnels, shops, booking-links, bookings, communications, agents.' },
+      { label: 'Path aliases & conventions', detail: 'All tsconfig aliases configured (@layouts, @components, @marketing, @lib, @pages, @styles, @convex). sitePages enforcement and feature flags wired.' },
+    ],
+  },
+  {
+    version: 'v0.0.4',
+    title: 'Content & Commerce',
+    status: 'Shipped',
+    statusColor: 'bg-emerald-100 text-emerald-700',
+    borderColor: 'border-emerald-200',
+    headerBg: 'bg-emerald-50',
+    items: [
+      { label: 'Full public page set', detail: 'All marketing, content, commerce, utility, and legal pages live: /, /about, /services, /pricing, /reviews, /blog, /blog/[slug], /gallery, /contact, /funnels/[slug], /shops/[slug], /booking-links/[slug], /privacy, /terms, /404.' },
+      { label: 'Commerce modules', detail: 'Funnels, Shops (Stripe checkout via @convex-dev/stripe), and Booking Links with Svelte island booking widget (4-step calendar → slots → form → confirmation).' },
+      { label: 'Stripe payments', detail: 'HTTP webhook in convex/http.ts, shop checkout API route, billing data joined from Convex users + Stripe via tokenIdentifier.' },
+      { label: 'Email & analytics', detail: 'Resend wired for transactional email; PostHog analytics with is:inline scripts; Vercel Speed Insights + Web Analytics.' },
+    ],
+  },
+  {
+    version: 'v0.0.6',
+    title: 'AI Agents',
+    status: 'Shipped',
+    statusColor: 'bg-emerald-100 text-emerald-700',
+    borderColor: 'border-emerald-200',
+    headerBg: 'bg-emerald-50',
+    items: [
+      { label: 'All 7 agent pages', detail: 'Agents 1, 2, 6, 7 as prompt assembly tools (/admin/agents/[id]); Agents 3, 4, 5 as dedicated pages with live pipelines.' },
+      { label: 'Live email pipelines', detail: 'Agent 3 (Reactivation), Agent 4 (Reviews & Referrals), Agent 5 (Lead Nurturing) — full email send sequences via Resend, internalAction pattern, message CRUD, history timeline.' },
+      { label: 'Variable substitution', detail: '{{VAR_KEY}} double-curly template syntax resolved from appSettings + contact/booking record at send time. [SYSTEM_OUTPUT] placeholders pass through untouched.' },
+      { label: 'Tokenized email action links', detail: 'HMAC-SHA256 signed one-click links for booking cancellation, reactivation YES/NO, and review ratings. API routes and confirmation landing pages wired.' },
+    ],
+  },
+  {
+    version: 'v0.0.7',
+    title: 'Agent Settings UI',
+    status: 'In Progress',
+    statusColor: 'bg-amber-100 text-amber-700',
+    borderColor: 'border-amber-200',
+    headerBg: 'bg-amber-50',
+    items: [
+      { label: '8 agent infrastructure fields', detail: 'primaryService, defaultBookingLink, rafflePrize, raffleLink, feedbackFormLink, referralShareLink, referralIntroOffer, googleReviewUrl — all defined in schema and settings.ts but missing form inputs in /admin/settings.' },
+      { label: 'Admin settings form section', detail: 'New "Agent Variables" section in /admin/settings with labeled text inputs for each field, wired to the existing settings.upsert mutation.' },
+      { label: 'Remove Convex dashboard dependency', detail: 'Once this UI is live, admins can configure all agent variables without touching the Convex dashboard directly.' },
+    ],
+  },
+  {
+    version: 'v0.0.8',
+    title: 'Admin Polish & Feature Flags',
+    status: 'Planned',
+    statusColor: 'bg-violet-100 text-violet-700',
+    borderColor: 'border-violet-200',
+    headerBg: 'bg-violet-50',
+    items: [
+      { label: 'Agent test mode (step-through debugger)', detail: 'New "Test" tab on agent pages 3, 4, and 5 — a vertical stepper that lets admins walk through each stage of a sequence interactively, previewing the resolved message and simulating sends without triggering real delivery. Designed for QA and onboarding without touching real contacts.' },
+      { label: 'Design system color picker fix', detail: 'The brand color pickers in /admin/settings → Design System currently do not propagate values correctly. Fix the color input → hidden field sync so saved hex values round-trip properly and the live swatch preview stays in sync.' },
+      { label: 'Extended feature flag coverage', detail: 'Add three new feature flags — Funnels, Shops, and Booking Links — mirroring the existing Blog flag pattern. Each flag, when disabled, redirects the public index and slug pages to /404 and drops the corresponding nav entry from the Header and Footer.' },
+      { label: 'Registration-gated sign-in button', detail: 'When the "User Registration" feature flag is enabled, surface a visible Sign In / Sign Up button in the public Header. Currently the toggle has no effect on the public-facing UI — this wires the flag to Header nav so unauthenticated visitors can discover and reach the auth flow.' },
+    ],
+  },
+  {
+    version: 'v1.0.0',
+    title: 'Production Ready',
+    status: 'Planned',
+    statusColor: 'bg-violet-100 text-violet-700',
+    borderColor: 'border-violet-200',
+    headerBg: 'bg-violet-50',
+    items: [
+      { label: 'Agent infrastructure settings UI', detail: 'Add form inputs in /admin/settings → Agent Variables for all 8 agent fields: primaryService, defaultBookingLink, rafflePrize, raffleLink, feedbackFormLink, referralShareLink, referralIntroOffer, googleReviewUrl. Until these exist, admins must set them directly in the Convex dashboard — a blocker for client handoff.' },
+      { label: 'Design system color picker fix', detail: 'The brand color pickers in /admin/settings → Design System do not persist correctly. Fix the hex input → hidden field sync so saved values round-trip and the live swatch preview stays in sync with stored data.' },
+      { label: 'Commerce feature flags', detail: 'Add Funnels, Shops, and Booking Links on/off flags matching the existing Blog flag pattern. When disabled, redirect all public index and slug pages to /404 and remove the corresponding nav entries from Header and Footer.' },
+      { label: 'Registration-gated sign-in button', detail: 'When the registrationEnabled flag is on, surface a visible Sign In / Sign Up button in the public Header. Currently the flag has no effect on the public-facing nav — unauthenticated visitors cannot discover the auth flow.' },
+      { label: 'Agent email test mode', detail: 'New "Test" tab on agent pages 3, 4, and 5 — a step-through debugger that resolves and previews each message in a sequence without triggering real Resend delivery. Required for QA and onboarding without touching real contacts or consuming email quota.' },
+      { label: 'OG image PNG', detail: 'Replace /public/og-image.svg with a properly rasterized 1200×630 PNG. SVG is not supported by most social platforms (Twitter/X, LinkedIn, iMessage) so link previews will be blank until this is swapped.' },
+      { label: 'Sitemap for static public routes', detail: '@astrojs/sitemap is installed; wire it to generate sitemap.xml covering all static catalog routes. Dynamic slug routes (/blog/[slug], /funnels/[slug], etc.) are excluded in SSR mode and will be addressed in v2.0.0.' },
+      { label: 'Pre-launch environment verification', detail: 'Confirm all required env vars are set in both Vercel (.env.local) and Convex dashboard. Specifically: CANCEL_SECRET must match across both; RESEND_FROM_EMAIL must be a verified sender domain in Resend; Stripe webhook secret must be set for the production endpoint; CLERK_JWT_ISSUER_DOMAIN must match the live Clerk app.' },
+      { label: 'Production build sign-off', detail: 'Run bun build + bun preview with zero errors; pass bun astro check with no type errors; confirm enforcePageStatus() is present in every catalog page frontmatter; verify all admin auth guards follow the exact pattern from CLAUDE.md.' },
+    ],
+  },
+  {
+    version: 'v1.1.0',
+    title: 'SMS Delivery',
+    status: 'Planned',
+    statusColor: 'bg-violet-100 text-violet-700',
+    borderColor: 'border-violet-200',
+    headerBg: 'bg-violet-50',
+    items: [
+      { label: 'Twilio outbound integration', detail: 'Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER to Convex env vars; replace SMS no-op stubs in reactivationActions.ts, reviewActions.ts, nurturingActions.ts.' },
+      { label: 'Inbound SMS webhook', detail: 'New endpoint in convex/http.ts to parse YES/NO replies (Agent 3) and star-rating responses (Agent 4) arriving via Twilio inbound SMS.' },
+      { label: 'Channel routing activation', detail: 'Per-message channel selector already built in admin UI — SMS path activates automatically once Twilio env vars are present.' },
+    ],
+  },
+  {
+    version: 'v1.2.0',
+    title: 'Live Agent Chat',
+    status: 'Planned',
+    statusColor: 'bg-violet-100 text-violet-700',
+    borderColor: 'border-violet-200',
+    headerBg: 'bg-violet-50',
+    items: [
+      { label: 'Claude API integration', detail: 'Connect the Claude Sonnet API to each agent page, replacing the static prompt assembly tool with a live chat interface.' },
+      { label: 'Conversation persistence', detail: 'Store message threads in a new Convex table per agent — retrieve history across sessions.' },
+      { label: 'Streaming responses', detail: 'Stream Claude responses token-by-token into the admin chat UI for a real-time feel.' },
+      { label: 'Context injection', detail: 'Auto-inject assembled prompt, current appSettings, and relevant contact/booking data as system context on each conversation.' },
+    ],
+  },
+  {
+    version: 'v2.0.0',
+    title: 'Platform Evolution',
+    status: 'Future',
+    statusColor: 'bg-slate-100 text-slate-600',
+    borderColor: 'border-slate-200',
+    headerBg: 'bg-slate-50',
+    items: [
+      { label: 'Multi-tenant architecture', detail: 'Single Convex deployment serving multiple client sites — shared agent logic, per-tenant data isolation.' },
+      { label: 'Anonymous shop checkout', detail: 'Allow guest purchases in /shops/[slug] without requiring Clerk sign-in, with optional post-purchase account creation.' },
+      { label: 'White-label design tokens', detail: 'Extend the design system settings to push brand colors and fonts into generated CSS variables at build time.' },
+      { label: 'Sitemap for dynamic routes', detail: 'Generate /blog/[slug], /funnels/[slug], /shops/[slug], /booking-links/[slug] sitemap entries in SSR mode.' },
+      { label: 'Google Reviews import', detail: 'Decision pending: Outscraper (paid bulk import, no OAuth) vs Google Business Profile API via Clerk OAuth. Bulk import UI in /admin/testimonials once resolved.' },
+    ],
+  },
+];
+---
+
+<BaseLayout
+  title={`Roadmap — ${appName}`}
+  description={`Upcoming versions and planned features for the ${appName} template.`}
+>
+  <Header slot="header" appName={appName} />
+
+  <!-- Hero -->
+  <section class="bg-slate-900 text-white py-16 md:py-20 relative overflow-hidden">
+    <div class="absolute inset-0 opacity-[0.04]" style="background-image: linear-gradient(#fff 1px, transparent 1px), linear-gradient(to right, #fff 1px, transparent 1px); background-size: 64px 64px;"></div>
+    <div class="relative max-w-4xl mx-auto px-6">
+      <p class="inline-flex items-center gap-2 text-xs font-semibold text-sky-400 uppercase tracking-widest mb-4" style="font-family: 'Inter', sans-serif;">
+        <span class="w-6 h-px bg-sky-400"></span>
+        Product
+      </p>
+      <h1 class="text-4xl md:text-5xl font-bold tracking-tight leading-tight mb-4" style="font-family: 'Lexend', sans-serif;">
+        Roadmap
+      </h1>
+      <p class="text-slate-400 text-base leading-relaxed max-w-xl" style="font-family: 'Inter', sans-serif;">
+        What's being built next for the c4studio B.A.S. template — and what's further out on the horizon.
+      </p>
+    </div>
+  </section>
+
+  <!-- Legend -->
+  <section class="bg-slate-50 border-b border-slate-100 py-4">
+    <div class="max-w-4xl mx-auto px-6">
+      <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
+        <span class="text-xs text-slate-500 font-medium" style="font-family: 'Inter', sans-serif;">Status key:</span>
+        {[
+          { label: 'Shipped',      color: 'bg-emerald-100 text-emerald-700' },
+          { label: 'In Progress',  color: 'bg-amber-100 text-amber-700' },
+          { label: 'Planned',      color: 'bg-violet-100 text-violet-700' },
+          { label: 'Future',       color: 'bg-slate-100 text-slate-600' },
+        ].map(({ label, color }) => (
+          <span class={`text-xs font-semibold px-2.5 py-1 rounded-full ${color}`} style="font-family: 'Inter', sans-serif;">{label}</span>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Version cards -->
+  <section class="bg-white py-16 md:py-24">
+    <div class="max-w-4xl mx-auto px-6">
+      <div class="flex flex-col gap-10">
+        {versions.map((v) => (
+          <div class={`rounded-2xl border ${v.borderColor} overflow-hidden`}>
+            <!-- Card header -->
+            <div class={`${v.headerBg} px-6 py-5 flex flex-wrap items-center gap-3 border-b ${v.borderColor}`}>
+              <span class="text-xs font-mono font-bold text-slate-500 bg-white border border-slate-200 rounded-md px-2 py-0.5" style="font-family: 'Inter', sans-serif;">
+                {v.version}
+              </span>
+              <h2 class="text-lg font-bold text-slate-900 flex-1" style="font-family: 'Lexend', sans-serif;">{v.title}</h2>
+              <span class={`text-xs font-semibold px-2.5 py-1 rounded-full ${v.statusColor}`} style="font-family: 'Inter', sans-serif;">
+                {v.status}
+              </span>
+            </div>
+
+            <!-- Items -->
+            <ul class="divide-y divide-slate-50">
+              {v.items.map((item) => (
+                <li class="px-6 py-4 flex items-start gap-4">
+                  <span class="mt-1 w-2 h-2 rounded-full bg-slate-300 shrink-0"></span>
+                  <div>
+                    <p class="text-sm font-semibold text-slate-800 mb-0.5" style="font-family: 'Inter', sans-serif;">{item.label}</p>
+                    <p class="text-sm text-slate-500 leading-relaxed" style="font-family: 'Inter', sans-serif;">{item.detail}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      <!-- Disclaimer -->
+      <div class="mt-12 pt-8 border-t border-slate-100">
+        <p class="text-xs text-slate-400 leading-relaxed" style="font-family: 'Inter', sans-serif;">
+          This roadmap reflects current intentions and is subject to change. Scope, timing, and priorities may shift as the project evolves.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <Footer slot="footer" appName={appName} tagline={description} />
+</BaseLayout>

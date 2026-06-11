@@ -1,9 +1,10 @@
 "use node";
 
-import { internalAction } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Resend } from "resend";
+import { createHmac } from "crypto";
 
 function substitute(template: string, vars: Record<string, string>): string {
   return Object.entries(vars).reduce(
@@ -12,7 +13,7 @@ function substitute(template: string, vars: Record<string, string>): string {
   );
 }
 
-function emailHtml(bodyText: string, appName: string): string {
+function emailHtml(bodyText: string, appName: string, extraHtml = ""): string {
   const paragraphs = bodyText
     .split("\n")
     .map((line) =>
@@ -26,11 +27,25 @@ function emailHtml(bodyText: string, appName: string): string {
   <div style="background:#0f172a;padding:20px 28px;">
     <span style="color:#fff;font-family:-apple-system,'Segoe UI',sans-serif;font-size:15px;font-weight:600;">${appName}</span>
   </div>
-  <div style="padding:28px;">${paragraphs}</div>
+  <div style="padding:28px;">${paragraphs}${extraHtml}</div>
   <div style="padding:16px 28px;border-top:1px solid #e5e7eb;background:#f9fafb;">
     <p style="margin:0;color:#9ca3af;font-size:12px;font-family:-apple-system,sans-serif;">${appName}</p>
   </div>
 </div></body></html>`;
+}
+
+function ratingButtonsHtml(bookingId: string, siteUrl: string): string {
+  const secret = process.env.CANCEL_SECRET ?? "dev-secret";
+  const base = `${siteUrl}/api/reviews/rate`;
+  const buttons = [1, 2, 3, 4, 5].map((n) => {
+    const tok = createHmac("sha256", secret).update(`rev:${bookingId}:${n}`).digest("hex");
+    return `<a href="${base}?bookingId=${bookingId}&token=${tok}&rating=${n}" style="display:inline-block;background:#0f172a;color:#fff;width:46px;height:46px;border-radius:8px;text-decoration:none;font-family:-apple-system,sans-serif;font-size:18px;line-height:46px;text-align:center;margin:0 4px;">${n}</a>`;
+  }).join("");
+  return `
+<div style="margin:24px 0;text-align:center;">
+  <p style="color:#374151;font-family:-apple-system,sans-serif;font-size:14px;margin:0 0 12px;">Tap your rating (1 = poor, 5 = excellent):</p>
+  <div>${buttons}</div>
+</div>`;
 }
 
 async function doSendEmail(
@@ -51,6 +66,76 @@ function fmt12h(timeStr: string): string {
   const h12 = h % 12 || 12;
   return `${h12}:${String(m).padStart(2, "0")} ${period}`;
 }
+
+export const testSendReview = action({
+  args: {
+    bookingId: v.id("bookings"),
+    messageKey: v.string(),
+    testEmail: v.string(),
+  },
+  handler: async (ctx, { bookingId, messageKey, testEmail }): Promise<{ ok: boolean; subject: string; error?: string }> => {
+    const [booking, msg, settings] = await Promise.all([
+      ctx.runQuery(internal.nurturing.getBookingById, { bookingId }),
+      ctx.runQuery(internal.reviews.getMessageByKey, { messageKey }),
+      ctx.runQuery(internal.nurturing.getSettingsInternal, {}),
+    ]);
+
+    if (!booking) return { ok: false, subject: "", error: "Booking not found" };
+    if (!msg) return { ok: false, subject: "", error: "Message not configured" };
+
+    const link = await ctx.runQuery(internal.nurturing.getBookingLinkById, {
+      bookingLinkId: booking.bookingLinkId,
+    });
+
+    const firstName = booking.name.split(" ")[0] || booking.name;
+    const vars: Record<string, string> = {
+      FIRST_NAME: firstName,
+      CUSTOMER_FIRST_NAME: firstName,
+      SERVICE: link?.name || "your session",
+      BUSINESS_NAME: settings?.appName || "c4studio",
+      APPOINTMENT_TIME: fmt12h(booking.startTime),
+      RAFFLE_PRIZE: settings?.rafflePrize || "[RAFFLE_PRIZE]",
+      GOOGLE_REVIEW_LINK: settings?.googleReviewUrl || "[GOOGLE_REVIEW_LINK]",
+      FEEDBACK_FORM_LINK: settings?.feedbackFormLink || "[FEEDBACK_FORM_LINK]",
+      REFERRAL_SHARE_LINK: settings?.referralShareLink || "[REFERRAL_SHARE_LINK]",
+      REFERRAL_INTRO_OFFER: settings?.referralIntroOffer || "[REFERRAL_INTRO_OFFER]",
+    };
+
+    const subject = substitute(msg.emailSubject, vars);
+    const logBase = {
+      messageKey,
+      bookingId,
+      recipientName: booking.name,
+      recipientEmail: testEmail,
+      recipientPhone: booking.phone,
+      isTest: true as const,
+    };
+
+    if (msg.channel === "email" || msg.channel === "both") {
+      const result = await doSendEmail(
+        testEmail,
+        subject,
+        emailHtml(substitute(msg.emailBody, vars), vars.BUSINESS_NAME),
+        substitute(msg.emailBody, vars)
+      );
+      await ctx.runMutation(internal.reviews.createLog, {
+        ...logBase,
+        channel: "email" as const,
+        status: (result.ok ? "sent" : "failed") as "sent" | "failed",
+        errorMessage: result.error,
+      });
+      return { ok: result.ok, subject, error: result.error };
+    }
+
+    await ctx.runMutation(internal.reviews.createLog, {
+      ...logBase,
+      channel: "sms" as const,
+      status: "skipped" as const,
+      errorMessage: "SMS not configured — Twilio integration pending",
+    });
+    return { ok: false, subject, error: "SMS not configured — Twilio integration pending" };
+  },
+});
 
 export const sendReviewsMessage = internalAction({
   args: {
@@ -103,10 +188,15 @@ export const sendReviewsMessage = internalAction({
     };
 
     if (msg.channel === "email" || msg.channel === "both") {
+      const siteUrl = settings?.siteUrl ?? "";
+      const extraHtml =
+        messageKey === "r1" && siteUrl
+          ? ratingButtonsHtml(bookingId, siteUrl)
+          : "";
       const result = await doSendEmail(
         booking.email,
         substitute(msg.emailSubject, vars),
-        emailHtml(substitute(msg.emailBody, vars), vars.BUSINESS_NAME),
+        emailHtml(substitute(msg.emailBody, vars), vars.BUSINESS_NAME, extraHtml),
         substitute(msg.emailBody, vars)
       );
       await ctx.runMutation(internal.reviews.createLog, {
