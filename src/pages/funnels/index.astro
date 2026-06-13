@@ -11,6 +11,8 @@ const redirect = await enforcePageStatus('/funnels', Astro);
 if (redirect) return redirect;
 
 const settings = await convex.query(api.settings.get, {});
+if (settings?.funnelsEnabled === false) return Astro.redirect('/404');
+
 const appName = settings?.appName ?? 'c4studio';
 const description = settings?.description ?? 'We help ambitious businesses design, build, and grow digital products that stand out.';
 

@@ -59,6 +59,8 @@ export default defineSchema({
     // Agent 3 (Reactivation) scheduled IDs
     reacD2ScheduledId: v.optional(v.string()),
     reacD3ScheduledId: v.optional(v.string()),
+    // Opt-out / unsubscribe flag — set via /api/unsubscribe tokenized link
+    optedOut: v.optional(v.boolean()),
   })
     .index("by_read", ["read"])
     .index("by_email", ["email"]),
@@ -209,6 +211,9 @@ export default defineSchema({
     maintenanceMode: v.optional(v.boolean()),
     registrationEnabled: v.optional(v.boolean()),
     blogEnabled: v.optional(v.boolean()),
+    funnelsEnabled: v.optional(v.boolean()),
+    shopsEnabled: v.optional(v.boolean()),
+    bookingLinksEnabled: v.optional(v.boolean()),
     // Notifications
     adminAlertEmail: v.optional(v.string()),
     notifyOnContact: v.optional(v.boolean()),

@@ -4,6 +4,7 @@ import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Resend } from "resend";
+import crypto from "node:crypto";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -14,7 +15,20 @@ function substitute(template: string, vars: Record<string, string>): string {
   );
 }
 
-function emailHtml(bodyText: string, appName: string): string {
+function signUnsubToken(contactId: string, secret: string): string {
+  return crypto.createHmac("sha256", secret).update(`unsub:${contactId}`).digest("hex");
+}
+
+function unsubFooterHtml(contactId: string | null): string {
+  const siteUrl = process.env.CONVEX_SITE_URL;
+  if (!siteUrl || !contactId) return "";
+  const secret = process.env.CANCEL_SECRET ?? "dev-secret";
+  const token = signUnsubToken(contactId, secret);
+  const unsubUrl = `${siteUrl}/api/unsubscribe?contactId=${contactId}&token=${token}`;
+  return `<div style="margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0;text-align:center;font-family:sans-serif;font-size:12px;color:#94a3b8;"><a href="${unsubUrl}" style="color:#94a3b8;text-decoration:underline;">Unsubscribe</a> from these emails.</div>`;
+}
+
+function emailHtml(bodyText: string, appName: string, extraHtml = ""): string {
   const paragraphs = bodyText
     .split("\n")
     .map((line) =>
@@ -29,7 +43,7 @@ function emailHtml(bodyText: string, appName: string): string {
   <div style="background:#0f172a;padding:20px 28px;">
     <span style="color:#fff;font-family:-apple-system,'Segoe UI',sans-serif;font-size:15px;font-weight:600;">${appName}</span>
   </div>
-  <div style="padding:28px;">${paragraphs}</div>
+  <div style="padding:28px;">${paragraphs}${extraHtml}</div>
   <div style="padding:16px 28px;border-top:1px solid #e5e7eb;background:#f9fafb;">
     <p style="margin:0;color:#9ca3af;font-size:12px;font-family:-apple-system,sans-serif;">${appName}</p>
   </div>
@@ -184,6 +198,17 @@ export const sendContactNurturing = internalAction({
       recipientPhone: contact.phone,
     };
 
+    // Opt-out check — skip if contact has unsubscribed
+    if (contact.optedOut) {
+      await ctx.runMutation(internal.nurturing.createLog, {
+        ...logBase,
+        channel: "email" as const,
+        status: "skipped" as const,
+        errorMessage: "opted_out",
+      });
+      return;
+    }
+
     if (!msg || !msg.enabled) {
       await ctx.runMutation(internal.nurturing.createLog, {
         ...logBase,
@@ -203,10 +228,11 @@ export const sendContactNurturing = internalAction({
     };
 
     if (msg.channel === "email" || msg.channel === "both") {
+      const footer = unsubFooterHtml(contactId);
       const result = await doSendEmail(
         contact.email,
         substitute(msg.emailSubject, vars),
-        emailHtml(substitute(msg.emailBody, vars), vars.BUSINESS_NAME),
+        emailHtml(substitute(msg.emailBody, vars), vars.BUSINESS_NAME, footer),
         substitute(msg.emailBody, vars)
       );
       await ctx.runMutation(internal.nurturing.createLog, {
@@ -255,6 +281,22 @@ export const sendBookingNurturing = internalAction({
       recipientPhone: booking.phone,
     };
 
+    // Look up contact record by email for opt-out check and unsubscribe link
+    const contactByEmail = await ctx.runQuery(internal.nurturing.getContactByEmail, {
+      email: booking.email,
+    });
+
+    // Opt-out check — skip if matching contact has unsubscribed
+    if (contactByEmail?.optedOut) {
+      await ctx.runMutation(internal.nurturing.createLog, {
+        ...logBase,
+        channel: "email" as const,
+        status: "skipped" as const,
+        errorMessage: "opted_out",
+      });
+      return;
+    }
+
     // M5 no-show: skip if booking was cancelled
     if (messageKey === "m5" && booking.status === "cancelled") {
       await ctx.runMutation(internal.nurturing.createLog, {
@@ -293,10 +335,11 @@ export const sendBookingNurturing = internalAction({
     };
 
     if (msg.channel === "email" || msg.channel === "both") {
+      const footer = unsubFooterHtml(contactByEmail?._id ?? null);
       const result = await doSendEmail(
         booking.email,
         substitute(msg.emailSubject, vars),
-        emailHtml(substitute(msg.emailBody, vars), vars.BUSINESS_NAME),
+        emailHtml(substitute(msg.emailBody, vars), vars.BUSINESS_NAME, footer),
         substitute(msg.emailBody, vars)
       );
       await ctx.runMutation(internal.nurturing.createLog, {

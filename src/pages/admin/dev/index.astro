@@ -2,8 +2,7 @@
 import BaseLayout from '@layouts/BaseLayout.astro';
 import { getAuthedConvex } from '@lib/convex';
 import { api } from '@convex/api';
-import { TASKS } from '@lib/devTasks';
-import DevTaskTable from '@components/admin/DevTaskTable.astro';
+import { TASKS, STATUS_META, PRIORITY_META, CATEGORY_LABELS } from '@lib/devTasks';
 
 const { userId } = Astro.locals.auth();
 if (!userId) return Astro.redirect('/sign-in');
@@ -22,14 +21,10 @@ const overlooked = TASKS.filter(t => t.status === 'overlooked').length;
 const tabled     = TASKS.filter(t => t.status === 'tabled').length;
 const future     = TASKS.filter(t => t.status === 'future').length;
 
-// ── Active tasks grouped by target version ─────────────────────────────────
-const VERSION_ORDER = ['v0.0.4', 'v0.0.5', 'v1.0', 'v1.1', 'v1.2', 'v2.0', 'Unversioned'];
-const byVersion: Record<string, typeof TASKS> = {};
-for (const t of TASKS.filter(t => ['in-progress', 'planned'].includes(t.status))) {
-  const key = t.version ?? 'Unversioned';
-  (byVersion[key] ??= []).push(t);
-}
-const activeVersions = VERSION_ORDER.filter(v => (byVersion[v]?.length ?? 0) > 0);
+// ── Client data ────────────────────────────────────────────────────────────
+const taskData = TASKS;
+const metaData = { statusMeta: STATUS_META, priorityMeta: PRIORITY_META, categoryLabels: CATEGORY_LABELS };
+const versionOrder = ['v0.0.4', 'v0.0.5', 'v1.0', 'v1.1', 'v1.2', 'v2.0'];
 ---
 
 <BaseLayout title="Developer Task Board — Admin">
@@ -59,6 +54,29 @@ const activeVersions = VERSION_ORDER.filter(v => (byVersion[v]?.length ?? 0) > 0
         </p>
       </div>
 
+      <!-- Search bar -->
+      <div class="relative mb-6">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+        </svg>
+        <input
+          id="task-search"
+          type="text"
+          placeholder="Search by title, notes, category, or ID…"
+          class="w-full pl-9 pr-24 py-2.5 text-sm rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 transition"
+          style="font-family: 'Inter', sans-serif;"
+          autocomplete="off"
+        />
+        <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+          <span id="search-badge" class="hidden text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full" style="font-family: 'Inter', sans-serif;"></span>
+          <button id="search-clear" class="hidden text-slate-400 hover:text-slate-600 transition p-0.5" title="Clear search" aria-label="Clear search">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
       <!-- Stats bar -->
       <div class="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
         {([
@@ -80,12 +98,12 @@ const activeVersions = VERSION_ORDER.filter(v => (byVersion[v]?.length ?? 0) > 0
       <div class="border-b border-slate-200 mb-8">
         <nav class="flex gap-0 overflow-x-auto -mb-px" id="tab-nav">
           {([
-            { id: 'active',     label: 'Active',          count: active },
-            { id: 'blockers',   label: 'Blockers',         count: blockers },
-            { id: 'overlooked', label: 'Overlooked',       count: overlooked },
-            { id: 'complete',   label: 'Complete',         count: complete },
-            { id: 'tabled',     label: 'Tabled & Future',  count: tabled + future },
-            { id: 'all',        label: 'All',              count: total },
+            { id: 'active',     label: 'Active',         count: active },
+            { id: 'blockers',   label: 'Blockers',        count: blockers },
+            { id: 'overlooked', label: 'Overlooked',      count: overlooked },
+            { id: 'complete',   label: 'Complete',        count: complete },
+            { id: 'tabled',     label: 'Tabled & Future', count: tabled + future },
+            { id: 'all',        label: 'All',             count: total },
           ] as const).map(({ id, label, count }, i) => (
             <button
               data-tab={id}
@@ -99,88 +117,312 @@ const activeVersions = VERSION_ORDER.filter(v => (byVersion[v]?.length ?? 0) > 0
         </nav>
       </div>
 
-      <!-- ── TAB: Active (grouped by version) ──────────────────────────── -->
+      <!-- ── TAB: Active ─────────────────────────────────────────────────── -->
       <div id="tab-active" class="tab-panel">
-        {activeVersions.length === 0 ? (
-          <p class="text-sm text-slate-400 text-center py-12" style="font-family: 'Inter', sans-serif;">No active tasks.</p>
-        ) : (
-          activeVersions.map(ver => (
-            <div class="mb-10">
-              <div class="flex items-center gap-3 mb-3">
-                <span class="text-xs font-mono font-bold text-slate-500 bg-white border border-slate-200 rounded-md px-2.5 py-1">{ver}</span>
-                <span class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">{byVersion[ver].length} task{byVersion[ver].length !== 1 ? 's' : ''}</span>
-              </div>
-              <DevTaskTable tasks={byVersion[ver]} />
-            </div>
-          ))
-        )}
+        <div id="render-active"></div>
       </div>
 
-      <!-- ── TAB: Blockers ─────────────────────────────────────────────── -->
+      <!-- ── TAB: Blockers ─────────────────────────────────────────────────── -->
       <div id="tab-blockers" class="tab-panel hidden">
         <div class="mb-5 p-4 bg-red-50 border border-red-200 rounded-xl" style="font-family: 'Inter', sans-serif;">
           <p class="text-sm text-red-700">
             <strong>P0 tasks block production deployment.</strong> These must be resolved before any client handoff.
           </p>
         </div>
-        <DevTaskTable tasks={TASKS.filter(t => t.priority === 'P0' && t.status !== 'complete')} />
+        <div id="render-blockers"></div>
       </div>
 
-      <!-- ── TAB: Overlooked ───────────────────────────────────────────── -->
+      <!-- ── TAB: Overlooked ───────────────────────────────────────────────── -->
       <div id="tab-overlooked" class="tab-panel hidden">
         <div class="mb-5 p-4 bg-rose-50 border border-rose-200 rounded-xl" style="font-family: 'Inter', sans-serif;">
           <p class="text-sm text-rose-700">
             <strong>Not formally captured in the roadmap or README.</strong> These gaps were identified by reviewing the codebase and architecture. Each should be triaged — promoted to Planned, Tabled, or dismissed.
           </p>
         </div>
-        <DevTaskTable tasks={TASKS.filter(t => t.status === 'overlooked')} />
+        <div id="render-overlooked"></div>
       </div>
 
-      <!-- ── TAB: Complete ─────────────────────────────────────────────── -->
+      <!-- ── TAB: Complete ─────────────────────────────────────────────────── -->
       <div id="tab-complete" class="tab-panel hidden">
-        <DevTaskTable tasks={TASKS.filter(t => t.status === 'complete')} />
+        <div id="render-complete"></div>
       </div>
 
-      <!-- ── TAB: Tabled & Future ──────────────────────────────────────── -->
+      <!-- ── TAB: Tabled & Future ──────────────────────────────────────────── -->
       <div id="tab-tabled" class="tab-panel hidden">
-        <div class="mb-3">
-          <h3 class="text-sm font-semibold text-slate-700 mb-3" style="font-family: 'Inter', sans-serif;">Tabled — Decision Pending</h3>
-          <DevTaskTable tasks={TASKS.filter(t => t.status === 'tabled')} />
-        </div>
-        <div class="mt-8">
-          <h3 class="text-sm font-semibold text-slate-700 mb-3" style="font-family: 'Inter', sans-serif;">Future — v2.0+</h3>
-          <DevTaskTable tasks={TASKS.filter(t => t.status === 'future')} />
-        </div>
+        <div id="render-tabled"></div>
       </div>
 
-      <!-- ── TAB: All ──────────────────────────────────────────────────── -->
+      <!-- ── TAB: All ──────────────────────────────────────────────────────── -->
       <div id="tab-all" class="tab-panel hidden">
-        <DevTaskTable tasks={TASKS} />
+        <div id="render-all"></div>
       </div>
 
     </main>
   </div>
 </BaseLayout>
 
-<script is:inline>
-  const tabs = document.querySelectorAll('.tab-btn');
-  const panels = document.querySelectorAll('.tab-panel');
+<script is:inline define:vars={{ taskData, metaData, versionOrder }}>
 
-  tabs.forEach(btn => {
+  // ── Constants ────────────────────────────────────────────────────────────
+  const TASKS        = taskData;
+  const META         = metaData;
+  const VERSION_ORDER = [...versionOrder, 'Unversioned'];
+  const PRIORITY_ORDER = { P0: 0, P1: 1, P2: 2, P3: 3, none: 4 };
+  const STATUS_ORDER   = { 'in-progress': 0, planned: 1, overlooked: 2, complete: 3, tabled: 4, future: 5 };
+
+  // ── State ────────────────────────────────────────────────────────────────
+  let search  = '';
+  let sortCol = 'id';
+  let sortDir = 'asc';
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+  function esc(str) {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function matchesSearch(task) {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      task.title.toLowerCase().includes(q) ||
+      task.notes.toLowerCase().includes(q) ||
+      (META.categoryLabels[task.category] || '').toLowerCase().includes(q) ||
+      String(task.id) === q
+    );
+  }
+
+  function sorted(arr) {
+    return [...arr].sort((a, b) => {
+      let av, bv;
+      switch (sortCol) {
+        case 'id':
+          av = a.id; bv = b.id; break;
+        case 'title':
+          av = a.title.toLowerCase(); bv = b.title.toLowerCase(); break;
+        case 'category':
+          av = (META.categoryLabels[a.category] || a.category).toLowerCase();
+          bv = (META.categoryLabels[b.category] || b.category).toLowerCase();
+          break;
+        case 'priority':
+          av = PRIORITY_ORDER[a.priority] ?? 4;
+          bv = PRIORITY_ORDER[b.priority] ?? 4;
+          break;
+        case 'version': {
+          const ia = VERSION_ORDER.indexOf(a.version ?? 'Unversioned');
+          const ib = VERSION_ORDER.indexOf(b.version ?? 'Unversioned');
+          av = ia === -1 ? 997 : ia;
+          bv = ib === -1 ? 997 : ib;
+          break;
+        }
+        case 'status':
+          av = STATUS_ORDER[a.status] ?? 5;
+          bv = STATUS_ORDER[b.status] ?? 5;
+          break;
+        default:
+          av = a.id; bv = b.id;
+      }
+      const cmp = typeof av === 'number' ? av - bv : av < bv ? -1 : av > bv ? 1 : 0;
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }
+
+  // ── Render helpers ───────────────────────────────────────────────────────
+  function sortIcon(col) {
+    if (sortCol !== col) return '<span style="color:#cbd5e1;margin-left:3px">⇅</span>';
+    return sortDir === 'asc'
+      ? '<span style="color:#475569;margin-left:3px">▲</span>'
+      : '<span style="color:#475569;margin-left:3px">▼</span>';
+  }
+
+  function th(col, label, extraClass = '') {
+    const active = sortCol === col;
+    const color  = active ? '#1e293b' : '#64748b';
+    return `<th data-sort="${col}" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide cursor-pointer select-none transition hover:text-slate-700 ${extraClass}" style="font-family:'Inter',sans-serif;color:${color}">${label}${sortIcon(col)}</th>`;
+  }
+
+  function rowHTML(task) {
+    const status   = META.statusMeta[task.status]   || { label: task.status,   color: '', dot: '' };
+    const priority = META.priorityMeta[task.priority] || { label: task.priority, color: '' };
+    const catLabel = META.categoryLabels[task.category] || task.category;
+    const priBadge = task.priority !== 'none'
+      ? `<span class="text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${priority.color}" style="font-family:'Inter',sans-serif;">${task.priority}</span>`
+      : `<span class="text-xs" style="color:#cbd5e1">—</span>`;
+    const verBadge = task.version
+      ? `<span class="text-xs font-mono" style="color:#94a3b8">${esc(task.version)}</span>`
+      : `<span class="text-xs" style="color:#cbd5e1">—</span>`;
+
+    return `<tr class="hover:bg-slate-50 transition" style="cursor:default">
+      <td class="px-4 py-3 text-xs font-mono" style="color:#94a3b8">${task.id}</td>
+      <td class="px-4 py-3">
+        <a href="/admin/dev/${task.id}" class="group/link block">
+          <p class="text-sm font-medium leading-snug hover:underline underline-offset-2" style="font-family:'Inter',sans-serif;color:#1e293b">${esc(task.title)}</p>
+          <p class="text-xs mt-0.5 line-clamp-1" style="font-family:'Inter',sans-serif;color:#94a3b8">${esc(task.notes)}</p>
+        </a>
+      </td>
+      <td class="px-4 py-3 hidden md:table-cell">
+        <span class="text-xs px-2 py-0.5 rounded-full whitespace-nowrap" style="font-family:'Inter',sans-serif;background:#f1f5f9;color:#64748b">${esc(catLabel)}</span>
+      </td>
+      <td class="px-4 py-3">${priBadge}</td>
+      <td class="px-4 py-3 hidden lg:table-cell">${verBadge}</td>
+      <td class="px-4 py-3">
+        <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${status.color}" style="font-family:'Inter',sans-serif;">
+          <span class="w-1.5 h-1.5 rounded-full shrink-0 ${status.dot}"></span>
+          ${esc(status.label)}
+        </span>
+      </td>
+    </tr>`;
+  }
+
+  function thead() {
+    return `<thead><tr class="border-b border-slate-100 bg-slate-50">
+      ${th('id',       '#',        'w-12')}
+      ${th('title',    'Task')}
+      ${th('category', 'Category', 'w-28 hidden md:table-cell')}
+      ${th('priority', 'Priority', 'w-32')}
+      ${th('version',  'Target',   'w-20 hidden lg:table-cell')}
+      ${th('status',   'Status',   'w-28')}
+    </tr></thead>`;
+  }
+
+  function tableHTML(tasks) {
+    if (!tasks.length) {
+      return `<p class="text-sm text-center py-6" style="font-family:'Inter',sans-serif;color:#94a3b8">No tasks in this view.</p>`;
+    }
+    const rows = sorted(tasks).map(rowHTML).join('');
+    return `<div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+      <table class="w-full text-sm">${thead()}<tbody class="divide-y divide-slate-50">${rows}</tbody></table>
+    </div>`;
+  }
+
+  function versionGroupsHTML(tasks) {
+    const byVersion = {};
+    for (const t of tasks) {
+      const key = t.version ?? 'Unversioned';
+      (byVersion[key] ??= []).push(t);
+    }
+    const keys = [...new Set([...VERSION_ORDER, ...Object.keys(byVersion)])].filter(k => byVersion[k]?.length);
+    if (!keys.length) return `<p class="text-sm text-center py-12" style="font-family:'Inter',sans-serif;color:#94a3b8">No active tasks.</p>`;
+    return keys.map(ver => {
+      const vtasks = byVersion[ver];
+      return `<div class="mb-10">
+        <div class="flex items-center gap-3 mb-3">
+          <span class="text-xs font-mono font-bold px-2.5 py-1 rounded-md border border-slate-200 bg-white" style="color:#64748b">${esc(ver)}</span>
+          <span class="text-xs" style="font-family:'Inter',sans-serif;color:#94a3b8">${vtasks.length} task${vtasks.length !== 1 ? 's' : ''}</span>
+        </div>
+        ${tableHTML(vtasks)}
+      </div>`;
+    }).join('');
+  }
+
+  // ── Main render ──────────────────────────────────────────────────────────
+  function render() {
+    const q       = search.trim();
+    const filter  = t => matchesSearch(t);
+    const isSearching = q.length > 0;
+
+    const activeTasks    = TASKS.filter(t => ['in-progress', 'planned'].includes(t.status));
+    const blockerTasks   = TASKS.filter(t => t.priority === 'P0' && t.status !== 'complete');
+    const overlookedTasks = TASKS.filter(t => t.status === 'overlooked');
+    const completeTasks  = TASKS.filter(t => t.status === 'complete');
+    const tabledTasks    = TASKS.filter(t => t.status === 'tabled');
+    const futureTasks    = TASKS.filter(t => t.status === 'future');
+
+    const ra = document.getElementById('render-active');
+    if (ra) {
+      const filtered = activeTasks.filter(filter);
+      // Show flat list when searching; grouped by version otherwise
+      ra.innerHTML = isSearching ? tableHTML(filtered) : versionGroupsHTML(filtered);
+    }
+
+    const rb = document.getElementById('render-blockers');
+    if (rb) rb.innerHTML = tableHTML(blockerTasks.filter(filter));
+
+    const ro = document.getElementById('render-overlooked');
+    if (ro) ro.innerHTML = tableHTML(overlookedTasks.filter(filter));
+
+    const rc = document.getElementById('render-complete');
+    if (rc) rc.innerHTML = tableHTML(completeTasks.filter(filter));
+
+    const rt = document.getElementById('render-tabled');
+    if (rt) {
+      const tf = tabledTasks.filter(filter);
+      const ff = futureTasks.filter(filter);
+      rt.innerHTML = `
+        <div class="mb-3">
+          <h3 class="text-sm font-semibold mb-3" style="font-family:'Inter',sans-serif;color:#334155">Tabled — Decision Pending</h3>
+          ${tableHTML(tf)}
+        </div>
+        <div class="mt-8">
+          <h3 class="text-sm font-semibold mb-3" style="font-family:'Inter',sans-serif;color:#334155">Future — v2.0+</h3>
+          ${tableHTML(ff)}
+        </div>`;
+    }
+
+    const rAll = document.getElementById('render-all');
+    if (rAll) rAll.innerHTML = tableHTML(TASKS.filter(filter));
+
+    // Search badge + clear button
+    const badge = document.getElementById('search-badge');
+    const clearBtn = document.getElementById('search-clear');
+    if (isSearching) {
+      const count = TASKS.filter(filter).length;
+      if (badge) { badge.textContent = `${count} result${count !== 1 ? 's' : ''}`; badge.classList.remove('hidden'); }
+      if (clearBtn) clearBtn.classList.remove('hidden');
+    } else {
+      if (badge) badge.classList.add('hidden');
+      if (clearBtn) clearBtn.classList.add('hidden');
+    }
+  }
+
+  // ── Sort via event delegation ────────────────────────────────────────────
+  document.addEventListener('click', e => {
+    const th = e.target.closest('[data-sort]');
+    if (!th) return;
+    const col = th.dataset.sort;
+    if (sortCol === col) {
+      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortCol = col;
+      sortDir = 'asc';
+    }
+    render();
+  });
+
+  // ── Search ───────────────────────────────────────────────────────────────
+  document.getElementById('task-search')?.addEventListener('input', e => {
+    search = e.target.value;
+    render();
+  });
+
+  document.getElementById('search-clear')?.addEventListener('click', () => {
+    search = '';
+    const inp = document.getElementById('task-search');
+    if (inp) inp.value = '';
+    render();
+  });
+
+  // ── Tab switching ────────────────────────────────────────────────────────
+  document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const target = btn.dataset.tab;
-
-      tabs.forEach(t => {
+      document.querySelectorAll('.tab-btn').forEach(t => {
         const active = t.dataset.tab === target;
         t.classList.toggle('border-slate-900', active);
         t.classList.toggle('text-slate-900', active);
         t.classList.toggle('border-transparent', !active);
         t.classList.toggle('text-slate-500', !active);
       });
-
-      panels.forEach(p => {
+      document.querySelectorAll('.tab-panel').forEach(p => {
         p.classList.toggle('hidden', p.id !== `tab-${target}`);
       });
     });
   });
+
+  // ── Initial render ───────────────────────────────────────────────────────
+  render();
+
 </script>

@@ -119,6 +119,14 @@ export const PAGE_CATALOG: CatalogPage[] = [
     colorClasses: { card: 'bg-violet-50 border-violet-400', badge: 'bg-violet-600', text: 'text-violet-900' },
   },
   {
+    name: 'Unsubscribed',
+    route: '/unsubscribed',
+    description: 'Confirmation page shown after a contact clicks the unsubscribe link in an agent email',
+    category: 'Utility',
+    defaultStatus: 'active',
+    colorClasses: { card: 'bg-slate-50 border-slate-400', badge: 'bg-slate-600', text: 'text-slate-700' },
+  },
+  {
     name: 'Admin Portal',
     route: '/admin',
     description: 'Protected dashboard — content, users, and site management',

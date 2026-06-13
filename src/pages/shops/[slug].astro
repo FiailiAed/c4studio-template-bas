@@ -11,6 +11,8 @@ const redirect = await enforcePageStatus('/shops', Astro);
 if (redirect) return redirect;
 
 const settings = await convex.query(api.settings.get, {});
+if (settings?.shopsEnabled === false) return Astro.redirect('/404');
+
 const appName = settings?.appName ?? 'c4studio';
 const siteUrl = settings?.siteUrl ?? Astro.url.origin;
 const description = settings?.description ?? 'We help ambitious businesses design, build, and grow digital products that stand out.';

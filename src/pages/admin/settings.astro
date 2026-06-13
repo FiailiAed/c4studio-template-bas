@@ -35,6 +35,9 @@ if (Astro.request.method === 'POST') {
         maintenanceMode: data.get('maintenanceMode') === 'on',
         registrationEnabled: data.get('registrationEnabled') === 'on',
         blogEnabled: data.get('blogEnabled') === 'on',
+        funnelsEnabled: data.get('funnelsEnabled') === 'on',
+        shopsEnabled: data.get('shopsEnabled') === 'on',
+        bookingLinksEnabled: data.get('bookingLinksEnabled') === 'on',
       });
       successSection = 'features';
     } else if (section === 'notifications') {
@@ -321,6 +324,9 @@ const brandColors = [
             { name: 'maintenanceMode', label: 'Maintenance mode', desc: 'Disable public access and show a maintenance page.', checked: settings?.maintenanceMode ?? false },
             { name: 'registrationEnabled', label: 'User registration', desc: 'Allow new users to create accounts.', checked: settings?.registrationEnabled ?? true },
             { name: 'blogEnabled', label: 'Blog', desc: 'Enable the blog and make posts publicly visible.', checked: settings?.blogEnabled ?? true },
+            { name: 'funnelsEnabled', label: 'Funnels', desc: 'Enable the funnels section and make campaigns publicly visible.', checked: settings?.funnelsEnabled ?? true },
+            { name: 'shopsEnabled', label: 'Shops', desc: 'Enable the shops section and make products publicly visible.', checked: settings?.shopsEnabled ?? true },
+            { name: 'bookingLinksEnabled', label: 'Booking Links', desc: 'Enable booking links and make scheduling publicly available.', checked: settings?.bookingLinksEnabled ?? true },
           ].map(({ name, label, desc, checked }) => (
             <label class="flex items-start gap-4 cursor-pointer group">
               <div class="relative mt-0.5 shrink-0">

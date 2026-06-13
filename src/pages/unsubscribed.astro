@@ -1,0 +1,32 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { enforcePageStatus } from '@lib/pageStatus';
+
+const redirect = await enforcePageStatus('/unsubscribed', Astro);
+if (redirect) return redirect;
+---
+
+<BaseLayout title="Unsubscribed" description="You have been successfully unsubscribed from our emails.">
+  <div class="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-16">
+    <div class="max-w-sm w-full bg-white rounded-2xl border border-slate-200 px-8 py-12 text-center">
+      <div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6">
+        <svg class="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+        </svg>
+      </div>
+      <h1 class="text-xl font-bold text-slate-900 mb-3" style="font-family: 'Lexend', sans-serif;">
+        You've been unsubscribed
+      </h1>
+      <p class="text-sm text-slate-500 leading-relaxed mb-8" style="font-family: 'Inter', sans-serif;">
+        You won't receive further marketing emails from us. If you change your mind, reach out anytime.
+      </p>
+      <a
+        href="/"
+        class="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 border border-slate-200 hover:border-slate-400 px-5 py-2.5 rounded-xl transition"
+        style="font-family: 'Inter', sans-serif;"
+      >
+        Back to home
+      </a>
+    </div>
+  </div>
+</BaseLayout>

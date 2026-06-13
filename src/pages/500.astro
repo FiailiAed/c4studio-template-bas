@@ -1,0 +1,115 @@
+---
+// 500.astro — Static server error page.
+// IMPORTANT: This page must make ZERO async calls (no Convex queries, no await).
+// If Convex caused the SSR error, any Convex call here will also fail,
+// creating an infinite loop. BaseLayout is intentionally NOT used for this reason.
+// Astro + Vercel serve this page automatically for any unhandled server error.
+//
+// The `error` prop is injected by Astro for SSR error pages.
+const { error } = Astro.props;
+const isDev = import.meta.env.DEV;
+---
+
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>500 — Server Error | c4studio</title>
+    <meta name="description" content="An unexpected error occurred on our end. Please try again shortly." />
+    <meta name="robots" content="noindex, nofollow" />
+
+    <!-- Brand Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" />
+
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background-color: #0f172a; color: #f8fafc; min-height: 100vh; display: flex; flex-direction: column; }
+      a { text-decoration: none; }
+    </style>
+  </head>
+
+  <body>
+    <main style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 6rem 1.5rem;">
+      <div style="max-width: 32rem; width: 100%; text-align: center;">
+
+        <!-- 500 display -->
+        <p
+          style="font-family: 'Lexend', sans-serif; font-size: clamp(5rem, 18vw, 9rem); font-weight: 700; line-height: 1; color: #1e293b; user-select: none;"
+        >
+          500
+        </p>
+
+        <div style="padding: 1.5rem; position: relative;">
+          <!-- Icon -->
+          <div style="display: flex; justify-content: center; margin-bottom: 1.25rem;">
+            <div style="width: 3rem; height: 3rem; border-radius: 0.75rem; background: #1e293b; display: flex; align-items: center; justify-content: center;">
+              <svg width="24" height="24" fill="none" stroke="#94a3b8" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+              </svg>
+            </div>
+          </div>
+
+          <h1
+            style="font-family: 'Lexend', sans-serif; font-size: clamp(1.25rem, 4vw, 1.75rem); font-weight: 700; color: #f1f5f9; margin-bottom: 0.75rem;"
+          >
+            Something went wrong
+          </h1>
+
+          <p
+            style="font-family: 'Inter', sans-serif; color: #94a3b8; line-height: 1.6; margin-bottom: 2rem; font-size: 1rem;"
+          >
+            An unexpected error occurred on our end.<br />Please try again shortly.
+          </p>
+
+          <!-- CTA buttons -->
+          <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem;">
+            <a
+              href="/"
+              style="font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; font-weight: 600; background: #f1f5f9; color: #0f172a; padding: 0.625rem 1.25rem; border-radius: 0.75rem; transition: background 0.15s ease;"
+              onmouseover="this.style.background='#e2e8f0'"
+              onmouseout="this.style.background='#f1f5f9'"
+            >
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/>
+              </svg>
+              Go home
+            </a>
+            <a
+              href="/contact"
+              style="font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; font-weight: 600; color: #94a3b8; border: 1px solid #334155; padding: 0.625rem 1.25rem; border-radius: 0.75rem; transition: color 0.15s ease, border-color 0.15s ease;"
+              onmouseover="this.style.color='#f1f5f9';this.style.borderColor='#64748b'"
+              onmouseout="this.style.color='#94a3b8';this.style.borderColor='#334155'"
+            >
+              Contact us
+            </a>
+          </div>
+
+          <!-- Dev-only error detail -->
+          {isDev && error && (
+            <details style="margin-top: 2.5rem; text-align: left; background: #1e293b; border: 1px solid #334155; border-radius: 0.75rem; padding: 1rem; font-family: 'Inter', monospace; font-size: 0.75rem; color: #f87171;">
+              <summary style="cursor: pointer; font-weight: 600; color: #fca5a5; margin-bottom: 0.5rem;">
+                Error detail (dev only)
+              </summary>
+              <pre style="white-space: pre-wrap; word-break: break-all; overflow: auto;">{String(error)}</pre>
+            </details>
+          )}
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Minimal footer -->
+    <footer style="padding: 1.5rem; text-align: center;">
+      <p style="font-family: 'Inter', sans-serif; font-size: 0.75rem; color: #475569;">
+        c4studio
+      </p>
+    </footer>
+  </body>
+</html>

@@ -102,6 +102,16 @@ export const getBookingLinkById = internalQuery({
   handler: async (ctx, { bookingLinkId }) => ctx.db.get(bookingLinkId),
 });
 
+export const getContactByEmail = internalQuery({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) =>
+    ctx.db
+      .query("contacts")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .order("desc")
+      .first(),
+});
+
 export const getMessageByKey = internalQuery({
   args: { messageKey: v.string() },
   handler: async (ctx, { messageKey }) =>

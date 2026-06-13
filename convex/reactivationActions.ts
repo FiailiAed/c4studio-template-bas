@@ -34,6 +34,19 @@ function emailHtml(bodyText: string, appName: string, extraHtml = ""): string {
 </div></body></html>`;
 }
 
+function signUnsubToken(contactId: string, secret: string): string {
+  return createHmac("sha256", secret).update(`unsub:${contactId}`).digest("hex");
+}
+
+function unsubFooterHtml(contactId: string | null): string {
+  const siteUrl = process.env.CONVEX_SITE_URL;
+  if (!siteUrl || !contactId) return "";
+  const secret = process.env.CANCEL_SECRET ?? "dev-secret";
+  const token = signUnsubToken(contactId, secret);
+  const unsubUrl = `${siteUrl}/api/unsubscribe?contactId=${contactId}&token=${token}`;
+  return `<div style="margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0;text-align:center;font-family:sans-serif;font-size:12px;color:#94a3b8;"><a href="${unsubUrl}" style="color:#94a3b8;text-decoration:underline;">Unsubscribe</a> from these emails.</div>`;
+}
+
 function responseButtonsHtml(contactId: string, siteUrl: string): string {
   const secret = process.env.CANCEL_SECRET ?? "dev-secret";
   const yesToken = createHmac("sha256", secret).update(`reac:${contactId}:yes`).digest("hex");
@@ -148,6 +161,17 @@ export const sendReactivationMessage = internalAction({
       recipientPhone: contact.phone,
     };
 
+    // Opt-out check — skip if contact has unsubscribed
+    if (contact.optedOut) {
+      await ctx.runMutation(internal.reactivation.createLog, {
+        ...logBase,
+        channel: "email" as const,
+        status: "skipped" as const,
+        errorMessage: "opted_out",
+      });
+      return;
+    }
+
     if (!msg || !msg.enabled) {
       await ctx.runMutation(internal.reactivation.createLog, {
         ...logBase,
@@ -170,10 +194,12 @@ export const sendReactivationMessage = internalAction({
     if (msg.channel === "email" || msg.channel === "both") {
       // D1/D2/D3 get YES/NO response buttons; handlers do not
       const siteUrl = settings?.siteUrl ?? "";
-      const extraHtml =
+      const responseButtons =
         ["d1", "d2", "d3"].includes(messageKey) && siteUrl
           ? responseButtonsHtml(contactId, siteUrl)
           : "";
+      const footer = unsubFooterHtml(contactId);
+      const extraHtml = responseButtons + footer;
       const result = await doSendEmail(
         contact.email,
         substitute(msg.emailSubject, vars),

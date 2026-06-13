@@ -34,6 +34,19 @@ function emailHtml(bodyText: string, appName: string, extraHtml = ""): string {
 </div></body></html>`;
 }
 
+function signUnsubToken(contactId: string, secret: string): string {
+  return createHmac("sha256", secret).update(`unsub:${contactId}`).digest("hex");
+}
+
+function unsubFooterHtml(contactId: string | null): string {
+  const siteUrl = process.env.CONVEX_SITE_URL;
+  if (!siteUrl || !contactId) return "";
+  const secret = process.env.CANCEL_SECRET ?? "dev-secret";
+  const token = signUnsubToken(contactId, secret);
+  const unsubUrl = `${siteUrl}/api/unsubscribe?contactId=${contactId}&token=${token}`;
+  return `<div style="margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0;text-align:center;font-family:sans-serif;font-size:12px;color:#94a3b8;"><a href="${unsubUrl}" style="color:#94a3b8;text-decoration:underline;">Unsubscribe</a> from these emails.</div>`;
+}
+
 function ratingButtonsHtml(bookingId: string, siteUrl: string): string {
   const secret = process.env.CANCEL_SECRET ?? "dev-secret";
   const base = `${siteUrl}/api/reviews/rate`;
@@ -159,6 +172,22 @@ export const sendReviewsMessage = internalAction({
       recipientPhone: booking.phone,
     };
 
+    // Look up contact record by email for opt-out check and unsubscribe link
+    const contactByEmail = await ctx.runQuery(internal.nurturing.getContactByEmail, {
+      email: booking.email,
+    });
+
+    // Opt-out check — skip if matching contact has unsubscribed
+    if (contactByEmail?.optedOut) {
+      await ctx.runMutation(internal.reviews.createLog, {
+        ...logBase,
+        channel: "email" as const,
+        status: "skipped" as const,
+        errorMessage: "opted_out",
+      });
+      return;
+    }
+
     if (!msg || !msg.enabled) {
       await ctx.runMutation(internal.reviews.createLog, {
         ...logBase,
@@ -189,10 +218,12 @@ export const sendReviewsMessage = internalAction({
 
     if (msg.channel === "email" || msg.channel === "both") {
       const siteUrl = settings?.siteUrl ?? "";
-      const extraHtml =
+      const ratingButtons =
         messageKey === "r1" && siteUrl
           ? ratingButtonsHtml(bookingId, siteUrl)
           : "";
+      const footer = unsubFooterHtml(contactByEmail?._id ?? null);
+      const extraHtml = ratingButtons + footer;
       const result = await doSendEmail(
         booking.email,
         substitute(msg.emailSubject, vars),

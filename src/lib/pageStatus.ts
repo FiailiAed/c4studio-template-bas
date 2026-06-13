@@ -33,6 +33,9 @@ export async function getPageStatusMap(): Promise<Record<string, PageStatus>> {
 
   // Feature flag overrides — trump sitePages status for nav filtering
   if (settings?.blogEnabled === false) map['/blog'] = 'planned';
+  if (settings?.funnelsEnabled === false) map['/funnels'] = 'planned';
+  if (settings?.shopsEnabled === false) map['/shops'] = 'planned';
+  if (settings?.bookingLinksEnabled === false) map['/booking-links'] = 'planned';
 
   return map;
 }

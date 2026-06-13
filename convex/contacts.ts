@@ -119,3 +119,10 @@ export const remove = mutation({
     await ctx.db.delete(args.contactId);
   },
 });
+
+export const optOut = mutation({
+  args: { contactId: v.id("contacts") },
+  handler: async (ctx, { contactId }) => {
+    await ctx.db.patch(contactId, { optedOut: true });
+  },
+});
