@@ -30,6 +30,7 @@ import type * as reviews from "../reviews.js";
 import type * as settings from "../settings.js";
 import type * as shopItems from "../shopItems.js";
 import type * as shops from "../shops.js";
+import type * as raffles from "../raffles.js";
 import type * as stripeProducts from "../stripeProducts.js";
 import type * as sitePages from "../sitePages.js";
 import type * as testimonials from "../testimonials.js";
@@ -64,6 +65,7 @@ declare const fullApi: ApiFromModules<{
   settings: typeof settings;
   shopItems: typeof shopItems;
   shops: typeof shops;
+  raffles: typeof raffles;
   stripeProducts: typeof stripeProducts;
   sitePages: typeof sitePages;
   testimonials: typeof testimonials;

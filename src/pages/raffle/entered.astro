@@ -1,0 +1,40 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+
+const already = Astro.url.searchParams.get('already') === 'true';
+
+const content = already
+  ? {
+      title: "Already entered",
+      body: "You've already entered this raffle. Your entry is recorded — we'll announce the winner on the draw date. Good luck!",
+      icon: '✓',
+      iconBg: 'bg-amber-50 border-amber-100',
+      iconText: 'text-amber-500',
+    }
+  : {
+      title: "You're in!",
+      body: "Your entry has been recorded. We'll announce the winner on the draw date. Good luck!",
+      icon: '✓',
+      iconBg: 'bg-emerald-50 border-emerald-100',
+      iconText: 'text-emerald-600',
+    };
+---
+
+<BaseLayout title={content.title}>
+  <div class="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-16">
+    <div class="max-w-sm w-full bg-white rounded-2xl border border-slate-200 px-8 py-12 text-center">
+      <div class={`w-14 h-14 rounded-full border flex items-center justify-center mx-auto mb-6 ${content.iconBg}`}>
+        <span class={`text-2xl font-bold ${content.iconText}`}>{content.icon}</span>
+      </div>
+      <h1 class="text-xl font-bold text-slate-900 mb-3" style="font-family: 'Lexend', sans-serif;">{content.title}</h1>
+      <p class="text-sm text-slate-500 leading-relaxed mb-8" style="font-family: 'Inter', sans-serif;">{content.body}</p>
+      <a
+        href="/"
+        class="inline-block text-sm font-semibold text-slate-600 hover:text-slate-900 transition"
+        style="font-family: 'Inter', sans-serif;"
+      >
+        ← Back to home
+      </a>
+    </div>
+  </div>
+</BaseLayout>

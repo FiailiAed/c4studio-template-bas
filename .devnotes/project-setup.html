@@ -1609,5 +1609,53 @@ Do not deviate from these technologies. Do not suggest alternatives.
             </div>
         </section>
 
+        <!-- ═══════════════════════════════════════════════════════════════
+             STEP 31 — NATIVE RAFFLE SYSTEM
+        ═══════════════════════════════════════════════════════════════ -->
+        <section id="raffle-system">
+            <h2>Step 31 — Native Raffle System (Task 84)</h2>
+            <p>Full-stack raffle module allowing admins to create and manage raffles, track entries from email campaigns, draw weighted random winners, and let contacts enter via tokenized email links.</p>
+            <div class="executive-row">
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/schema.ts — two new tables</div>
+                    <p class="executive-quote"><strong>raffles</strong> — title, prize, drawDate (ISO string, optional), status (active|closed|drawn), description (optional), campaignType (reactivation|referral|manual), winnerId (optional FK to raffleEntries). No indexes needed — list query uses full-table scan ordered by _creationTime desc.</p>
+                    <p class="executive-quote"><strong>raffleEntries</strong> — raffleId (FK to raffles), contactId (string — Convex ID stored as string), contactName (optional), contactEmail (optional), entryMethod (email_click|sms_yes|referral|manual), entryWeight (number, 1 = standard). Indexes: by_raffle (raffleId), by_contact (contactId).</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/raffles.ts — full module</div>
+                    <p class="executive-quote">Queries: <code>list</code> (all raffles desc), <code>getById</code> (single raffle), <code>getEntries</code> (all entries for a raffle via by_raffle index, desc).</p>
+                    <p class="executive-quote">Mutations: <code>create</code> (inserts with status "active"), <code>update</code> (title/prize/drawDate/description), <code>remove</code> (deletes all entries then the raffle), <code>addEntry</code> (duplicate check by raffleId+contactId, returns "ok"|"duplicate"), <code>drawWinner</code> (builds weighted pool, picks random winner, patches winnerId + status "drawn"), <code>closeRaffle</code> (status → "closed").</p>
+                    <p class="executive-quote">Public mutation <code>enterRaffle</code> — no auth required. Args: raffleId, contactId, entryMethod, entryWeight. Returns "ok"|"duplicate"|"not_found"|"closed". Auto-looks up contact name/email via ctx.db.get(contactId as any) — graceful if contactId is not a valid doc ID.</p>
+                    <p class="executive-quote">Comment at top of file shows how to generate tokenized entry URL: <code>signToken(`raffle:${raffleId}:${contactId}`)</code> → <code>/api/raffle/enter?raffleId=&amp;contactId=&amp;token=</code>.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">convex/_generated/api.d.ts — updated</div>
+                    <p class="executive-quote">Added <code>import type * as raffles from "../raffles.js"</code> and <code>raffles: typeof raffles</code> to ApiFromModules. Also added missing <code>devTasks</code> import that was not present in this file.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/api/raffle/enter.ts — tokenized entry endpoint</div>
+                    <p class="executive-quote">GET endpoint. Reads raffleId, contactId, token from query params. Verifies HMAC using <code>verifyToken(`raffle:${raffleId}:${contactId}`, token)</code>. Calls <code>api.raffles.enterRaffle</code> via ConvexHttpClient. Redirects to /raffle/entered on success, /raffle/entered?already=true on duplicate, 404 on closed/not_found, 403 on invalid token.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/raffle/entered.astro — confirmation page</div>
+                    <p class="executive-quote">Static confirmation page (no Convex calls, no auth). Reads <code>?already=true</code> query param to show appropriate message: "You're in!" or "Already entered". Matches visual style of /reactivation/responded and /reviews/rated (centered card, icon, Lexend heading, Inter body). Link back to home.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/admin/raffles/index.astro — list + create</div>
+                    <p class="executive-quote">Full admin auth guard. POST handler for action=create. Lists all raffles with status badge (color-coded: emerald/active, amber/closed, slate/drawn), prize, campaign type, draw date, entry count. Each row links to /admin/raffles/[id]. Collapsible create form with fields: title, prize, campaignType (select), drawDate, description.</p>
+                </div>
+                <div class="executive-card cto">
+                    <div class="executive-title">src/pages/admin/raffles/[id].astro — detail + actions</div>
+                    <p class="executive-quote">Full admin auth guard. POST handler with actions: update (edit title/prize/drawDate/description), close (status → closed), draw (weighted random winner selection), delete (removes raffle and all entries → redirects to list), add-entry (manual entry with contactId/name/email).</p>
+                    <p class="executive-quote">Winner banner: shown when status is "drawn" — highlights winner name, email, entry method, weight in a violet accent card.</p>
+                    <p class="executive-quote">Two-column layout: edit form + manual entry form (left, 1/3), entries list (right, 2/3). Entries list shows name, email, method, weight, timestamp. Winner entry highlighted in violet.</p>
+                </div>
+                <div class="executive-card cmo">
+                    <div class="executive-title">src/pages/admin/index.astro — Raffles card added</div>
+                    <p class="executive-quote">Added <code>api.raffles.list</code> to the parallel Promise.all fetch in frontmatter. Added Raffles card to the Management section with amber accent color — shows live raffle count in the description.</p>
+                </div>
+            </div>
+        </section>
+
     </body>
 </html>

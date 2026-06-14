@@ -339,4 +339,29 @@ export default defineSchema({
     category: v.string(),
     notes: v.optional(v.string()),
   }).index("by_task_id", ["taskId"]),
+
+  raffles: defineTable({
+    title: v.string(),
+    prize: v.string(),
+    drawDate: v.optional(v.string()),
+    status: v.union(v.literal("active"), v.literal("closed"), v.literal("drawn")),
+    description: v.optional(v.string()),
+    campaignType: v.union(v.literal("reactivation"), v.literal("referral"), v.literal("manual")),
+    winnerId: v.optional(v.id("raffleEntries")),
+  }),
+
+  raffleEntries: defineTable({
+    raffleId: v.id("raffles"),
+    contactId: v.string(),
+    contactName: v.optional(v.string()),
+    contactEmail: v.optional(v.string()),
+    entryMethod: v.union(
+      v.literal("email_click"),
+      v.literal("sms_yes"),
+      v.literal("referral"),
+      v.literal("manual")
+    ),
+    entryWeight: v.number(),
+  }).index("by_raffle", ["raffleId"])
+    .index("by_contact", ["contactId"]),
 });

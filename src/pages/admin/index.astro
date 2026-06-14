@@ -14,12 +14,13 @@ const user = await client.query(api.users.getByClerkId, { clerkId: userId });
 if (!user) return Astro.redirect('/onboarding');
 if (user.role !== 'admin') return Astro.redirect('/dashboard');
 
-const [funnels, shops, bookingLinks, emailTemplates, emailLogs] = await Promise.all([
+const [funnels, shops, bookingLinks, emailTemplates, emailLogs, raffles] = await Promise.all([
   client.query(api.funnels.list, {}),
   client.query(api.shops.list, {}),
   client.query(api.bookingLinks.list, {}),
   client.query(api.emailTemplates.list, {}),
   client.query(api.emailLogs.list, {}),
+  client.query(api.raffles.list, {}),
 ]);
 ---
 
@@ -64,6 +65,7 @@ const [funnels, shops, bookingLinks, emailTemplates, emailLogs] = await Promise.
             { label: 'Bookings', href: '/admin/bookings', desc: 'All bookings across every booking link',           color: 'border-teal-400',   status: 'active' },
             { label: 'Billing',  href: '/admin/billing',  desc: 'Stripe payments, subscriptions, and invoices',     color: 'border-indigo-400', status: 'active' },
             { label: 'Settings', href: '/admin/settings', desc: 'Site configuration and preferences',               color: 'border-slate-400',  status: 'active' },
+            { label: 'Raffles',  href: '/admin/raffles',  desc: `${raffles.length} raffle${raffles.length !== 1 ? 's' : ''} — entries, draw, and winner tracking`,  color: 'border-amber-400',  status: 'active' },
           ],
         },
         {

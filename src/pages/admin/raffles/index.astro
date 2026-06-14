@@ -1,0 +1,232 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { SignOutButton, UserButton } from '@clerk/astro/components';
+import { getAuthedConvex } from '@lib/convex';
+import { api } from '@convex/api';
+
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect('/sign-in');
+
+const token = await Astro.locals.auth().getToken({ template: 'convex' });
+const client = getAuthedConvex(token);
+const currentUser = await client.query(api.users.getByClerkId, { clerkId: userId });
+if (!currentUser) return Astro.redirect('/onboarding');
+if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
+
+let successMessage: string | null = null;
+let errorMessage: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const action = data.get('action') as string;
+
+  try {
+    if (action === 'create') {
+      const title = (data.get('title') as string)?.trim();
+      const prize = (data.get('prize') as string)?.trim();
+      const drawDate = (data.get('drawDate') as string)?.trim() || undefined;
+      const description = (data.get('description') as string)?.trim() || undefined;
+      const campaignType = data.get('campaignType') as 'reactivation' | 'referral' | 'manual';
+
+      if (!title || !prize || !campaignType) {
+        errorMessage = 'Title, prize, and campaign type are required.';
+      } else {
+        await client.mutation(api.raffles.create, { title, prize, drawDate, description, campaignType });
+        successMessage = `Raffle "${title}" created.`;
+      }
+    }
+  } catch (e) {
+    errorMessage = e instanceof Error ? e.message : 'Action failed.';
+  }
+}
+
+const raffles = await client.query(api.raffles.list, {});
+
+// Fetch entry counts for each raffle
+const entryCounts = await Promise.all(
+  raffles.map(async (r) => {
+    const entries = await client.query(api.raffles.getEntries, { raffleId: r._id });
+    return { id: r._id, count: entries.length };
+  })
+);
+const entryCountMap = Object.fromEntries(entryCounts.map(({ id, count }) => [id, count]));
+
+const statusColor: Record<string, string> = {
+  active: 'text-emerald-700 bg-emerald-50',
+  closed: 'text-amber-700 bg-amber-50',
+  drawn: 'text-slate-500 bg-slate-100',
+};
+
+const campaignTypeLabel: Record<string, string> = {
+  reactivation: 'Reactivation',
+  referral: 'Referral',
+  manual: 'Manual',
+};
+---
+
+<BaseLayout title="Raffles — Admin Portal">
+  <div class="min-h-screen bg-slate-50">
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/admin" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Admin Portal</a>
+        <span class="text-slate-300">/</span>
+        <span class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Raffles</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Home</a>
+        <UserButton />
+        <SignOutButton>
+          <button class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Sign out</button>
+        </SignOutButton>
+      </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-6 py-12">
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h1 class="text-3xl font-bold tracking-tight text-slate-900" style="font-family: 'Lexend', sans-serif;">Raffles</h1>
+          <p class="text-slate-500 mt-1" style="font-family: 'Inter', sans-serif;">{raffles.length} {raffles.length === 1 ? 'raffle' : 'raffles'}</p>
+        </div>
+        <button
+          onclick="document.getElementById('create-form').classList.toggle('hidden')"
+          class="text-sm font-semibold bg-slate-900 text-white px-4 py-2.5 rounded-xl hover:bg-slate-700 transition"
+          style="font-family: 'Inter', sans-serif;"
+        >
+          + New raffle
+        </button>
+      </div>
+
+      {successMessage && (
+        <div class="mb-6 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm" style="font-family: 'Inter', sans-serif;">
+          {successMessage}
+        </div>
+      )}
+      {errorMessage && (
+        <div class="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm" style="font-family: 'Inter', sans-serif;">
+          {errorMessage}
+        </div>
+      )}
+
+      <!-- Create form -->
+      <div id="create-form" class="hidden mb-8 bg-white border border-slate-200 rounded-2xl p-6">
+        <h2 class="text-base font-semibold text-slate-900 mb-5" style="font-family: 'Lexend', sans-serif;">Create raffle</h2>
+        <form method="POST" class="space-y-4">
+          <input type="hidden" name="action" value="create" />
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1.5" style="font-family: 'Inter', sans-serif;">Title <span class="text-red-500">*</span></label>
+              <input
+                type="text"
+                name="title"
+                required
+                placeholder="e.g. March Reactivation Raffle"
+                class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                style="font-family: 'Inter', sans-serif;"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1.5" style="font-family: 'Inter', sans-serif;">Prize <span class="text-red-500">*</span></label>
+              <input
+                type="text"
+                name="prize"
+                required
+                placeholder="e.g. $100 Amazon gift card"
+                class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                style="font-family: 'Inter', sans-serif;"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1.5" style="font-family: 'Inter', sans-serif;">Campaign type <span class="text-red-500">*</span></label>
+              <select
+                name="campaignType"
+                required
+                class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                style="font-family: 'Inter', sans-serif;"
+              >
+                <option value="reactivation">Reactivation (Agent 3)</option>
+                <option value="referral">Referral (Agent 4)</option>
+                <option value="manual">Manual</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1.5" style="font-family: 'Inter', sans-serif;">Draw date</label>
+              <input
+                type="date"
+                name="drawDate"
+                class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                style="font-family: 'Inter', sans-serif;"
+              />
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1.5" style="font-family: 'Inter', sans-serif;">Description</label>
+            <textarea
+              name="description"
+              rows="2"
+              placeholder="Optional internal notes about this raffle"
+              class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 resize-none"
+              style="font-family: 'Inter', sans-serif;"
+            ></textarea>
+          </div>
+          <div class="flex gap-3 pt-1">
+            <button
+              type="submit"
+              class="text-sm font-semibold bg-slate-900 text-white px-4 py-2 rounded-xl hover:bg-slate-700 transition"
+              style="font-family: 'Inter', sans-serif;"
+            >
+              Create raffle
+            </button>
+            <button
+              type="button"
+              onclick="document.getElementById('create-form').classList.add('hidden')"
+              class="text-sm font-medium text-slate-500 hover:text-slate-900 transition px-4 py-2"
+              style="font-family: 'Inter', sans-serif;"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Raffles list -->
+      {raffles.length === 0 ? (
+        <div class="bg-white border border-slate-200 rounded-2xl p-12 text-center">
+          <p class="text-slate-400 text-sm" style="font-family: 'Inter', sans-serif;">No raffles yet. Create your first one above.</p>
+        </div>
+      ) : (
+        <div class="space-y-3">
+          {raffles.map((raffle) => (
+            <a
+              href={`/admin/raffles/${raffle._id}`}
+              class="group flex items-start sm:items-center justify-between gap-4 bg-white border border-slate-200 rounded-2xl px-5 py-4 hover:shadow-md transition"
+            >
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <p class="text-sm font-semibold text-slate-900 group-hover:underline truncate" style="font-family: 'Inter', sans-serif;">{raffle.title}</p>
+                  <span class={`inline-block text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${statusColor[raffle.status]}`} style="font-family: 'Inter', sans-serif;">
+                    {raffle.status}
+                  </span>
+                </div>
+                <div class="flex items-center gap-3 text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">
+                  <span>Prize: <span class="text-slate-600 font-medium">{raffle.prize}</span></span>
+                  <span>·</span>
+                  <span>{campaignTypeLabel[raffle.campaignType]}</span>
+                  {raffle.drawDate && (
+                    <>
+                      <span>·</span>
+                      <span>Draw: {raffle.drawDate}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div class="text-right shrink-0">
+                <p class="text-xl font-bold text-slate-900" style="font-family: 'Lexend', sans-serif;">{entryCountMap[raffle._id] ?? 0}</p>
+                <p class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">entries</p>
+              </div>
+            </a>
+          ))}
+        </div>
+      )}
+    </main>
+  </div>
+</BaseLayout>

@@ -1,0 +1,364 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { SignOutButton, UserButton } from '@clerk/astro/components';
+import { getAuthedConvex } from '@lib/convex';
+import { api } from '@convex/api';
+import type { Id } from '@convex/dataModel';
+
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect('/sign-in');
+
+const token = await Astro.locals.auth().getToken({ template: 'convex' });
+const client = getAuthedConvex(token);
+const currentUser = await client.query(api.users.getByClerkId, { clerkId: userId });
+if (!currentUser) return Astro.redirect('/onboarding');
+if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
+
+const { id } = Astro.params;
+const raffleId = id as Id<'raffles'>;
+
+let successMessage: string | null = null;
+let errorMessage: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const action = data.get('action') as string;
+
+  try {
+    if (action === 'update') {
+      const title = (data.get('title') as string)?.trim();
+      const prize = (data.get('prize') as string)?.trim();
+      const drawDate = (data.get('drawDate') as string)?.trim() || undefined;
+      const description = (data.get('description') as string)?.trim() || undefined;
+      if (!title || !prize) throw new Error('Title and prize are required.');
+      await client.mutation(api.raffles.update, { id: raffleId, title, prize, drawDate, description });
+      successMessage = 'Raffle updated.';
+    } else if (action === 'close') {
+      await client.mutation(api.raffles.closeRaffle, { id: raffleId });
+      successMessage = 'Raffle closed.';
+    } else if (action === 'draw') {
+      await client.mutation(api.raffles.drawWinner, { id: raffleId });
+      successMessage = 'Winner drawn!';
+    } else if (action === 'delete') {
+      await client.mutation(api.raffles.remove, { id: raffleId });
+      return Astro.redirect('/admin/raffles');
+    } else if (action === 'add-entry') {
+      const contactId = (data.get('contactId') as string)?.trim();
+      const contactName = (data.get('contactName') as string)?.trim() || undefined;
+      const contactEmail = (data.get('contactEmail') as string)?.trim() || undefined;
+      const entryMethod = (data.get('entryMethod') as 'manual') || 'manual';
+      if (!contactId) throw new Error('Contact ID is required.');
+      const result = await client.mutation(api.raffles.addEntry, {
+        raffleId,
+        contactId,
+        contactName,
+        contactEmail,
+        entryMethod,
+        entryWeight: 1,
+      });
+      if (result === 'duplicate') {
+        errorMessage = 'This contact already has an entry in this raffle.';
+      } else {
+        successMessage = 'Entry added.';
+      }
+    }
+  } catch (e) {
+    errorMessage = e instanceof Error ? e.message : 'Action failed.';
+  }
+}
+
+const raffle = await client.query(api.raffles.getById, { id: raffleId });
+if (!raffle) return Astro.redirect('/admin/raffles');
+
+const entries = await client.query(api.raffles.getEntries, { raffleId });
+
+const winnerEntry = raffle.winnerId
+  ? entries.find((e) => e._id === raffle.winnerId)
+  : null;
+
+const statusColor: Record<string, string> = {
+  active: 'text-emerald-700 bg-emerald-50',
+  closed: 'text-amber-700 bg-amber-50',
+  drawn: 'text-slate-500 bg-slate-100',
+};
+
+const entryMethodLabel: Record<string, string> = {
+  email_click: 'Email click',
+  sms_yes: 'SMS yes',
+  referral: 'Referral',
+  manual: 'Manual',
+};
+
+const campaignTypeLabel: Record<string, string> = {
+  reactivation: 'Reactivation',
+  referral: 'Referral',
+  manual: 'Manual',
+};
+
+function formatDate(ts: number) {
+  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+---
+
+<BaseLayout title={`${raffle.title} — Raffles`}>
+  <div class="min-h-screen bg-slate-50">
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/admin" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Admin Portal</a>
+        <span class="text-slate-300">/</span>
+        <a href="/admin/raffles" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Raffles</a>
+        <span class="text-slate-300">/</span>
+        <span class="text-sm font-semibold text-slate-900 truncate max-w-xs" style="font-family: 'Lexend', sans-serif;">{raffle.title}</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Home</a>
+        <UserButton />
+        <SignOutButton>
+          <button class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Sign out</button>
+        </SignOutButton>
+      </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-6 py-12">
+      <!-- Header row -->
+      <div class="flex items-start justify-between gap-4 mb-8">
+        <div>
+          <div class="flex items-center gap-3 mb-1">
+            <h1 class="text-3xl font-bold tracking-tight text-slate-900" style="font-family: 'Lexend', sans-serif;">{raffle.title}</h1>
+            <span class={`inline-block text-xs font-medium px-2.5 py-1 rounded-full ${statusColor[raffle.status]}`} style="font-family: 'Inter', sans-serif;">
+              {raffle.status}
+            </span>
+          </div>
+          <div class="flex items-center gap-3 text-sm text-slate-500" style="font-family: 'Inter', sans-serif;">
+            <span>Prize: <span class="font-medium text-slate-700">{raffle.prize}</span></span>
+            <span>·</span>
+            <span>{campaignTypeLabel[raffle.campaignType]}</span>
+            {raffle.drawDate && (
+              <>
+                <span>·</span>
+                <span>Draw: {raffle.drawDate}</span>
+              </>
+            )}
+          </div>
+          {raffle.description && (
+            <p class="text-sm text-slate-400 mt-2" style="font-family: 'Inter', sans-serif;">{raffle.description}</p>
+          )}
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          {raffle.status === 'active' && (
+            <form method="POST">
+              <input type="hidden" name="action" value="close" />
+              <button
+                type="submit"
+                class="text-sm font-medium text-amber-700 border border-amber-200 bg-amber-50 hover:bg-amber-100 px-3 py-2 rounded-xl transition"
+                style="font-family: 'Inter', sans-serif;"
+                onclick="return confirm('Close this raffle? No new entries will be accepted.')"
+              >
+                Close raffle
+              </button>
+            </form>
+          )}
+          {(raffle.status === 'active' || raffle.status === 'closed') && entries.length > 0 && (
+            <form method="POST">
+              <input type="hidden" name="action" value="draw" />
+              <button
+                type="submit"
+                class="text-sm font-semibold bg-violet-600 text-white hover:bg-violet-700 px-3 py-2 rounded-xl transition"
+                style="font-family: 'Inter', sans-serif;"
+                onclick="return confirm('Draw a winner now? This action cannot be undone.')"
+              >
+                Draw winner
+              </button>
+            </form>
+          )}
+          <form method="POST">
+            <input type="hidden" name="action" value="delete" />
+            <button
+              type="submit"
+              class="text-sm font-medium text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 px-3 py-2 rounded-xl transition"
+              style="font-family: 'Inter', sans-serif;"
+              onclick="return confirm('Delete this raffle and all entries? This cannot be undone.')"
+            >
+              Delete
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {successMessage && (
+        <div class="mb-6 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm" style="font-family: 'Inter', sans-serif;">
+          {successMessage}
+        </div>
+      )}
+      {errorMessage && (
+        <div class="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm" style="font-family: 'Inter', sans-serif;">
+          {errorMessage}
+        </div>
+      )}
+
+      <!-- Winner banner -->
+      {raffle.status === 'drawn' && winnerEntry && (
+        <div class="mb-8 bg-violet-50 border border-violet-200 rounded-2xl px-6 py-5">
+          <p class="text-xs font-semibold text-violet-500 uppercase tracking-wider mb-1" style="font-family: 'Inter', sans-serif;">Winner</p>
+          <p class="text-xl font-bold text-violet-900" style="font-family: 'Lexend', sans-serif;">
+            {winnerEntry.contactName ?? winnerEntry.contactId}
+          </p>
+          {winnerEntry.contactEmail && (
+            <p class="text-sm text-violet-600 mt-0.5" style="font-family: 'Inter', sans-serif;">{winnerEntry.contactEmail}</p>
+          )}
+          <p class="text-xs text-violet-400 mt-1" style="font-family: 'Inter', sans-serif;">
+            Entry method: {entryMethodLabel[winnerEntry.entryMethod]} · Weight: {winnerEntry.entryWeight}
+          </p>
+        </div>
+      )}
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Edit form -->
+        <div class="lg:col-span-1">
+          <div class="bg-white border border-slate-200 rounded-2xl p-5">
+            <h2 class="text-sm font-semibold text-slate-900 mb-4" style="font-family: 'Lexend', sans-serif;">Edit raffle</h2>
+            <form method="POST" class="space-y-4">
+              <input type="hidden" name="action" value="update" />
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1.5" style="font-family: 'Inter', sans-serif;">Title</label>
+                <input
+                  type="text"
+                  name="title"
+                  value={raffle.title}
+                  required
+                  class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                  style="font-family: 'Inter', sans-serif;"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1.5" style="font-family: 'Inter', sans-serif;">Prize</label>
+                <input
+                  type="text"
+                  name="prize"
+                  value={raffle.prize}
+                  required
+                  class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                  style="font-family: 'Inter', sans-serif;"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1.5" style="font-family: 'Inter', sans-serif;">Draw date</label>
+                <input
+                  type="date"
+                  name="drawDate"
+                  value={raffle.drawDate ?? ''}
+                  class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                  style="font-family: 'Inter', sans-serif;"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1.5" style="font-family: 'Inter', sans-serif;">Description</label>
+                <textarea
+                  name="description"
+                  rows="2"
+                  class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300 resize-none"
+                  style="font-family: 'Inter', sans-serif;"
+                >{raffle.description ?? ''}</textarea>
+              </div>
+              <button
+                type="submit"
+                class="w-full text-sm font-semibold bg-slate-900 text-white px-4 py-2 rounded-xl hover:bg-slate-700 transition"
+                style="font-family: 'Inter', sans-serif;"
+              >
+                Save changes
+              </button>
+            </form>
+          </div>
+
+          <!-- Add manual entry -->
+          {raffle.status === 'active' && (
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 mt-4">
+              <h2 class="text-sm font-semibold text-slate-900 mb-4" style="font-family: 'Lexend', sans-serif;">Add manual entry</h2>
+              <form method="POST" class="space-y-3">
+                <input type="hidden" name="action" value="add-entry" />
+                <input type="hidden" name="entryMethod" value="manual" />
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1.5" style="font-family: 'Inter', sans-serif;">Contact ID <span class="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    name="contactId"
+                    required
+                    placeholder="Convex contact document ID"
+                    class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                    style="font-family: 'Inter', sans-serif;"
+                  />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1.5" style="font-family: 'Inter', sans-serif;">Name</label>
+                  <input
+                    type="text"
+                    name="contactName"
+                    placeholder="Optional display name"
+                    class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                    style="font-family: 'Inter', sans-serif;"
+                  />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1.5" style="font-family: 'Inter', sans-serif;">Email</label>
+                  <input
+                    type="email"
+                    name="contactEmail"
+                    placeholder="Optional email address"
+                    class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                    style="font-family: 'Inter', sans-serif;"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  class="w-full text-sm font-semibold bg-slate-900 text-white px-4 py-2 rounded-xl hover:bg-slate-700 transition"
+                  style="font-family: 'Inter', sans-serif;"
+                >
+                  Add entry
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
+
+        <!-- Entries list -->
+        <div class="lg:col-span-2">
+          <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h2 class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">Entries</h2>
+              <span class="text-sm text-slate-400" style="font-family: 'Inter', sans-serif;">{entries.length} total</span>
+            </div>
+
+            {entries.length === 0 ? (
+              <div class="px-5 py-10 text-center">
+                <p class="text-slate-400 text-sm" style="font-family: 'Inter', sans-serif;">No entries yet.</p>
+              </div>
+            ) : (
+              <ul class="divide-y divide-slate-100">
+                {entries.map((entry) => (
+                  <li class={`px-5 py-3.5 flex items-start justify-between gap-3 ${raffle.winnerId === entry._id ? 'bg-violet-50' : ''}`}>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2">
+                        <p class="text-sm font-medium text-slate-900 truncate" style="font-family: 'Inter', sans-serif;">
+                          {entry.contactName ?? entry.contactId}
+                        </p>
+                        {raffle.winnerId === entry._id && (
+                          <span class="inline-block text-xs font-semibold text-violet-700 bg-violet-100 px-2 py-0.5 rounded-full shrink-0" style="font-family: 'Inter', sans-serif;">Winner</span>
+                        )}
+                      </div>
+                      {entry.contactEmail && (
+                        <p class="text-xs text-slate-400 mt-0.5" style="font-family: 'Inter', sans-serif;">{entry.contactEmail}</p>
+                      )}
+                      <p class="text-xs text-slate-400 mt-0.5" style="font-family: 'Inter', sans-serif;">
+                        {entryMethodLabel[entry.entryMethod]} · Weight: {entry.entryWeight} · {formatDate(entry._creationTime)}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</BaseLayout>
