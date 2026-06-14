@@ -329,4 +329,14 @@ export default defineSchema({
   })
     .index("by_message_key", ["messageKey"])
     .index("by_contact_id", ["contactId"]),
+
+  devTasks: defineTable({
+    taskId: v.number(),
+    title: v.string(),
+    status: v.string(),
+    priority: v.string(),
+    version: v.optional(v.string()),
+    category: v.string(),
+    notes: v.optional(v.string()),
+  }).index("by_task_id", ["taskId"]),
 });

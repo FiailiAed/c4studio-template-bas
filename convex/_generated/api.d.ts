@@ -11,6 +11,7 @@
 import type * as bookingLinks from "../bookingLinks.js";
 import type * as bookings from "../bookings.js";
 import type * as contacts from "../contacts.js";
+import type * as devTasks from "../devTasks.js";
 import type * as email from "../email.js";
 import type * as emailLogs from "../emailLogs.js";
 import type * as emailTemplates from "../emailTemplates.js";
@@ -29,6 +30,7 @@ import type * as reviews from "../reviews.js";
 import type * as settings from "../settings.js";
 import type * as shopItems from "../shopItems.js";
 import type * as shops from "../shops.js";
+import type * as stripeProducts from "../stripeProducts.js";
 import type * as sitePages from "../sitePages.js";
 import type * as testimonials from "../testimonials.js";
 import type * as users from "../users.js";
@@ -43,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   bookingLinks: typeof bookingLinks;
   bookings: typeof bookings;
   contacts: typeof contacts;
+  devTasks: typeof devTasks;
   email: typeof email;
   emailLogs: typeof emailLogs;
   emailTemplates: typeof emailTemplates;
@@ -61,6 +64,7 @@ declare const fullApi: ApiFromModules<{
   settings: typeof settings;
   shopItems: typeof shopItems;
   shops: typeof shops;
+  stripeProducts: typeof stripeProducts;
   sitePages: typeof sitePages;
   testimonials: typeof testimonials;
   users: typeof users;
