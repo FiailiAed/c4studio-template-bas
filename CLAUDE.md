@@ -124,15 +124,18 @@ if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
 
 > **`README.md` is the canonical `[x]/[ ]` checklist.** This section is a quick reference — not authoritative.
 
-**Public pages:** `/`, `/about`, `/services`, `/pricing`, `/reviews`, `/blog`, `/blog/[slug]`, `/gallery`, `/contact`, `/funnels`, `/funnels/[slug]`, `/shops`, `/shops/[slug]`, `/booking-links`, `/booking-links/[slug]`, `/bookings/cancel`, `/reactivation/responded`, `/reviews/rated`, `/unsubscribed`, `/sign-in`, `/sign-up`, `/onboarding`, `/privacy`, `/terms`, `/changelog`, `/roadmap`, `/404`, `/500`
+**Public pages:** `/`, `/about`, `/services`, `/pricing`, `/reviews`, `/blog`, `/blog/[slug]`, `/gallery`, `/contact`, `/funnels`, `/funnels/[slug]`, `/shops`, `/shops/[slug]`, `/booking-links`, `/booking-links/[slug]`, `/bookings/cancel`, `/reactivation/responded`, `/reviews/rated`, `/unsubscribed`, `/raffle/entered`, `/sign-in`, `/sign-up`, `/onboarding`, `/privacy`, `/terms`, `/changelog`, `/roadmap`, `/404`, `/500`
 
 **Admin portal** (`/admin/*` — all Clerk-protected):
-- `/admin/settings` — general, feature flags, notifications, design system, danger zone
+- `/admin/settings` — general, feature flags, notifications, design system (color picker fixed), danger zone
 - `/admin/pages` — page visibility control (active / planned / hidden)
-- `/admin/users`, `/admin/billing` — user management, Stripe billing
-- `/admin/contacts`, `/admin/testimonials`, `/admin/posts`, `/admin/gallery`, `/admin/pricing` — content management
+- `/admin/users`, `/admin/billing` — user management, Stripe billing + Products tab (CRUD via Stripe API)
+- `/admin/contacts` — list submissions with link to detail view
+- `/admin/contacts/[id]` — per-contact detail: full message, read/unread toggle, delete, mailto reply, Agent 5 nurturing log
+- `/admin/testimonials`, `/admin/posts`, `/admin/gallery`, `/admin/pricing` — content management
 - `/admin/funnels`, `/admin/shops`, `/admin/booking-links` — CRUD with slug auto-gen + content fields
 - `/admin/bookings` — view all bookings across all booking links; cancel/status management
+- `/admin/raffles` — raffle list + create; `/admin/raffles/[id]` — edit, close, draw winner, entrant list
 - `/admin/communications` — Compose, Broadcast, Templates, History (Resend)
 - `/admin/agents` — hub page; live stats for agents 3/4/5; links to all 7 agents
 - `/admin/agents/[id]` — generic prompt assembly tool (agents 1, 2, 6, 7)
@@ -182,11 +185,13 @@ Token payload conventions:
 - Reactivation YES/NO: `reac:${contactId}:yes` / `reac:${contactId}:no`
 - Review rating: `review:${bookingId}:${rating}`
 - Email unsubscribe: `unsub:${contactId}`
+- Raffle entry: `raffle:${raffleId}:${contactId}`
 
 Routes using this pattern:
 - `GET /api/reactivation/respond?contactId=&token=&r=yes|no` — processes Agent 3 email YES/NO response; triggers the appropriate handler message
 - `GET /api/reviews/rate?bookingId=&token=&rating=1-5` — processes Agent 4 R2/R3 rating; routes to R3 or R4 based on score
 - `GET /api/unsubscribe?contactId=&token=` — calls `contacts.optOut`; redirects to `/unsubscribed`
+- `GET /api/raffle/enter?raffleId=&contactId=&token=` — calls `raffles.enterRaffle`; redirects to `/raffle/entered`
 - `/bookings/cancel?bookingId=&token=` — public page where customers confirm booking cancellation
 - `/reactivation/responded` — confirmation landing after reactivation response
 - `/reviews/rated` — confirmation landing after review rating
@@ -201,6 +206,7 @@ POST /api/shop-checkout          — Stripe checkout redirect (requires Clerk au
 GET  /api/reactivation/respond   — Agent 3 YES/NO handler (tokenized)
 GET  /api/reviews/rate           — Agent 4 rating handler (tokenized)
 GET  /api/unsubscribe            — Email opt-out handler (tokenized); calls contacts.optOut
+GET  /api/raffle/enter           — Tokenized raffle entry; calls raffles.enterRaffle
 POST /api/agents/test-send       — Admin-only: trigger a single agent message to a test email
                                    Body: { agent, messageKey, testEmail, contactId?, bookingId? }
 ```

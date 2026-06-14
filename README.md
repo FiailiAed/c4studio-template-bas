@@ -67,8 +67,11 @@ bunx convex dev  # Start Convex dev server (run alongside bun dev)
 [x] /admin/settings       — General, feature flags, notifications, design system, danger zone
 [x] /admin/pages          — Page visibility control (active / planned / hidden)
 [x] /admin/users          — View accounts, assign roles
-[x] /admin/billing        — Stripe subscriptions, payments, invoices per user
+[x] /admin/billing        — Stripe subscriptions, payments, invoices per user; + Products tab (Stripe product CRUD)
 [x] /admin/contacts       — List submissions, mark read, delete, mailto reply
+[x] /admin/contacts/[id] — Per-contact detail: full message, read toggle, delete, mailto, Agent 5 nurturing log
+[x] /admin/raffles        — Raffle CRUD: create, list, close, draw winner
+[x] /admin/raffles/[id]  — Raffle detail: edit, entrant list, manual entry, winner selection
 [x] /admin/testimonials   — Approve + feature reviews → /reviews
 [x] /admin/posts          — Create, edit, publish blog posts → /blog, /blog/[slug]
 [x] /admin/gallery        — Upload media via Convex storage → /gallery
@@ -136,6 +139,9 @@ live assembled output, copy to clipboard). Agents 3, 4, and 5 are also wired to 
 [x] reactivationLogs     — Agent 3: per-send audit log
 [x] reviewsMessages      — Agent 4: 9 messages (r1–r4 automated + r5a–r5e copy templates)
 [x] reviewsLogs          — Agent 4: per-send audit log
+[x] raffles              — title, prize, drawDate, status (active|closed|drawn), campaignType, winnerId
+[x] raffleEntries        — raffleId FK, contactId, contactName, contactEmail, entryMethod, entryWeight; indexes: by_raffle, by_contact
+[x] devTasks             — taskId, title, status, priority, version, category, notes; index: by_task_id
 ```
 
 ### API Routes
@@ -146,6 +152,8 @@ live assembled output, copy to clipboard). Agents 3, 4, and 5 are also wired to 
 [x] POST /api/shop-checkout         — Calls Convex payments.createPaymentCheckout → Stripe redirect
 [x] GET  /api/reactivation/respond  — Agent 3 YES/NO email response handler (HMAC-tokenized)
 [x] GET  /api/reviews/rate          — Agent 4 star-rating email handler; routes to R2 or R3 (HMAC-tokenized)
+[x] GET  /api/unsubscribe           — Email opt-out (HMAC-tokenized); calls contacts.optOut
+[x] GET  /api/raffle/enter          — Tokenized raffle entry; creates raffleEntries record, redirects to /raffle/entered
 ```
 
 ---
