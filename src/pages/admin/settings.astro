@@ -422,11 +422,12 @@ const brandColors = [
           <!-- Color preview strip -->
           <div class="grid grid-cols-4 gap-3">
             {brandColors.map(({ nameKey, colorKey, label, currentHex, currentName }) => (
-              <div class="flex flex-col gap-2">
-                <!-- Swatch preview -->
+              <div class="flex flex-col gap-2" data-color-group={colorKey}>
+                <!-- Swatch preview — updated live by JS -->
                 <div
                   class="h-16 rounded-xl border border-slate-200"
                   style={`background-color: ${currentHex}`}
+                  data-color-swatch
                 />
                 <div class="flex flex-col gap-1.5">
                   <input
@@ -438,19 +439,28 @@ const brandColors = [
                     style="font-family: 'Inter', sans-serif;"
                   />
                   <div class="flex items-center gap-1.5">
+                    <!-- Hidden field that carries the value on form POST -->
                     <input
-                      type="color"
+                      type="hidden"
                       name={colorKey}
                       value={currentHex}
-                      class="w-7 h-7 rounded-lg border border-slate-200 cursor-pointer bg-transparent p-0.5"
+                      data-color-hidden
                     />
+                    <!-- Browser color picker — visual only, no name, synced by JS -->
+                    <input
+                      type="color"
+                      value={currentHex}
+                      class="w-7 h-7 rounded-lg border border-slate-200 cursor-pointer bg-transparent p-0.5"
+                      data-color-picker
+                    />
+                    <!-- Editable hex text field — no name, synced to the hidden input by JS -->
                     <input
                       type="text"
                       value={currentHex}
                       placeholder="#000000"
+                      maxlength="7"
                       class="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono"
-                      readonly
-                      id={`hex-display-${colorKey}`}
+                      data-color-hex
                     />
                   </div>
                 </div>
@@ -539,17 +549,57 @@ const brandColors = [
 </BaseLayout>
 
 <script>
-  // Sync color picker → hex text display, and keep hidden input updated
-  document.querySelectorAll<HTMLInputElement>('input[type="color"]').forEach((picker) => {
-    const name = picker.name;
-    const displayId = `hex-display-${name}`;
-    const display = document.getElementById(displayId) as HTMLInputElement | null;
+  // ── Color picker sync ──────────────────────────────────────────────────────
+  // Each color group has:
+  //   [data-color-group]   — wrapper div
+  //   [data-color-swatch]  — live preview swatch
+  //   [data-color-hidden]  — hidden input that gets POSTed
+  //   [data-color-picker]  — <input type="color"> (visual, no name)
+  //   [data-color-hex]     — editable text field showing the hex (no name)
 
+  function isValidHex(v: string): boolean {
+    return /^#[0-9A-Fa-f]{6}$/.test(v);
+  }
+
+  document.querySelectorAll<HTMLElement>('[data-color-group]').forEach((group) => {
+    const swatch  = group.querySelector<HTMLElement>('[data-color-swatch]');
+    const hidden  = group.querySelector<HTMLInputElement>('[data-color-hidden]');
+    const picker  = group.querySelector<HTMLInputElement>('[data-color-picker]');
+    const hexText = group.querySelector<HTMLInputElement>('[data-color-hex]');
+
+    if (!hidden || !picker || !hexText) return;
+
+    // Apply a validated color to all three outputs
+    function applyColor(hex: string) {
+      if (!isValidHex(hex)) return;
+      hidden!.value  = hex;
+      picker!.value  = hex;
+      hexText!.value = hex;
+      if (swatch) swatch.style.backgroundColor = hex;
+    }
+
+    // Initialize from the hidden field's server-rendered value on page load
+    applyColor(hidden.value);
+
+    // browser color picker → sync everything
     picker.addEventListener('input', () => {
-      if (display) display.value = picker.value;
-      // Update the swatch preview above
-      const swatch = picker.closest('.flex.flex-col.gap-2')?.querySelector<HTMLDivElement>('.h-16');
-      if (swatch) swatch.style.backgroundColor = picker.value;
+      applyColor(picker.value);
+    });
+
+    // editable hex text → sync on every keystroke and on blur
+    hexText.addEventListener('input', () => {
+      let val = hexText.value.trim();
+      if (!val.startsWith('#')) val = '#' + val;
+      if (isValidHex(val)) applyColor(val);
+    });
+
+    hexText.addEventListener('blur', () => {
+      let val = hexText.value.trim();
+      if (!val.startsWith('#')) val = '#' + val;
+      // If still invalid on blur, revert to last known good value
+      if (!isValidHex(val)) {
+        hexText.value = hidden.value;
+      }
     });
   });
 </script>

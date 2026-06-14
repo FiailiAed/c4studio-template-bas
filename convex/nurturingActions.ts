@@ -38,8 +38,8 @@ function emailHtml(bodyText: string, appName: string, extraHtml = ""): string {
     )
     .join("");
 
-  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;">
-<div style="max-width:520px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+  return `<!DOCTYPE html><html><body style="margin:0;padding:32px 24px;background:#f9fafb;">
+<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
   <div style="background:#0f172a;padding:20px 28px;">
     <span style="color:#fff;font-family:-apple-system,'Segoe UI',sans-serif;font-size:15px;font-weight:600;">${appName}</span>
   </div>

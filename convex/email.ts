@@ -66,13 +66,7 @@ export const sendContactConfirmation = internalAction({
       from: getFrom(),
       to,
       subject: `We received your message, ${name}`,
-      html: `
-        <h2>Thanks for reaching out, ${name}!</h2>
-        <p>We've received your message and will get back to you within one business day.</p>
-        <p>If you have urgent questions, reply to this email or contact us at
-           <a href="mailto:${supportEmail}">${supportEmail}</a>.</p>
-        <p>— The ${appName} team</p>
-      `,
+      html: `<!DOCTYPE html><html><body style="margin:0;padding:32px 24px;background:#f9fafb;"><div style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;"><div style="background:#0f172a;padding:20px 28px;"><span style="color:#fff;font-family:-apple-system,'Segoe UI',sans-serif;font-size:15px;font-weight:600;">${appName}</span></div><div style="padding:32px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"><h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;">Thanks for reaching out, ${name}!</h2><p style="margin:0 0 14px;color:#374151;font-size:15px;line-height:1.6;">We've received your message and will get back to you within one business day.</p><p style="margin:0 0 14px;color:#374151;font-size:15px;line-height:1.6;">If you have urgent questions, reply to this email or contact us at <a href="mailto:${supportEmail}" style="color:#6366f1;">${supportEmail}</a>.</p><p style="margin:0;color:#374151;font-size:15px;line-height:1.6;">— The ${appName} team</p></div></div></body></html>`,
       text: `Thanks for reaching out, ${name}! We received your message and will reply within one business day. Urgent? Contact us at ${supportEmail}.`,
     });
     if (error) console.error("sendContactConfirmation error:", error);
@@ -124,15 +118,7 @@ export const sendBookingConfirmation = internalAction({
       from: getFrom(),
       to,
       subject: `Booking confirmed — ${linkName}`,
-      html: `
-        <h2>You're booked, ${name}!</h2>
-        <p><strong>${linkName}</strong></p>
-        <p>📅 ${formattedDate}<br/>🕐 ${formattedTime} (${duration} min)</p>
-        <p>Need to reschedule? Reply to this email or contact us at
-           <a href="mailto:${supportEmail}">${supportEmail}</a>.</p>
-        <p>— The ${appName} team</p>
-        ${cancelLink}
-      `,
+      html: `<!DOCTYPE html><html><body style="margin:0;padding:32px 24px;background:#f9fafb;"><div style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;"><div style="background:#0f172a;padding:20px 28px;"><span style="color:#fff;font-family:-apple-system,'Segoe UI',sans-serif;font-size:15px;font-weight:600;">${appName}</span></div><div style="padding:32px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"><h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;">You're booked, ${name}!</h2><p style="margin:0 0 8px;color:#374151;font-size:15px;font-weight:600;">${linkName}</p><p style="margin:0 0 14px;color:#374151;font-size:15px;line-height:1.6;">📅 ${formattedDate}<br/>🕐 ${formattedTime} (${duration} min)</p><p style="margin:0 0 14px;color:#374151;font-size:15px;line-height:1.6;">Need to reschedule? Reply to this email or contact us at <a href="mailto:${supportEmail}" style="color:#6366f1;">${supportEmail}</a>.</p><p style="margin:0;color:#374151;font-size:15px;line-height:1.6;">— The ${appName} team</p>${cancelLink}</div></div></body></html>`,
       text: `You're booked, ${name}! ${linkName} on ${formattedDate} at ${formattedTime} (${duration} min). To reschedule: ${supportEmail}`,
     });
     if (error) console.error("sendBookingConfirmation error:", error);
