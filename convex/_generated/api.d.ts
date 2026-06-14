@@ -23,6 +23,7 @@ import type * as nurturingActions from "../nurturingActions.js";
 import type * as payments from "../payments.js";
 import type * as posts from "../posts.js";
 import type * as pricing from "../pricing.js";
+import type * as raffles from "../raffles.js";
 import type * as reactivation from "../reactivation.js";
 import type * as reactivationActions from "../reactivationActions.js";
 import type * as reviewActions from "../reviewActions.js";
@@ -30,9 +31,8 @@ import type * as reviews from "../reviews.js";
 import type * as settings from "../settings.js";
 import type * as shopItems from "../shopItems.js";
 import type * as shops from "../shops.js";
-import type * as raffles from "../raffles.js";
-import type * as stripeProducts from "../stripeProducts.js";
 import type * as sitePages from "../sitePages.js";
+import type * as stripeProducts from "../stripeProducts.js";
 import type * as testimonials from "../testimonials.js";
 import type * as users from "../users.js";
 
@@ -58,6 +58,7 @@ declare const fullApi: ApiFromModules<{
   payments: typeof payments;
   posts: typeof posts;
   pricing: typeof pricing;
+  raffles: typeof raffles;
   reactivation: typeof reactivation;
   reactivationActions: typeof reactivationActions;
   reviewActions: typeof reviewActions;
@@ -65,9 +66,8 @@ declare const fullApi: ApiFromModules<{
   settings: typeof settings;
   shopItems: typeof shopItems;
   shops: typeof shops;
-  raffles: typeof raffles;
-  stripeProducts: typeof stripeProducts;
   sitePages: typeof sitePages;
+  stripeProducts: typeof stripeProducts;
   testimonials: typeof testimonials;
   users: typeof users;
 }>;
