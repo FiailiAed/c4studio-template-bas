@@ -155,6 +155,17 @@ export const listLogs = query({
   },
 });
 
+export const getLogsForContact = query({
+  args: { contactId: v.id("contacts") },
+  handler: async (ctx, { contactId }) => {
+    return await ctx.db
+      .query("nurturingLogs")
+      .withIndex("by_contact_id", (q) => q.eq("contactId", contactId))
+      .order("desc")
+      .take(50);
+  },
+});
+
 export const getStats = query({
   args: {},
   handler: async (ctx) => {

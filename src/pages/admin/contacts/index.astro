@@ -126,7 +126,13 @@ const unreadCount = contacts.filter(c => !c.read).length;
                     </div>
                     <div class="min-w-0">
                       <div class="flex items-center gap-2 flex-wrap">
-                        <p class="text-sm font-semibold text-slate-900" style="font-family: 'Inter', sans-serif;">{contact.name}</p>
+                        <a
+                          href={`/admin/contacts/${contact._id}`}
+                          class="text-sm font-semibold text-slate-900 hover:text-cyan-700 transition"
+                          style="font-family: 'Inter', sans-serif;"
+                        >
+                          {contact.name}
+                        </a>
                         <a
                           href={`mailto:${contact.email}`}
                           class="text-xs text-cyan-600 hover:text-cyan-800 hover:underline transition"
@@ -158,6 +164,13 @@ const unreadCount = contacts.filter(c => !c.read).length;
 
                   <!-- Actions -->
                   <div class="flex items-center gap-2 shrink-0">
+                    <a
+                      href={`/admin/contacts/${contact._id}`}
+                      class="text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition"
+                      style="font-family: 'Inter', sans-serif;"
+                    >
+                      View
+                    </a>
                     <a
                       href={`mailto:${contact.email}${contact.subject ? `?subject=Re: ${encodeURIComponent(contact.subject)}` : ''}`}
                       class="text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition"
@@ -192,9 +205,16 @@ const unreadCount = contacts.filter(c => !c.read).length;
                   </div>
                 </div>
 
-                <!-- Message body -->
+                <!-- Message preview -->
                 <div class="px-6 pb-5 pl-11">
-                  <p class="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap" style="font-family: 'Inter', sans-serif;">{contact.message}</p>
+                  <p class="text-sm text-slate-700 leading-relaxed line-clamp-2" style="font-family: 'Inter', sans-serif;">{contact.message}</p>
+                  <a
+                    href={`/admin/contacts/${contact._id}`}
+                    class="text-xs text-cyan-600 hover:text-cyan-800 hover:underline mt-1 inline-block transition"
+                    style="font-family: 'Inter', sans-serif;"
+                  >
+                    View full message →
+                  </a>
                 </div>
               </div>
             );

@@ -1,0 +1,270 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { SignOutButton, UserButton } from '@clerk/astro/components';
+import { getAuthedConvex } from '@lib/convex';
+import { api } from '@convex/api';
+import type { Id } from '@convex/dataModel';
+
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect('/sign-in');
+
+const token = await Astro.locals.auth().getToken({ template: 'convex' });
+const client = getAuthedConvex(token);
+
+const currentUser = await client.query(api.users.getByClerkId, { clerkId: userId });
+if (!currentUser) return Astro.redirect('/onboarding');
+if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect('/admin/contacts');
+
+const contact = await client.query(api.contacts.getById, { id: id as Id<'contacts'> });
+if (!contact) return Astro.redirect('/admin/contacts');
+
+// Fetch nurturing logs for this contact
+const nurturingLogs = await client.query(api.nurturing.getLogsForContact, {
+  contactId: id as Id<'contacts'>,
+});
+
+let errorMessage: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const action = data.get('action') as string;
+
+  try {
+    if (action === 'mark-read') {
+      await client.mutation(api.contacts.markRead, { contactId: id as Id<'contacts'> });
+      return Astro.redirect(`/admin/contacts/${id}`);
+    } else if (action === 'mark-unread') {
+      await client.mutation(api.contacts.markUnread, { contactId: id as Id<'contacts'> });
+      return Astro.redirect(`/admin/contacts/${id}`);
+    } else if (action === 'delete') {
+      await client.mutation(api.contacts.remove, { contactId: id as Id<'contacts'> });
+      return Astro.redirect('/admin/contacts');
+    }
+  } catch {
+    errorMessage = 'Action failed. Please try again.';
+  }
+}
+
+const date = new Date(contact._creationTime).toLocaleDateString('en-US', {
+  weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+});
+const time = new Date(contact._creationTime).toLocaleTimeString('en-US', {
+  hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
+});
+
+const messageKeyLabels: Record<string, string> = {
+  m1: 'M1 — 5-Minute Instant Response',
+  m2: 'M2 — 24-Hour Follow-Up',
+  m3: 'M3 — 48-Hour Nudge',
+  m4a: 'M4a — Booking Confirmation',
+  m4b: 'M4b — 24-Hour Reminder',
+  m4c: 'M4c — 2-Hour Reminder',
+  m5: 'M5 — No-Show Win-Back',
+};
+
+const statusColors: Record<string, string> = {
+  sent: 'bg-emerald-100 text-emerald-700',
+  failed: 'bg-red-100 text-red-700',
+  skipped: 'bg-amber-100 text-amber-700',
+};
+---
+
+<BaseLayout title={`${contact.name} — Contacts — Admin Portal`}>
+  <div class="min-h-screen bg-slate-50">
+    <!-- Nav -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/admin" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Admin Portal</a>
+        <span class="text-slate-300">/</span>
+        <a href="/admin/contacts" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Contacts</a>
+        <span class="text-slate-300">/</span>
+        <span class="text-sm font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">{contact.name}</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Home</a>
+        <a href="/dashboard" class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Dashboard</a>
+        <UserButton />
+        <SignOutButton>
+          <button class="text-sm text-slate-500 hover:text-slate-900 transition" style="font-family: 'Inter', sans-serif;">Sign out</button>
+        </SignOutButton>
+      </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-6 py-12">
+      <!-- Back button -->
+      <a
+        href="/admin/contacts"
+        class="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition mb-8"
+        style="font-family: 'Inter', sans-serif;"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+        </svg>
+        Back to Contacts
+      </a>
+
+      {errorMessage && (
+        <div class="mb-6 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700" style="font-family: 'Inter', sans-serif;">
+          {errorMessage}
+        </div>
+      )}
+
+      <!-- Contact info card -->
+      <div class="bg-white rounded-2xl border border-slate-200 mb-6">
+        <div class="px-6 pt-6 pb-5">
+          <div class="flex items-start justify-between gap-4 mb-5">
+            <div>
+              <div class="flex items-center gap-3 mb-1">
+                <h1 class="text-2xl font-bold text-slate-900" style="font-family: 'Lexend', sans-serif;">{contact.name}</h1>
+                {contact.read ? (
+                  <span class="text-xs font-medium bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full" style="font-family: 'Inter', sans-serif;">read</span>
+                ) : (
+                  <span class="text-xs font-medium bg-cyan-100 text-cyan-700 px-2.5 py-1 rounded-full" style="font-family: 'Inter', sans-serif;">unread</span>
+                )}
+                {contact.optedOut && (
+                  <span class="text-xs font-medium bg-red-100 text-red-600 px-2.5 py-1 rounded-full" style="font-family: 'Inter', sans-serif;">opted out</span>
+                )}
+              </div>
+              <p class="text-sm text-slate-400" style="font-family: 'Inter', sans-serif;">{date} at {time}</p>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+              <a
+                href={`mailto:${contact.email}${contact.subject ? `?subject=Re: ${encodeURIComponent(contact.subject)}` : ''}`}
+                class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg transition"
+                style="font-family: 'Inter', sans-serif;"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                </svg>
+                Reply via email
+              </a>
+
+              <form method="POST">
+                <input type="hidden" name="action" value={contact.read ? 'mark-unread' : 'mark-read'} />
+                <button
+                  type="submit"
+                  class="inline-flex items-center gap-1.5 text-xs font-medium text-cyan-600 hover:text-cyan-800 bg-cyan-50 hover:bg-cyan-100 px-3 py-2 rounded-lg transition"
+                  style="font-family: 'Inter', sans-serif;"
+                >
+                  {contact.read ? 'Mark as unread' : 'Mark as read'}
+                </button>
+              </form>
+
+              <form method="POST" onsubmit="return confirm('Delete this submission? This cannot be undone.')">
+                <input type="hidden" name="action" value="delete" />
+                <button
+                  type="submit"
+                  class="inline-flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-2 rounded-lg transition"
+                  style="font-family: 'Inter', sans-serif;"
+                >
+                  Delete
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Contact details grid -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <p class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1" style="font-family: 'Inter', sans-serif;">Email</p>
+              <a
+                href={`mailto:${contact.email}`}
+                class="text-sm text-cyan-600 hover:text-cyan-800 hover:underline transition"
+                style="font-family: 'Inter', sans-serif;"
+              >
+                {contact.email}
+              </a>
+            </div>
+
+            {contact.phone && (
+              <div>
+                <p class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1" style="font-family: 'Inter', sans-serif;">Phone</p>
+                <a
+                  href={`tel:${contact.phone}`}
+                  class="text-sm text-slate-700 hover:text-slate-900 hover:underline transition"
+                  style="font-family: 'Inter', sans-serif;"
+                >
+                  {contact.phone}
+                </a>
+              </div>
+            )}
+
+            {contact.subject && (
+              <div class="sm:col-span-2">
+                <p class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1" style="font-family: 'Inter', sans-serif;">Subject</p>
+                <p class="text-sm text-slate-700 font-medium" style="font-family: 'Inter', sans-serif;">{contact.subject}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <!-- Message body card -->
+      <div class="bg-white rounded-2xl border border-slate-200 mb-6">
+        <div class="px-6 py-5">
+          <h2 class="text-sm font-semibold text-slate-900 mb-4" style="font-family: 'Lexend', sans-serif;">Message</h2>
+          <p class="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap" style="font-family: 'Inter', sans-serif;">{contact.message}</p>
+        </div>
+      </div>
+
+      <!-- Agent 5 Nurturing Log -->
+      <div class="bg-white rounded-2xl border border-slate-200">
+        <div class="px-6 py-5">
+          <h2 class="text-sm font-semibold text-slate-900 mb-1" style="font-family: 'Lexend', sans-serif;">Agent 5 — Lead Nurturing Log</h2>
+          <p class="text-xs text-slate-400 mb-5" style="font-family: 'Inter', sans-serif;">Automated messages sent to this contact via the nurturing sequence.</p>
+
+          {nurturingLogs.length === 0 ? (
+            <div class="text-center py-8">
+              <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                </svg>
+              </div>
+              <p class="text-sm text-slate-400" style="font-family: 'Inter', sans-serif;">No nurturing messages sent yet.</p>
+            </div>
+          ) : (
+            <div class="flex flex-col gap-3">
+              {nurturingLogs.map((log) => {
+                const logDate = new Date(log._creationTime).toLocaleDateString('en-US', {
+                  month: 'short', day: 'numeric', year: 'numeric',
+                });
+                const logTime = new Date(log._creationTime).toLocaleTimeString('en-US', {
+                  hour: 'numeric', minute: '2-digit',
+                });
+                const label = messageKeyLabels[log.messageKey] ?? log.messageKey;
+                const statusClass = statusColors[log.status] ?? 'bg-slate-100 text-slate-500';
+
+                return (
+                  <div class="flex items-start justify-between gap-4 py-3 border-b border-slate-100 last:border-0">
+                    <div class="min-w-0">
+                      <p class="text-sm font-medium text-slate-800" style="font-family: 'Inter', sans-serif;">{label}</p>
+                      <p class="text-xs text-slate-400 mt-0.5" style="font-family: 'Inter', sans-serif;">
+                        {log.channel === 'email' ? 'Email' : 'SMS'} · {logDate} at {logTime}
+                      </p>
+                      {log.errorMessage && (
+                        <p class="text-xs text-red-500 mt-1" style="font-family: 'Inter', sans-serif;">{log.errorMessage}</p>
+                      )}
+                    </div>
+                    <div class="shrink-0 flex items-center gap-2">
+                      {log.isTest && (
+                        <span class="text-xs font-medium bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full" style="font-family: 'Inter', sans-serif;">test</span>
+                      )}
+                      <span class={`text-xs font-medium px-2.5 py-0.5 rounded-full ${statusClass}`} style="font-family: 'Inter', sans-serif;">
+                        {log.status}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </main>
+  </div>
+</BaseLayout>

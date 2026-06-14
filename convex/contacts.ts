@@ -113,6 +113,13 @@ export const markRead = mutation({
   },
 });
 
+export const markUnread = mutation({
+  args: { contactId: v.id("contacts") },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.contactId, { read: false });
+  },
+});
+
 export const remove = mutation({
   args: { contactId: v.id("contacts") },
   handler: async (ctx, args) => {
