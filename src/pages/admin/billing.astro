@@ -14,9 +14,46 @@ const currentUser = await client.query(api.users.getByClerkId, { clerkId: userId
 if (!currentUser) return Astro.redirect('/onboarding');
 if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
 
+// ---------------------------------------------------------------------------
+// POST: handle product create / update / archive
+// ---------------------------------------------------------------------------
+let postError: string | null = null;
+let postSuccess: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = form.get('_action') as string;
+
+  try {
+    if (action === 'create') {
+      const name = (form.get('name') as string).trim();
+      const description = (form.get('description') as string | null)?.trim() ?? '';
+      const dollars = parseFloat((form.get('price') as string) ?? '0');
+      const currency = (form.get('currency') as string | null)?.toLowerCase() ?? 'usd';
+      const amount = Math.round(dollars * 100); // convert to cents
+      await client.action(api.stripeProducts.adminCreateProduct, { name, description, amount, currency });
+      postSuccess = `Product "${name}" created.`;
+    } else if (action === 'update') {
+      const stripeProductId = form.get('stripeProductId') as string;
+      const name = (form.get('name') as string).trim();
+      const description = (form.get('description') as string | null)?.trim() ?? '';
+      await client.action(api.stripeProducts.adminUpdateProduct, { stripeProductId, name, description });
+      postSuccess = `Product updated.`;
+    } else if (action === 'archive') {
+      const stripeProductId = form.get('stripeProductId') as string;
+      await client.action(api.stripeProducts.adminArchiveProduct, { stripeProductId });
+      postSuccess = `Product archived.`;
+    }
+  } catch (err) {
+    postError = err instanceof Error ? err.message : String(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Billing data (subscriptions + payments)
+// ---------------------------------------------------------------------------
 const billingData = await client.query(api.users.adminGetBillingData, {}) ?? [];
 
-// Aggregate stats
 const totalCustomers  = billingData.filter(r => r.subscriptions.length > 0 || r.payments.length > 0).length;
 const activeSubs      = billingData.flatMap(r => r.subscriptions).filter(s => s.status === 'active').length;
 const totalPayments   = billingData.flatMap(r => r.payments).filter(p => p.status === 'succeeded').length;
@@ -33,6 +70,33 @@ const allSubscriptions = billingData
   .flatMap(r => r.subscriptions.map(s => ({ ...s, user: r.user })))
   .sort((a, b) => b.currentPeriodEnd - a.currentPeriodEnd);
 
+// ---------------------------------------------------------------------------
+// Products data
+// ---------------------------------------------------------------------------
+type ProductPrice = { id: string; amount: number; currency: string; type: string } | null;
+type Product = {
+  id: string;
+  name: string;
+  description: string;
+  active: boolean;
+  created: number;
+  defaultPrice: ProductPrice;
+};
+
+let products: Product[] = [];
+let productsError: string | null = null;
+
+try {
+  const result = await client.action(api.stripeProducts.adminListProducts, {});
+  products = (result as any).products ?? [];
+  productsError = (result as any).error ?? null;
+} catch (err) {
+  productsError = err instanceof Error ? err.message : String(err);
+}
+
+// ---------------------------------------------------------------------------
+// Formatting helpers
+// ---------------------------------------------------------------------------
 function formatCurrency(amount: number, currency: string = 'usd') {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount / 100);
 }
@@ -86,7 +150,7 @@ const convexSiteUrl = import.meta.env.CONVEX_SITE_URL ?? '';
       <div class="flex items-start justify-between mb-8">
         <div>
           <h1 class="text-3xl font-bold tracking-tight text-slate-900" style="font-family: 'Lexend', sans-serif;">Billing</h1>
-          <p class="text-slate-500 mt-1" style="font-family: 'Inter', sans-serif;">Stripe payment and subscription data</p>
+          <p class="text-slate-500 mt-1" style="font-family: 'Inter', sans-serif;">Stripe payment, subscription, and product data</p>
         </div>
         <div class="flex items-center gap-3">
           <a
@@ -103,6 +167,18 @@ const convexSiteUrl = import.meta.env.CONVEX_SITE_URL ?? '';
           </a>
         </div>
       </div>
+
+      <!-- Flash messages -->
+      {postSuccess && (
+        <div class="mb-6 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm px-4 py-3 rounded-xl" style="font-family: 'Inter', sans-serif;">
+          {postSuccess}
+        </div>
+      )}
+      {postError && (
+        <div class="mb-6 bg-red-50 border border-red-200 text-red-800 text-sm px-4 py-3 rounded-xl" style="font-family: 'Inter', sans-serif;">
+          Error: {postError}
+        </div>
+      )}
 
       <!-- Stats -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
@@ -131,12 +207,35 @@ const convexSiteUrl = import.meta.env.CONVEX_SITE_URL ?? '';
         </span>
       </div>
 
-      <!-- Subscriptions table -->
-      <section class="mb-10">
-        <h2 class="text-lg font-semibold text-slate-900 mb-4" style="font-family: 'Lexend', sans-serif;">
-          Subscriptions
-          <span class="ml-2 text-sm font-normal text-slate-400">{allSubscriptions.length}</span>
-        </h2>
+      <!-- Tabs -->
+      <div class="flex gap-1 bg-slate-100 rounded-xl p-1 mb-8 w-fit" id="billing-tabs">
+        <button
+          data-tab="subscriptions"
+          class="tab-btn px-4 py-2 text-sm font-medium rounded-lg transition bg-white text-slate-900 shadow-sm"
+          style="font-family: 'Inter', sans-serif;"
+        >Subscriptions</button>
+        <button
+          data-tab="payments"
+          class="tab-btn px-4 py-2 text-sm font-medium rounded-lg transition text-slate-500 hover:text-slate-700"
+          style="font-family: 'Inter', sans-serif;"
+        >Payments</button>
+        <button
+          data-tab="products"
+          class="tab-btn px-4 py-2 text-sm font-medium rounded-lg transition text-slate-500 hover:text-slate-700"
+          style="font-family: 'Inter', sans-serif;"
+        >Products</button>
+      </div>
+
+      <!-- ================================================================
+           TAB: Subscriptions
+           ================================================================ -->
+      <div id="tab-subscriptions" class="tab-panel">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">
+            Subscriptions
+            <span class="ml-2 text-sm font-normal text-slate-400">{allSubscriptions.length}</span>
+          </h2>
+        </div>
 
         {allSubscriptions.length === 0 ? (
           <div class="bg-white rounded-2xl border border-slate-200 p-10 text-center">
@@ -192,14 +291,18 @@ const convexSiteUrl = import.meta.env.CONVEX_SITE_URL ?? '';
             </table>
           </div>
         )}
-      </section>
+      </div>
 
-      <!-- Recent Payments table -->
-      <section>
-        <h2 class="text-lg font-semibold text-slate-900 mb-4" style="font-family: 'Lexend', sans-serif;">
-          Recent Payments
-          <span class="ml-2 text-sm font-normal text-slate-400">{allPayments.length > 0 ? `last ${allPayments.length}` : '0'}</span>
-        </h2>
+      <!-- ================================================================
+           TAB: Payments
+           ================================================================ -->
+      <div id="tab-payments" class="tab-panel hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">
+            Recent Payments
+            <span class="ml-2 text-sm font-normal text-slate-400">{allPayments.length > 0 ? `last ${allPayments.length}` : '0'}</span>
+          </h2>
+        </div>
 
         {allPayments.length === 0 ? (
           <div class="bg-white rounded-2xl border border-slate-200 p-10 text-center">
@@ -250,7 +353,292 @@ const convexSiteUrl = import.meta.env.CONVEX_SITE_URL ?? '';
             </table>
           </div>
         )}
-      </section>
+      </div>
+
+      <!-- ================================================================
+           TAB: Products
+           ================================================================ -->
+      <div id="tab-products" class="tab-panel hidden">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-lg font-semibold text-slate-900" style="font-family: 'Lexend', sans-serif;">
+            Stripe Products
+            <span class="ml-2 text-sm font-normal text-slate-400" id="product-count">{products.length}</span>
+          </h2>
+          <button
+            id="show-create-form"
+            class="inline-flex items-center gap-1.5 text-sm font-medium bg-slate-900 text-white px-4 py-2 rounded-xl hover:bg-slate-700 transition"
+            style="font-family: 'Inter', sans-serif;"
+          >
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+            New Product
+          </button>
+        </div>
+
+        <!-- Stripe not configured warning -->
+        {productsError && productsError.includes('not configured') && (
+          <div class="bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 rounded-xl mb-6" style="font-family: 'Inter', sans-serif;">
+            Stripe is not configured. Set <code class="font-mono bg-amber-100 px-1 rounded">STRIPE_SECRET_KEY</code> in your Convex environment to manage products.
+          </div>
+        )}
+
+        <!-- Create Product Form (hidden by default) -->
+        <div id="create-product-form" class="hidden bg-white border border-slate-200 rounded-2xl p-6 mb-6">
+          <h3 class="text-base font-semibold text-slate-900 mb-4" style="font-family: 'Lexend', sans-serif;">Create Product</h3>
+          <form method="POST" class="space-y-4">
+            <input type="hidden" name="_action" value="create" />
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1" style="font-family: 'Inter', sans-serif;">Name *</label>
+                <input
+                  type="text"
+                  name="name"
+                  required
+                  placeholder="e.g. Premium Plan"
+                  class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  style="font-family: 'Inter', sans-serif;"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1" style="font-family: 'Inter', sans-serif;">Description</label>
+                <input
+                  type="text"
+                  name="description"
+                  placeholder="Optional product description"
+                  class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  style="font-family: 'Inter', sans-serif;"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1" style="font-family: 'Inter', sans-serif;">Price (dollars) *</label>
+                <input
+                  type="number"
+                  name="price"
+                  min="0.01"
+                  step="0.01"
+                  required
+                  placeholder="e.g. 29.99"
+                  class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  style="font-family: 'Inter', sans-serif;"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1" style="font-family: 'Inter', sans-serif;">Currency</label>
+                <select
+                  name="currency"
+                  class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  style="font-family: 'Inter', sans-serif;"
+                >
+                  <option value="usd">USD</option>
+                  <option value="eur">EUR</option>
+                  <option value="gbp">GBP</option>
+                  <option value="cad">CAD</option>
+                  <option value="aud">AUD</option>
+                </select>
+              </div>
+            </div>
+            <div class="flex gap-3 pt-2">
+              <button
+                type="submit"
+                class="bg-slate-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-slate-700 transition"
+                style="font-family: 'Inter', sans-serif;"
+              >Create Product</button>
+              <button
+                type="button"
+                id="cancel-create"
+                class="text-sm text-slate-500 hover:text-slate-700 px-4 py-2 rounded-xl border border-slate-200 transition"
+                style="font-family: 'Inter', sans-serif;"
+              >Cancel</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Products Table -->
+        {products.length === 0 && !productsError ? (
+          <div class="bg-white rounded-2xl border border-slate-200 p-10 text-center">
+            <p class="text-sm text-slate-400" style="font-family: 'Inter', sans-serif;">No active products yet. Create one above.</p>
+          </div>
+        ) : products.length > 0 ? (
+          <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-slate-100 bg-slate-50">
+                  <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Product</th>
+                  <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Default Price</th>
+                  <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Status</th>
+                  <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide" style="font-family: 'Inter', sans-serif;">Created</th>
+                  <th class="px-5 py-3"></th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100" id="products-tbody">
+                {products.map((product) => (
+                  <tr class="hover:bg-slate-50 transition" data-product-id={product.id}>
+                    <!-- View row -->
+                    <td class="px-5 py-4 product-view-row">
+                      <p class="font-medium text-slate-900" style="font-family: 'Inter', sans-serif;">{product.name}</p>
+                      {product.description && (
+                        <p class="text-xs text-slate-400 mt-0.5" style="font-family: 'Inter', sans-serif;">{product.description}</p>
+                      )}
+                      <p class="text-xs text-slate-300 font-mono mt-0.5">{product.id}</p>
+                    </td>
+                    <td class="px-5 py-4 product-view-row">
+                      {product.defaultPrice ? (
+                        <span class="text-sm font-semibold text-slate-900" style="font-family: 'Inter', sans-serif;">
+                          {formatCurrency(product.defaultPrice.amount, product.defaultPrice.currency)}
+                          <span class="ml-1 text-xs font-normal text-slate-400">{product.defaultPrice.currency.toUpperCase()}</span>
+                        </span>
+                      ) : (
+                        <span class="text-xs text-slate-400" style="font-family: 'Inter', sans-serif;">No price</span>
+                      )}
+                    </td>
+                    <td class="px-5 py-4 product-view-row">
+                      <span class={`inline-flex text-xs font-medium px-2 py-0.5 rounded-full ${product.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`} style="font-family: 'Inter', sans-serif;">
+                        {product.active ? 'active' : 'archived'}
+                      </span>
+                    </td>
+                    <td class="px-5 py-4 text-slate-500 text-xs product-view-row" style="font-family: 'Inter', sans-serif;">{formatDate(product.created)}</td>
+                    <td class="px-5 py-4 text-right product-view-row">
+                      <div class="flex items-center justify-end gap-2">
+                        <button
+                          class="edit-product-btn text-xs text-slate-500 hover:text-slate-900 underline underline-offset-2"
+                          data-id={product.id}
+                          data-name={product.name}
+                          data-description={product.description}
+                          style="font-family: 'Inter', sans-serif;"
+                        >Edit</button>
+                        <form method="POST" class="inline" onsubmit="return confirm('Archive this product in Stripe? It will no longer be available for purchase.')">
+                          <input type="hidden" name="_action" value="archive" />
+                          <input type="hidden" name="stripeProductId" value={product.id} />
+                          <button
+                            type="submit"
+                            class="text-xs text-red-500 hover:text-red-700 underline underline-offset-2"
+                            style="font-family: 'Inter', sans-serif;"
+                          >Archive</button>
+                        </form>
+                      </div>
+                    </td>
+
+                    <!-- Edit row (hidden, spans full width) -->
+                    <td colspan="5" class="px-5 py-4 product-edit-row hidden bg-slate-50 border-t border-slate-100">
+                      <form method="POST" class="flex flex-wrap gap-3 items-end">
+                        <input type="hidden" name="_action" value="update" />
+                        <input type="hidden" name="stripeProductId" value={product.id} />
+                        <div class="flex-1 min-w-[160px]">
+                          <label class="block text-xs font-medium text-slate-600 mb-1" style="font-family: 'Inter', sans-serif;">Name</label>
+                          <input
+                            type="text"
+                            name="name"
+                            value={product.name}
+                            required
+                            class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                            style="font-family: 'Inter', sans-serif;"
+                          />
+                        </div>
+                        <div class="flex-1 min-w-[200px]">
+                          <label class="block text-xs font-medium text-slate-600 mb-1" style="font-family: 'Inter', sans-serif;">Description</label>
+                          <input
+                            type="text"
+                            name="description"
+                            value={product.description}
+                            class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                            style="font-family: 'Inter', sans-serif;"
+                          />
+                        </div>
+                        <div class="flex gap-2">
+                          <button
+                            type="submit"
+                            class="bg-slate-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-slate-700 transition"
+                            style="font-family: 'Inter', sans-serif;"
+                          >Save</button>
+                          <button
+                            type="button"
+                            class="cancel-edit-btn text-sm text-slate-500 hover:text-slate-700 px-4 py-2 rounded-xl border border-slate-200 transition"
+                            style="font-family: 'Inter', sans-serif;"
+                          >Cancel</button>
+                        </div>
+                      </form>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </div>
     </main>
   </div>
+
+  <!-- Tab switching & inline edit logic -->
+  <script is:inline>
+
+(function () {
+  // ---- Tab switching ----
+  const tabs = document.querySelectorAll('.tab-btn');
+  const panels = document.querySelectorAll('.tab-panel');
+
+  function activateTab(name) {
+    tabs.forEach(btn => {
+      const isActive = btn.dataset.tab === name;
+      btn.classList.toggle('bg-white', isActive);
+      btn.classList.toggle('text-slate-900', isActive);
+      btn.classList.toggle('shadow-sm', isActive);
+      btn.classList.toggle('text-slate-500', !isActive);
+    });
+    panels.forEach(panel => {
+      panel.classList.toggle('hidden', panel.id !== 'tab-' + name);
+    });
+    // Remember tab in URL hash (no reload)
+    history.replaceState(null, '', '#' + name);
+  }
+
+  tabs.forEach(btn => {
+    btn.addEventListener('click', () => activateTab(btn.dataset.tab));
+  });
+
+  // Restore from hash
+  const hash = location.hash.replace('#', '');
+  if (hash && document.getElementById('tab-' + hash)) {
+    activateTab(hash);
+  }
+
+  // ---- Create product form toggle ----
+  const showCreate = document.getElementById('show-create-form');
+  const createForm = document.getElementById('create-product-form');
+  const cancelCreate = document.getElementById('cancel-create');
+
+  showCreate && showCreate.addEventListener('click', () => {
+    createForm && createForm.classList.toggle('hidden');
+  });
+  cancelCreate && cancelCreate.addEventListener('click', () => {
+    createForm && createForm.classList.add('hidden');
+  });
+
+  // ---- Inline edit rows ----
+  document.querySelectorAll('.edit-product-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const row = btn.closest('tr');
+      if (!row) return;
+      // Hide view cells, show edit cell
+      row.querySelectorAll('.product-view-row').forEach(td => td.classList.add('hidden'));
+      row.querySelector('.product-edit-row').classList.remove('hidden');
+    });
+  });
+
+  document.querySelectorAll('.cancel-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const row = btn.closest('tr');
+      if (!row) return;
+      row.querySelectorAll('.product-view-row').forEach(td => td.classList.remove('hidden'));
+      row.querySelector('.product-edit-row').classList.add('hidden');
+    });
+  });
+
+  // If we just posted and succeeded, jump to products tab
+  const successBanner = document.querySelector('[class*="bg-emerald-50"]');
+  if (successBanner) {
+    activateTab('products');
+  }
+})();
+  </script>
 </BaseLayout>
