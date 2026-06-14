@@ -92,8 +92,8 @@ if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
 **Auth:** Clerk middleware (`src/middleware.ts`) protects `/admin/*` and `/dashboard/*`. Users are synced to Convex `users` table via the `users.createOrUpdate` mutation called from `/onboarding`. Role field (`"admin"` | `"user"`) is stored in Convex, not Clerk.
 
 **Svelte island pattern** — use Svelte only for genuinely complex interactive widgets (multi-step flows, real-time state). Everything else stays vanilla TypeScript.
-- Add `client:load` directive on the component: `<BookingWidget client:load bookingLinkId={...} />`
-- Pass all server-resolved data as props from SSR frontmatter — never fetch Convex from inside a Svelte component
+- `client:load` — SSR + client hydration. Pass all server-resolved data as props; never fetch Convex inside the component. Example: `<BookingWidget client:load bookingLinkId={...} />`
+- `client:only="svelte"` — skip SSR entirely; renders only in the browser. Use when the component needs a live Convex browser subscription (`ConvexClient`). Example: `<DevTaskBoard client:only="svelte" staticTasks={TASKS} convexUrl={convexUrl} />`. This is the only case where initializing a `ConvexClient` directly inside a Svelte component is acceptable.
 - Server data injection in Astro scripts: use `define:vars={{ data }}` for simple values; embed JSON in `<script type="application/json">` for large payloads
 
 **Convex file storage upload pattern** — uploads run entirely server-side in SSR frontmatter, never from browser JS:
@@ -124,7 +124,7 @@ if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
 
 > **`README.md` is the canonical `[x]/[ ]` checklist.** This section is a quick reference — not authoritative.
 
-**Public pages:** `/`, `/about`, `/services`, `/pricing`, `/reviews`, `/blog`, `/blog/[slug]`, `/gallery`, `/contact`, `/funnels`, `/funnels/[slug]`, `/shops`, `/shops/[slug]`, `/booking-links`, `/booking-links/[slug]`, `/bookings/cancel`, `/reactivation/responded`, `/reviews/rated`, `/sign-in`, `/sign-up`, `/onboarding`, `/privacy`, `/terms`, `/changelog`, `/roadmap`, `/404`
+**Public pages:** `/`, `/about`, `/services`, `/pricing`, `/reviews`, `/blog`, `/blog/[slug]`, `/gallery`, `/contact`, `/funnels`, `/funnels/[slug]`, `/shops`, `/shops/[slug]`, `/booking-links`, `/booking-links/[slug]`, `/bookings/cancel`, `/reactivation/responded`, `/reviews/rated`, `/unsubscribed`, `/sign-in`, `/sign-up`, `/onboarding`, `/privacy`, `/terms`, `/changelog`, `/roadmap`, `/404`, `/500`
 
 **Admin portal** (`/admin/*` — all Clerk-protected):
 - `/admin/settings` — general, feature flags, notifications, design system, danger zone
@@ -146,7 +146,7 @@ if (currentUser.role !== 'admin') return Astro.redirect('/dashboard');
 
 **Static data** (`src/lib/`): `agents.ts` exports `AGENTS` array (7 agents with prompts + variables); `pages.ts` exports `PAGE_CATALOG`; `devTasks.ts` exports `TASKS` — the in-code dev task registry used by `/admin/dev`.
 
-**Dev task tracker** — `/admin/dev` reads `TASKS` from `src/lib/devTasks.ts` (array of `DevTask` objects with `id`, `title`, `status`, `priority`, `category`, `notes`). Add new tasks to that file; the page renders live stats and a filterable table via `src/components/admin/DevTaskTable.astro`. This is the in-codebase equivalent of the README checklist for tracking granular dev work.
+**Dev task tracker** — `/admin/dev` uses a hybrid model: static tasks from `src/lib/devTasks.ts` (`TASKS` array + `STATUS_META`, `PRIORITY_META`, `CATEGORY_LABELS`) are merged at runtime with DB-persisted tasks from `convex/devTasks.ts` (CRUD: `list`, `create`, `update`, `updateStatus`, `remove`). The page mounts `DevTaskBoard.svelte` with `client:only="svelte"`, which initialises a `ConvexClient` browser subscription to `api.devTasks.list` for live updates. Static tasks have `source: 'static'`; DB tasks have `source: 'db'` with a `_convexId`. Add new static tasks to `src/lib/devTasks.ts`; create ad-hoc tasks via the board UI (stored in Convex).
 
 ## Feature Flags (`appSettings` in Convex)
 
@@ -181,13 +181,16 @@ Token payload conventions:
 - Booking cancellation: `cancel:${bookingId}`
 - Reactivation YES/NO: `reac:${contactId}:yes` / `reac:${contactId}:no`
 - Review rating: `review:${bookingId}:${rating}`
+- Email unsubscribe: `unsub:${contactId}`
 
-New pages/routes using this pattern:
+Routes using this pattern:
 - `GET /api/reactivation/respond?contactId=&token=&r=yes|no` — processes Agent 3 email YES/NO response; triggers the appropriate handler message
 - `GET /api/reviews/rate?bookingId=&token=&rating=1-5` — processes Agent 4 R2/R3 rating; routes to R3 or R4 based on score
+- `GET /api/unsubscribe?contactId=&token=` — calls `contacts.optOut`; redirects to `/unsubscribed`
 - `/bookings/cancel?bookingId=&token=` — public page where customers confirm booking cancellation
 - `/reactivation/responded` — confirmation landing after reactivation response
 - `/reviews/rated` — confirmation landing after review rating
+- `/unsubscribed` — confirmation landing after email unsubscribe
 
 ## API Routes
 
@@ -197,6 +200,7 @@ POST /api/bookings               — Create booking; double-booking conflict che
 POST /api/shop-checkout          — Stripe checkout redirect (requires Clerk auth)
 GET  /api/reactivation/respond   — Agent 3 YES/NO handler (tokenized)
 GET  /api/reviews/rate           — Agent 4 rating handler (tokenized)
+GET  /api/unsubscribe            — Email opt-out handler (tokenized); calls contacts.optOut
 POST /api/agents/test-send       — Admin-only: trigger a single agent message to a test email
                                    Body: { agent, messageKey, testEmail, contactId?, bookingId? }
 ```
